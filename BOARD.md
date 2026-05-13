@@ -44,8 +44,8 @@ ID уже даёт идентификацию). Имя PR: `T<NNN>: <title>`. С
 Пример:
 
 ```
-- **T015** — Превью постов в Telegram
-  (`specs/T015-telegram-preview/`, ветка `T015-telegram-preview`).
+- **T<NNN>** — Превью постов в Telegram
+  (`specs/T<NNN>-telegram-preview/`, ветка `T<NNN>-telegram-preview`).
 ```
 
 ---
