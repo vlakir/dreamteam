@@ -6,6 +6,10 @@
 .~*
 *.kate-swp
 
+# Claude Code — служебные runtime-файлы (не для шаринга)
+.claude/*.lock
+.claude/settings.local.json
+
 # Python
 venv/
 env/
