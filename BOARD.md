@@ -36,7 +36,15 @@ git, без внешних сервисов и инструментов. Зав�
 <!-- Готово к взятию. Очередь FIFO по умолчанию, можно поднимать
      приоритетное наверх. -->
 
-- ...
+- Реализовать защиту `main` через Branch Protection Rules —
+  серверный «второй слой» в дополнение к локальному
+  `hooks/pre-push`. Платформо-специфично: для GitHub —
+  `gh api repos/.../branches/main/protection` + `gh repo edit
+  --allow-squash-merge --allow-merge-commit=false
+  --allow-rebase-merge=false`; на других хостингах (GitLab,
+  GitFlic, Forgejo) — аналоги через UI или API. Acceptance:
+  прямой `git push origin main` отклоняется сервером, merge PR
+  возможен только через Squash and merge.
 
 ## Doing
 
