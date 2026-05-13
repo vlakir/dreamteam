@@ -12,22 +12,41 @@ git, без внешних сервисов и инструментов. Зав�
   «потом подумаем», «не сейчас». Парковка scope.
 - `BOARD.md` (этот файл) — активный рабочий поток. Задачи, которые мы
   уже взяли или собираемся брать в ближайшее время.
-- `specs/NNN-*/spec.md` — куда вырастает крупная задача из BOARD, если
+- `specs/T<NNN>-*/spec.md` — куда вырастает крупная задача из BOARD, если
   она оказывается фичей >1 дня работы.
 
 Жизненный цикл задачи: идея в `BACKLOG.md` → созрела → переезжает в
 `To Do` здесь → берётся в работу (`Doing`) → закрывается (`Done`) →
-после релиза попадает в `CHANGELOG.md`, отсюда удаляется.
+после релиза переходит в `CHANGELOG.md` (запись обязательно содержит
+T-ID), отсюда удаляется. **`CHANGELOG.md` — единственное persistent-
+хранилище T-ID завершённых задач**, без него правило «ID не
+переиспользуется» сломается.
 
 ## Формат задачи
 
-Минимальный: `- <короткое описание>`. По вкусу можно добавлять:
+Каждая задача — `- **T<NNN>** — <короткое описание>`. ID присваивается
+при создании: новый = `max(существующих T-ID в BOARD.md, BACKLOG.md и
+CHANGELOG.md) + 1`. ID никогда не переиспользуется. ID общий для
+`BOARD.md` и `BACKLOG.md` — при перетекании задачи между ними
+сохраняется; после релиза задача попадает в `CHANGELOG.md` с тем же
+T-ID, что гарантирует уникальность номеров между релизами.
+
+Имя ветки: `T<NNN>-<slug>` (без namespace типа `fixes/` / `feature/` —
+ID уже даёт идентификацию). Имя PR: `T<NNN>: <title>`. Спецификация
+крупной фичи: `specs/T<NNN>-<slug>/spec.md`.
+
+По вкусу можно добавлять:
 
 - метку даты взятия,
-- ссылку на спеку или issue,
+- ссылку на спеку,
 - имя ветки.
 
-Пример: `- Превью постов в Telegram (specs/003-telegram-preview/)`.
+Пример:
+
+```
+- **T015** — Превью постов в Telegram
+  (`specs/T015-telegram-preview/`, ветка `T015-telegram-preview`).
+```
 
 ---
 
@@ -36,15 +55,22 @@ git, без внешних сервисов и инструментов. Зав�
 <!-- Готово к взятию. Очередь FIFO по умолчанию, можно поднимать
      приоритетное наверх. -->
 
-- Реализовать защиту `main` через Branch Protection Rules —
-  серверный «второй слой» в дополнение к локальному
-  `hooks/pre-push`. Платформо-специфично: для GitHub —
-  `gh api repos/.../branches/main/protection` + `gh repo edit
-  --allow-squash-merge --allow-merge-commit=false
-  --allow-rebase-merge=false`; на других хостингах (GitLab,
-  GitFlic, Forgejo) — аналоги через UI или API. Acceptance:
-  прямой `git push origin main` отклоняется сервером, merge PR
-  возможен только через Squash and merge.
+- **T001** — Реализовать защиту `main` через Branch Protection Rules.
+  Серверный «второй слой» в дополнение к локальному `hooks/pre-push`.
+  Платформо-специфично; для GitHub:
+
+  ```bash
+  gh api repos/<owner>/<repo>/branches/main/protection -X PUT \
+    -F required_pull_request_reviews.required_approving_review_count=0
+  gh repo edit <owner>/<repo> \
+    --allow-squash-merge \
+    --allow-merge-commit=false \
+    --allow-rebase-merge=false
+  ```
+
+  На других хостингах (GitLab, GitFlic, Forgejo) — аналоги через UI
+  или API. Acceptance: прямой `git push origin main` отклоняется
+  сервером, merge PR возможен только через Squash and merge.
 
 ## Doing
 
