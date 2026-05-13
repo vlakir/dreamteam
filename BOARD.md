@@ -1,10 +1,7 @@
 # Board
 
-Лёгкая Kanban-альтернатива на одном markdown-файле: три колонки, под
-git, без внешних сервисов и инструментов. Заводится в каждом новом
-проекте по методике — обкатываем как обязательный артефакт. Если на
-практике окажется лишним для конкретного проекта или класса проектов —
-пересмотрим.
+Лёгкая Kanban-альтернатива на одном markdown-файле: три колонки
+(To Do / Doing / Done) под git, без внешних сервисов и инструментов.
 
 ## Соотношение с другими файлами
 
@@ -55,22 +52,8 @@ ID уже даёт идентификацию). Имя PR: `T<NNN>: <title>`. С
 <!-- Готово к взятию. Очередь FIFO по умолчанию, можно поднимать
      приоритетное наверх. -->
 
-- **T001** — Реализовать защиту `main` через Branch Protection Rules.
-  Серверный «второй слой» в дополнение к локальному `hooks/pre-push`.
-  Платформо-специфично; для GitHub:
-
-  ```bash
-  gh api repos/<owner>/<repo>/branches/main/protection -X PUT \
-    -F required_pull_request_reviews.required_approving_review_count=0
-  gh repo edit <owner>/<repo> \
-    --allow-squash-merge \
-    --allow-merge-commit=false \
-    --allow-rebase-merge=false
-  ```
-
-  На других хостингах (GitLab, GitFlic, Forgejo) — аналоги через UI
-  или API. Acceptance: прямой `git push origin main` отклоняется
-  сервером, merge PR возможен только через Squash and merge.
+<!-- Записи задач в формате `- **T<NNN>** — описание`. См. раздел
+     «Формат задачи» выше. -->
 
 ## Doing
 

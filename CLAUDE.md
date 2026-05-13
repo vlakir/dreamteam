@@ -75,3 +75,32 @@
 
 <!-- Опционально: примеры типичных побочных находок для этого проекта,
      которые ты заметишь и захочешь починить «заодно», но не надо. -->
+
+---
+
+## Специфика репозитория `vlakir/dreamteam` (НЕ применяется в derived)
+
+> Этот раздел актуален **только** для самого репо шаблона. В derived
+> проекте, созданном из шаблона, его можно (и желательно) удалить —
+> там TEMPLATE-* файлов нет.
+
+В репозитории шаблона действует схема разделения файлов:
+
+- **`TEMPLATE-BACKLOG.md`, `TEMPLATE-BOARD.md`, `TEMPLATE-DECISIONS.md`,
+  `TEMPLATE-CHANGELOG.md`** — мета-документы разработки самого шаблона.
+  Удаляются в derived проектах (`rm TEMPLATE-*.md`).
+- **`BACKLOG.md`, `BOARD.md`, `DECISIONS.md`, `CHANGELOG.md`** —
+  заготовки для derived projects (с примером для удаления).
+- **`README.md`** — special case (github показывает его на странице
+  репо), описывает сам шаблон; в derived перезаписывается через
+  `README.template.md`.
+
+**Scope правила `max()` нумерации T-ID:**
+- В репозитории шаблона: `max(TEMPLATE-BACKLOG + TEMPLATE-BOARD +
+  TEMPLATE-CHANGELOG) + 1`.
+- В derived: `max(BACKLOG + BOARD + CHANGELOG) + 1`.
+
+При работе в этом репо в начале сессии читать **TEMPLATE-BACKLOG.md**,
+**TEMPLATE-BOARD.md**, **TEMPLATE-DECISIONS.md** дополнительно к
+обычным `PROJECT.md` / `DECISIONS.md` / `BACKLOG.md` (последние — для
+понимания, как файл выглядит в derived).

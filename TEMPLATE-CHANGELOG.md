@@ -5,8 +5,8 @@
 проекта, созданного из шаблона.
 
 Этот файл живёт только в репозитории шаблона. При создании нового
-проекта из шаблона `META-CHANGELOG.md` **удалить** (см. инструкцию
-в `README.md`).
+проекта из шаблона `TEMPLATE-CHANGELOG.md` **удалить** вместе с
+прочими `TEMPLATE-*.md` (см. инструкцию в `README.md`).
 
 Формат — упрощённый
 [Keep a Changelog](https://keepachangelog.com/) с группировкой по
@@ -21,6 +21,20 @@
 следующая версия по завершении текущего цикла.
 
 ### Added
+
+- **Разделение файлов шаблона: `TEMPLATE-*` префикс для меты,
+  default names — для derived** (T005). Введён единый принцип:
+  файлы, относящиеся **только к разработке самого шаблона**
+  dreamteam (бэклог его задач, board, ADR, эволюция версий),
+  получают префикс `TEMPLATE-`. Файлы без префикса — заготовки
+  для derived projects. Создан `TEMPLATE-BACKLOG.md`,
+  `TEMPLATE-BOARD.md`, `TEMPLATE-DECISIONS.md`. Файл
+  `META-CHANGELOG.md` переименован в `TEMPLATE-CHANGELOG.md` для
+  consistency. Накопленные в default-name файлах данные шаблона
+  перенесены в `TEMPLATE-*` варианты; default-name файлы очищены
+  до состояния «заготовка с примером для пользователя».
+  `README.md` остаётся special case (github-driven, описывает сам
+  шаблон) — exception задокументирован.
 
 - **Правило нумерации задач `T<NNN>`** (PR #8). ID присваивается при
   создании; формула — `max(существующих T-ID в BOARD.md, BACKLOG.md
@@ -49,7 +63,7 @@
   сохранена для содержательных артефактов: `commands/`, `agents/`,
   `hooks/`, `settings.json`.
 - **Порядок шагов «Как использовать» в `README.md`**: разрушительные
-  действия (`overwrite README.md`, `delete META-CHANGELOG.md`)
+  действия (`overwrite README.md`, `delete TEMPLATE-*.md`)
   переставлены в самый конец списка — иначе пользователь, идущий
   сверху вниз, терял оставшиеся инструкции вместе с перезаписанным
   README. (По qodo-замечанию на PR #5.)
@@ -88,7 +102,9 @@
 - `PROJECT.md`, `DECISIONS.md`, `CHANGELOG.md`, `BACKLOG.md`,
   `BOARD.md` — артефакты методики для проекта.
 - `specs/spec-template.md` — шаблон спецификации крупной фичи.
-- `META-CHANGELOG.md` — этот файл (с v0.1.0).
+- `META-CHANGELOG.md` — журнал эволюции шаблона (с v0.1.0).
+  В T005 (см. `[Unreleased]` выше) переименован в
+  `TEMPLATE-CHANGELOG.md` для consistency с прочими `TEMPLATE-*`.
 
 **Python-стек:**
 
