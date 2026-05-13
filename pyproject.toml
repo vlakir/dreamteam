@@ -3,7 +3,7 @@ name = "dreamteam"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "vlakir", email = "vlakir1234@gmail.com"},
+    {name = "Your Name", email = "you@example.com"},
 ]
 requires-python = ">=3.14"
 dependencies = []
