@@ -27,7 +27,7 @@
 | `CHANGELOG.md`             | История заметных изменений                        |
 | `BACKLOG.md`               | Парковка идей и побочных находок                  |
 | `BOARD.md`                 | Рабочая Kanban-доска (To Do / Doing / Done)       |
-| `README.template.md`       | Заготовка README для нового проекта (копируется поверх `README.md`) |
+| `README.template.md`       | Заготовка проектного README                       |
 | `specs/spec-template.md`   | Шаблон спецификации крупной фичи                  |
 
 `main.py`, `pyproject.toml`, `uv.lock` — минимальный Python-стартер.
