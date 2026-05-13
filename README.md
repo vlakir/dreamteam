@@ -31,9 +31,10 @@ GitHub SpecKit. Из них взято только то, что реально 
 | `README.template.md`       | Заготовка проектного README                       |
 | `specs/spec-template.md`   | Шаблон спецификации крупной фичи                  |
 
-`main.py`, `pyproject.toml`, `uv.lock` — минимальный Python-стартер.
-Менеджер окружений — `uv` (см. ADR в `DECISIONS.md`). При не-Python
-стеке `main.py` и `pyproject.toml` можно заменить / удалить.
+`src/main.py`, `pyproject.toml`, `uv.lock` — минимальный Python-стартер.
+**Корень исходников — всегда `src/`** (см. ADR в `DECISIONS.md`).
+Менеджер окружений — `uv`. При не-Python стеке `src/main.py` и
+`pyproject.toml` можно заменить / удалить.
 
 ## Как использовать
 
@@ -87,10 +88,10 @@ GitHub SpecKit. Из них взято только то, что реально 
 **Быстрый старт:**
 
 ```bash
-uv sync                 # создать .venv и поставить deps
-uv run python main.py   # запустить
-uv add <pkg>            # добавить runtime-зависимость
-uv add --dev <pkg>      # добавить dev-зависимость
+uv sync                       # создать .venv и поставить deps
+uv run python src/main.py     # запустить
+uv add <pkg>                  # добавить runtime-зависимость
+uv add --dev <pkg>            # добавить dev-зависимость
 ```
 
 **Перед каждым `git push` обязательно:**

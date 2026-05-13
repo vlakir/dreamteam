@@ -7,7 +7,7 @@
 
 ```bash
 uv sync                       # создать .venv и поставить зависимости
-uv run python main.py         # запустить
+uv run python src/main.py     # запустить
 ```
 
 ## Зависимости
@@ -30,6 +30,7 @@ uv run mypy <путь к коду>
 
 ## Структура проекта
 
+- `src/` — корень исходников.
 - `PROJECT.md` — паспорт проекта: цель, статус, стек, ссылки.
 - `DECISIONS.md` — архитектурные решения с обоснованиями (ADR-Lite).
 - `BOARD.md` — рабочая Kanban-доска (To Do / Doing / Done).
