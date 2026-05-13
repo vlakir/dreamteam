@@ -94,7 +94,26 @@ spec/clarify/analyze для крупных фич). В дальнейшем — 
 Никогда не «заодно». Только как отдельная задача с явным согласованием
 и записью в `DECISIONS.md`.
 
-### Git workflow: один PR — один коммит
+### Git workflow: только через PR, без прямого push в main
+
+Прямой push в `main` (или `master`) — запрещён. Любое изменение идёт
+через feature-ветку и PR/MR, независимо от хостинга.
+
+Цикл:
+
+1. `git checkout -b <feature-branch>` от свежего `main`.
+2. Коммитим как удобно для процесса.
+3. `git push -u origin <feature-branch>`.
+4. Создаём PR/MR.
+5. Merge через PR (с squash — см. ниже).
+
+Опционально как «второй слой» защиты:
+
+- Локальный `.git/hooks/pre-push`, отклоняющий push в `main`
+  (универсальный путь, не зависит от хостинга).
+- Branch Protection Rules / Protected Branches на стороне платформы.
+
+### Один PR — один коммит
 
 В `main` каждый PR приезжает одним коммитом — правило одинаково
 работает на любом хостинге (GitHub, GitFlic, GitLab, Forgejo и т.д.).
