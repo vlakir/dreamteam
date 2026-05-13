@@ -96,30 +96,29 @@ spec/clarify/analyze для крупных фич). В дальнейшем — 
 
 ### Git workflow: один PR — один коммит
 
-В `main` каждый PR приезжает одним коммитом. На feature-ветке можно
-коммитить как удобно для работы (мелкие WIP-шаги), но перед слиянием
-всё схлопывается в один.
+В `main` каждый PR приезжает одним коммитом — правило одинаково
+работает на любом хостинге (GitHub, GitFlic, GitLab, Forgejo и т.д.).
+На feature-ветке можно коммитить как удобно (мелкие WIP-шаги, обратимые
+точки), но перед слиянием всё схлопывается в один.
 
-**Предпочтительный способ — GitHub-side.** После создания нового
-репозитория из шаблона выполнить:
-
-```bash
-gh repo edit <owner>/<repo> \
-  --allow-squash-merge \
-  --allow-merge-commit=false \
-  --allow-rebase-merge=false
-```
-
-Тогда «Squash and merge» становится единственным способом замержить
-PR — GitHub автоматически собирает все коммиты ветки в один.
-
-**Локальный путь, если нужно схлопнуть до push:**
+**Универсальный путь — локальный squash перед merge:**
 
 - `git reset --soft <base> && git commit -m "..."` —
   где `<base>` обычно `origin/main` или `HEAD~N`.
 - `git rebase -i HEAD~N` — интерактивный (выбрать `squash`/`fixup`).
 - После squash уже запушенной ветки: `git push --force-with-lease`
   (не `--force`).
+
+**Опциональный ускоритель, если платформа поддерживает.** Многие
+сервисы умеют squash на стороне merge:
+
+- GitHub: «Squash and merge» в repo settings.
+- GitLab: «Squash commits when merge request is accepted».
+- GitFlic, Bitbucket, Forgejo и др. — аналогичные опции.
+
+Если включено — squash происходит автоматически при merge PR/MR,
+локально перематывать не нужно. Если нет — squash локально, правило
+работает одинаково.
 
 ### Стек инструментов и pre-push контроль
 
