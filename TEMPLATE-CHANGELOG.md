@@ -22,6 +22,17 @@
 
 ### Added
 
+- **Обязательное тестирование через pytest** (T002). Добавлен стек
+  `pytest` + `pytest-cov` + `pytest-asyncio` в dev-зависимости.
+  Конфигурация в `pyproject.toml` (`[tool.pytest.ini_options]`,
+  `[tool.coverage.run]`, `[tool.coverage.report]`). Coverage
+  threshold ≥ 80% line coverage на `src/`, `--cov-fail-under=80`
+  жёстко. Структура тестов: `tests/` в корне (в ruff `exclude`,
+  pytest находит через `testpaths`). Pre-push контроль расширен
+  до **четырёх** обязательных проверок: к `ruff check`,
+  `ruff format --check`, `mypy` добавлен `uv run pytest`. В шаблон
+  включён пример `tests/test_main.py` с покрытием функций
+  `main.py` на 100%.
 - **Разделение файлов шаблона: `TEMPLATE-*` префикс для меты,
   default names — для derived** (T005). Введён единый принцип:
   файлы, относящиеся **только к разработке самого шаблона**

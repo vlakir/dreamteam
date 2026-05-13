@@ -25,7 +25,12 @@
 - Менеджер зависимостей и окружений: `uv` (быстрый, от Astral).
 - Линтер: `ruff` (правило `select = ["ALL"]` с фиксированным `ignore`).
 - Тип-чекер: `mypy` с `mypy_path = "src"`.
+- Тестовый стек: `pytest` + `pytest-cov` + `pytest-asyncio`. Coverage
+  threshold ≥ 80% line coverage на `src/` (`--cov-fail-under=80`
+  в `[tool.pytest.ini_options]`).
 - **Корень исходников — `src/`** (всегда, во всех проектах).
+- Тесты — в `tests/` в корне (в ruff `exclude`, но pytest их
+  находит через `testpaths = ["tests"]`).
 
 **Типичные команды:**
 - `uv sync` — поставить зависимости (создаст `.venv` при первом запуске).
@@ -33,10 +38,15 @@
 - `uv run python ...` — запустить под `.venv` без активации.
 - `uvx <tool>` — запустить CLI-инструмент без локальной установки.
 
-Перед каждым `git push` обязательно: `ruff check .`, `ruff format --check .`,
-`mypy <код>` — все три с 0 ошибок. Никаких `# noqa` / `# type: ignore` /
-расширений `ignore`-секций без явного обсуждения с Разработчиком. Подробно —
-в глобальном `~/.claude/CLAUDE.md`, раздел «Линтеры: ruff + mypy».
+Перед каждым `git push` обязательно **четыре** проверки с 0 ошибок:
+1. `uv run ruff check .`
+2. `uv run ruff format --check .`
+3. `uv run mypy <код>`
+4. `uv run pytest` (включает coverage threshold ≥ 80%).
+
+Никаких `# noqa` / `# type: ignore` / расширений `ignore`-секций
+без явного обсуждения с Разработчиком. Подробно — в глобальном
+`~/.claude/CLAUDE.md`, разделы «Линтеры» и «Тестирование».
 
 ## Git workflow
 

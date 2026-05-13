@@ -13,6 +13,9 @@ dependencies = []
 dev = [
     "ruff>=0.12.10",
     "mypy>=1.17.1",
+    "pytest>=8.4",
+    "pytest-cov>=7.0",
+    "pytest-asyncio>=1.0",
 ]
 
 
@@ -65,3 +68,25 @@ line-ending = "auto"
 explicit_package_bases = true
 ignore_missing_imports = true
 mypy_path = "src"
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+addopts = "-q --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80"
+testpaths = ["tests"]
+
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+show_missing = true
+skip_covered = false

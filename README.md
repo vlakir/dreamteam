@@ -230,7 +230,8 @@ GitHub (и аналогичные платформы) запрещают approve
 ### Стек инструментов и pre-push контроль
 
 Менеджер зависимостей и окружений — `uv`. Линтер — `ruff`, тип-чекер —
-`mypy`. Конфигурация в `pyproject.toml`.
+`mypy`. Тесты — `pytest` + `pytest-cov` + `pytest-asyncio` (coverage
+threshold ≥ 80%). Конфигурация в `pyproject.toml`.
 
 **Быстрый старт:**
 
@@ -241,12 +242,13 @@ uv add <pkg>                  # добавить runtime-зависимость
 uv add --dev <pkg>            # добавить dev-зависимость
 ```
 
-**Перед каждым `git push` обязательно:**
+**Перед каждым `git push` обязательно (четыре проверки):**
 
 ```bash
 uv run ruff check .            # 0 ошибок
 uv run ruff format --check .   # 0 ошибок
 uv run mypy <путь к коду>      # 0 ошибок
+uv run pytest                  # 0 fail-ов, coverage ≥ 80%
 ```
 
 100% прохождение — жёсткое условие, не «по возможности».
