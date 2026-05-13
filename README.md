@@ -17,7 +17,7 @@
 | `DECISIONS.md`             | Архитектурные решения и их обоснования (ADR-Lite) |
 | `CHANGELOG.md`             | История заметных изменений                        |
 | `BACKLOG.md`               | Парковка идей и побочных находок                  |
-| `BOARD.md`                 | Опциональная Kanban-доска (To Do / Doing / Done)  |
+| `BOARD.md`                 | Рабочая Kanban-доска (To Do / Doing / Done)       |
 | `specs/spec-template.md`   | Шаблон спецификации крупной фичи                  |
 
 `main.py`, `pyproject.toml`, `poetry.lock` — пример Python-проекта, можно
@@ -28,11 +28,8 @@
 1. Клонировать или скопировать содержимое в новый репозиторий.
 2. Заполнить `PROJECT.md` (минимум — цель и текущий статус).
 3. Удалить пример из `DECISIONS.md` и оставить только реальные решения.
-4. Очистить `CHANGELOG.md` и `BACKLOG.md`.
-5. `BOARD.md` оставить или удалить по ситуации: для проектов с потоком
-   задач он полезен как простая Kanban-альтернатива; для проектов на
-   2-3 задачи — лишний.
-6. При первой крупной фиче — скопировать `specs/spec-template.md` в
+4. Очистить `CHANGELOG.md`, `BACKLOG.md` и `BOARD.md`.
+5. При первой крупной фиче — скопировать `specs/spec-template.md` в
    `specs/NNN-feature-name/spec.md` и пройти ритуалы clarify + analyze
    (см. ниже).
 
