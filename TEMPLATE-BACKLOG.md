@@ -17,31 +17,9 @@
 
 ## Items
 
-<!-- T002 (тестирование) и T005 (TEMPLATE-* split) завершены и
-     перенесены в TEMPLATE-CHANGELOG.md → [Unreleased]. -->
-
-- **T003** — [2026-05-14] Формализовать дисциплину планирования
-  без Scrum-карго-культа.
-
-  Состав:
-  - **Milestone-based versioning** (не time-based sprints):
-    `[Unreleased]` в `TEMPLATE-CHANGELOG.md` накапливает, переход
-    к `vN.0` — когда осмысленно завершено (критерий обсудить).
-  - **Retrospective как ритуал** после закрытия milestone:
-    короткий разбор «что зашло / что не зашло / правки методики»,
-    формат и место обсудить (`TEMPLATE-RETRO.md` отдельным файлом
-    или секция в `TEMPLATE-CHANGELOG.md`).
-  - **Acceptance criteria** обязательны для задач крупнее
-    однострочных правок (формат уже есть в записях T001/T002 в
-    BOARD).
-  - WIP-limit и continuous flow в BOARD сохраняются (уже есть).
-
-  Не вводим: time-boxed sprints, story points, velocity,
-  burndown, daily standup, sprint backlog отдельно от product
-  backlog.
-
-  Правило в проектном `CLAUDE.md` (durable) и в глобальном
-  `~/.claude/CLAUDE.md`.
+<!-- T002 (тестирование), T003 (дисциплина планирования) и
+     T005 (TEMPLATE-* split) завершены — перенесены в
+     TEMPLATE-CHANGELOG.md → [Unreleased]. -->
 
 - **T004** — [2026-05-14] Ввести immutable документ начальной
   концепции проекта (`CONCEPT.md`).
