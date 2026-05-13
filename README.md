@@ -40,6 +40,7 @@ GitHub SpecKit. Из них взято только то, что реально 
 | `BACKLOG.md`               | Парковка идей и побочных находок                  |
 | `BOARD.md`                 | Рабочая Kanban-доска (To Do / Doing / Done)       |
 | `README.template.md`       | Заготовка проектного README                       |
+| `CONCEPT.template.md`      | Заготовка immutable документа начального видения проекта |
 | `TEMPLATE-CHANGELOG.md`    | Журнал эволюции самого шаблона (TEMPLATE-* — мета, удаляется в derived) |
 | `TEMPLATE-BACKLOG.md`      | Бэклог разработки шаблона (TEMPLATE-* — мета, удаляется в derived) |
 | `TEMPLATE-BOARD.md`        | Kanban разработки шаблона (TEMPLATE-* — мета, удаляется в derived) |
@@ -59,19 +60,22 @@ GitHub SpecKit. Из них взято только то, что реально 
 файлом.
 
 1. Клонировать или скопировать содержимое в новый репозиторий.
-2. Заполнить `PROJECT.md` (минимум — цель и текущий статус).
-3. Удалить пример из `DECISIONS.md` и оставить только реальные решения.
-4. Очистить `CHANGELOG.md`, `BACKLOG.md` и `BOARD.md`.
-5. В `pyproject.toml` заменить плейсхолдеры `name` / `authors` под
+2. **Заполнить `CONCEPT.md`** (скопировать `CONCEPT.template.md`)
+   через ритуал встречных вопросов с Claude. Это immutable документ
+   начального видения — заполняется один раз, потом не изменяется.
+3. Заполнить `PROJECT.md` (минимум — цель и текущий статус).
+4. Удалить пример из `DECISIONS.md` и оставить только реальные решения.
+5. Очистить `CHANGELOG.md`, `BACKLOG.md` и `BOARD.md`.
+6. В `pyproject.toml` заменить плейсхолдеры `name` / `authors` под
    свой проект.
-6. При первой крупной фиче — скопировать `specs/spec-template.md` в
+7. При первой крупной фиче — скопировать `specs/spec-template.md` в
    `specs/T<NNN>-feature-name/spec.md` и пройти ритуалы clarify + analyze
    (см. ниже).
-7. Удалить все мета-файлы шаблона: `rm TEMPLATE-*.md`. Они относятся
+8. Удалить все мета-файлы шаблона: `rm TEMPLATE-*.md`. Они относятся
    только к разработке самого шаблона `vlakir/dreamteam` и в derived
    проекте не нужны (бэклог шаблона, его board, его ADR, его
    changelog).
-8. **В последнюю очередь:** скопировать `README.template.md` поверх
+9. **В последнюю очередь:** скопировать `README.template.md` поверх
    `README.md` и заполнить. После этого setup-инструкции выше уже не
    видны — поэтому шаг финальный.
 
