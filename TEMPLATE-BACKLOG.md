@@ -17,24 +17,8 @@
 
 ## Items
 
-- **T002** — [2026-05-14] Внедрить обязательное тестирование
-  (pytest) в шаблон.
-
-  Стек: `pytest` + `pytest-cov` + `pytest-asyncio`. Конфигурация
-  в `pyproject.toml` (`[tool.pytest.ini_options]`,
-  `[tool.coverage.run]`). Структура: `tests/` в корне (уже в
-  ruff `exclude`). Coverage threshold ≥ 80% line coverage на
-  `src/`, `--cov-fail-under` жёстко.
-
-  Pre-push контроль расширяется: `uv run pytest` добавляется к
-  ruff / mypy как четвёртая обязательная проверка с 0 fail-ов.
-
-  Правило фиксируется в проектном `CLAUDE.md` (durable) и в
-  глобальном `~/.claude/CLAUDE.md`. README шаблона можно
-  обновить как развёрнутую версию для человекочитаемости, но
-  он НЕ источник истины.
-
-  В шаблон кладётся пример `tests/test_main.py`.
+<!-- T002 (тестирование) и T005 (TEMPLATE-* split) завершены и
+     перенесены в TEMPLATE-CHANGELOG.md → [Unreleased]. -->
 
 - **T003** — [2026-05-14] Формализовать дисциплину планирования
   без Scrum-карго-культа.
