@@ -3,13 +3,67 @@ name = "dreamteam"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Your Name",email = "you@example.com"}
+    {name = "vlakir", email = "vlakir1234@gmail.com"},
 ]
-requires-python = "^3.14"
-dependencies = [
+requires-python = ">=3.13"
+dependencies = []
+
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.10",
+    "mypy>=1.17.1",
 ]
 
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.ruff]
+unsafe-fixes = true
+line-length = 88
+indent-width = 4
+target-version = "py313"
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "__pypackages__",
+    "build",
+    "dist",
+    "tests",
+]
+
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D1", "D203", "D212",
+    "BLE001", "ANN002", "ANN204",
+    "RUF001", "COM812", "RUF002",
+    "RUF003", "G004", "PLR0912",
+    "PLR0913", "D401", "PLR0915",
+    "C901", "D205", "N802",
+    # Lazy imports are intentional architectural pattern
+    # (avoid circular imports, defer heavy modules)
+    "PLC0415",
+]
+fixable = ["ALL"]
+unfixable = []
+
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 72
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+
+[tool.mypy]
+explicit_package_bases = true
+ignore_missing_imports = true
