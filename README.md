@@ -9,6 +9,17 @@
 > при перезаписи не теряется — она живёт в проектном `CLAUDE.md`
 > и в глобальном `~/.claude/CLAUDE.md` (если он у разработчика
 > настроен).
+>
+> **Префикс `TEMPLATE-*`** — это маркер «только для разработки
+> самого шаблона `vlakir/dreamteam`»: `TEMPLATE-BACKLOG.md`,
+> `TEMPLATE-BOARD.md`, `TEMPLATE-DECISIONS.md`, `TEMPLATE-CHANGELOG.md`.
+> При создании нового проекта эти файлы удаляются (`rm TEMPLATE-*.md`),
+> остаются их обычные без-префиксных эквиваленты (`BACKLOG.md`,
+> `BOARD.md`, `DECISIONS.md`, `CHANGELOG.md`) как пустые заготовки.
+> `README.md` — special case: он описывает сам шаблон, но без
+> `TEMPLATE-` префикса, потому что github показывает именно `README.md`
+> на странице репо; в derived проекте `README.md` перезаписывается
+> через `README.template.md`.
 
 Шаблон структуры для новых проектов с участием Claude Code. Цель —
 закрепить рабочую методику, чтобы Claude и Разработчик говорили на
@@ -29,7 +40,10 @@ GitHub SpecKit. Из них взято только то, что реально 
 | `BACKLOG.md`               | Парковка идей и побочных находок                  |
 | `BOARD.md`                 | Рабочая Kanban-доска (To Do / Doing / Done)       |
 | `README.template.md`       | Заготовка проектного README                       |
-| `META-CHANGELOG.md`        | Журнал эволюции самого шаблона (удаляется при копировании) |
+| `TEMPLATE-CHANGELOG.md`    | Журнал эволюции самого шаблона (TEMPLATE-* — мета, удаляется в derived) |
+| `TEMPLATE-BACKLOG.md`      | Бэклог разработки шаблона (TEMPLATE-* — мета, удаляется в derived) |
+| `TEMPLATE-BOARD.md`        | Kanban разработки шаблона (TEMPLATE-* — мета, удаляется в derived) |
+| `TEMPLATE-DECISIONS.md`    | ADR-Lite шаблона (TEMPLATE-* — мета, удаляется в derived) |
 | `specs/spec-template.md`   | Шаблон спецификации крупной фичи                  |
 
 `src/main.py`, `pyproject.toml`, `uv.lock` — минимальный Python-стартер.
@@ -53,8 +67,10 @@ GitHub SpecKit. Из них взято только то, что реально 
 6. При первой крупной фиче — скопировать `specs/spec-template.md` в
    `specs/T<NNN>-feature-name/spec.md` и пройти ритуалы clarify + analyze
    (см. ниже).
-7. Удалить `META-CHANGELOG.md` — он относится только к самому шаблону,
-   в проекте он не нужен.
+7. Удалить все мета-файлы шаблона: `rm TEMPLATE-*.md`. Они относятся
+   только к разработке самого шаблона `vlakir/dreamteam` и в derived
+   проекте не нужны (бэклог шаблона, его board, его ADR, его
+   changelog).
 8. **В последнюю очередь:** скопировать `README.template.md` поверх
    `README.md` и заполнить. После этого setup-инструкции выше уже не
    видны — поэтому шаг финальный.
