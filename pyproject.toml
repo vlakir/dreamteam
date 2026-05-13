@@ -43,9 +43,6 @@ ignore = [
     "RUF003", "G004", "PLR0912",
     "PLR0913", "D401", "PLR0915",
     "C901", "D205", "N802",
-    # Lazy imports are intentional architectural pattern
-    # (avoid circular imports, defer heavy modules)
-    "PLC0415",
 ]
 fixable = ["ALL"]
 unfixable = []
