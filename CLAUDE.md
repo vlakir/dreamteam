@@ -22,7 +22,7 @@
 ## Описание проекта
 
 **`dreamteam`** — project scaffolding CLI с встроенной методологией.
-Пользователь делает `pip install dreamteam && dreamteam init my-project`
+Пользователь делает `pip install dreamteam-cli && dreamteam init my-project`
 и получает готовый Python-проект с pytest, mypy, ruff, kanban в
 markdown-файлах, ADR-log и полным набором правил для AI-assisted
 разработки.

@@ -1,5 +1,5 @@
 [project]
-name = "dreamteam"
+name = "dreamteam-cli"
 version = "1.0.0"
 description = "Project scaffolding CLI with built-in methodology (Copier-backed)."
 readme = "README.md"

@@ -65,7 +65,7 @@
 ### Added
 
 - **Python-package `dreamteam`** с Typer-based CLI (`init`,
-  `update`, `--version`). Установка: `pip install dreamteam` или
+  `update`, `--version`). Установка: `pip install dreamteam-cli` или
   `uvx dreamteam` (zero-install).
 - **Команда `dreamteam init <path>`** создаёт чистый derived
   project одной командой — без 9 ручных шагов очистки. Внутри —

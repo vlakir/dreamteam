@@ -5,11 +5,15 @@ working project with linters, tests, kanban, ADR log, and a complete
 set of rules for AI-assisted development baked in.
 
 ```bash
-pip install dreamteam        # or: uvx dreamteam (zero-install)
-dreamteam init my-project
+pip install dreamteam-cli                              # then `dreamteam` command is available
+# or zero-install via uvx:
+uvx --from dreamteam-cli dreamteam init my-project
+
 cd my-project
 uv sync
 ```
+
+> **Note:** the PyPI package name is `dreamteam-cli` (the bare `dreamteam` slot on PyPI is held by an unrelated 2019 package). The **command** stays `dreamteam` regardless — `pip install dreamteam-cli` exposes the `dreamteam` console script, and that's what you use in everyday work.
 
 That's it. The generated project passes its own pre-push check suite
 (ruff / ruff format / mypy / pytest with 80% coverage threshold)

@@ -263,7 +263,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dreamteam"
+name = "dreamteam-cli"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
