@@ -97,8 +97,11 @@ exclude = ["src/dreamteam/template/"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["src"]
-addopts = "-q --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80"
+addopts = "-q --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80 -m 'not integration'"
 testpaths = ["tests"]
+markers = [
+    "integration: end-to-end tests that subprocess into uv/ruff/mypy/pytest on a generated project (slow, run via `pytest -m integration`)",
+]
 
 
 [tool.coverage.run]
