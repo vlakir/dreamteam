@@ -22,7 +22,18 @@
 
 ## [Unreleased]
 
+### Notes
+
+- **2026-05-14:** `dreamteam` v1.0.0 опубликован на PyPI как
+  **`dreamteam-cli`** (имя `dreamteam` занято squatter-аккаунтом
+  с 2019, см. ADR в `DECISIONS.md`). Verify:
+  `uvx --from dreamteam-cli dreamteam --version` → `dreamteam 1.0.0`.
+
 ### Added
+
+- **Скрипт публикации** `scripts/publish.sh` + `.secrets` file
+  для токенов (T011). Подробности — ADR в `DECISIONS.md` →
+  «Publish flow: scripts/publish.sh + .secrets».
 
 - **MIT License** (T010). `LICENSE` файл в корне репо со стандартным
   MIT-текстом (Copyright (c) 2026 vlakir). В `pyproject.toml`:
