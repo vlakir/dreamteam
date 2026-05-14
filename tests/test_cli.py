@@ -60,11 +60,24 @@ def test_init_target_appears_in_output(tmp_path: Path) -> None:
     assert str(target) in result.output
 
 
-def test_update_stub_echoes_message() -> None:
-    """`dreamteam update` still echoes a stub message (real impl in Phase 4)."""
-    result = runner.invoke(app, ['update'])
-    assert result.exit_code == 0
-    assert 'Stub' in result.output
+def test_update_after_init(tmp_path: Path) -> None:
+    """`dreamteam update` re-applies the template (no git required for MVP)."""
+    target = tmp_path / 'updatable'
+    init_result = runner.invoke(app, ['init', str(target), '--defaults'])
+    assert init_result.exit_code == 0, init_result.output
+    assert (target / '.copier-answers.yml').exists()
+    update_result = runner.invoke(app, ['update', str(target)])
+    assert update_result.exit_code == 0, update_result.output
+    assert 'updated' in update_result.output.lower()
+
+
+def test_update_without_answers_file_fails(tmp_path: Path) -> None:
+    """`dreamteam update` errors if no `.copier-answers.yml` is present."""
+    target = tmp_path / 'no-answers'
+    target.mkdir()
+    result = runner.invoke(app, ['update', str(target)])
+    assert result.exit_code != 0
+    assert 'No .copier-answers.yml' in (result.output + result.stderr)
 
 
 def test_help_lists_subcommands() -> None:

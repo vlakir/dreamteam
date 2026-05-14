@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
-from copier import run_copy
+import yaml
+from copier import Worker, run_copy
 
 from dreamteam import __version__
+
+ANSWERS_FILE = '.copier-answers.yml'
 
 app = typer.Typer(
     name='dreamteam',
@@ -19,6 +22,32 @@ app = typer.Typer(
 
 def _template_path() -> Path:
     return Path(__file__).parent / 'template'
+
+
+def _write_answers_file(target: Path, user_answers: dict[str, Any]) -> None:
+    """
+    Persist `.copier-answers.yml` so that `dreamteam update` can replay.
+
+    Copier does not auto-write the answers file for unversioned local
+    templates (no VCS ref), so we materialize it manually with
+    `_commit` (dreamteam package version) and `_src_path` (current
+    package template path).
+    """
+    payload: dict[str, Any] = {
+        '_commit': f'dreamteam-{__version__}',
+        '_src_path': str(_template_path()),
+    }
+    payload.update(user_answers)
+    (target / ANSWERS_FILE).write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding='utf-8',
+    )
+
+
+def _read_user_answers(answers_file: Path) -> dict[str, Any]:
+    """Read user answers (everything except keys starting with `_`)."""
+    data = yaml.safe_load(answers_file.read_text(encoding='utf-8'))
+    return {k: v for k, v in data.items() if not k.startswith('_')}
 
 
 def _version_callback(*, value: bool) -> None:
@@ -57,16 +86,56 @@ def init(
 ) -> None:
     """Initialize a new project from the dreamteam template."""
     target = Path(path).expanduser().resolve()
-    run_copy(
+    # Worker (instead of run_copy) is used to capture user answers
+    # for the subsequent answers-file write. run_copy returns None,
+    # so we cannot extract answers from it.
+    # Worker is marked as internal API in copier — accept deprecation
+    # warning until upstream provides a public way to capture answers.
+    with Worker(
         src_path=str(_template_path()),
-        dst_path=str(target),
+        dst_path=target,
         defaults=defaults,
         quiet=False,
-    )
-    typer.echo(f'Project initialized at {target}')
+    ) as worker:
+        worker.run_copy()
+        user_answers = dict(worker.answers.user)
+    _write_answers_file(target, user_answers)
+    typer.echo(f'Project initialized at {target}.')
 
 
 @app.command()
-def update() -> None:
-    """Update an existing dreamteam-managed project to the latest template (stub)."""
-    typer.echo('Stub: would run copier update in current directory')
+def update(
+    path: Annotated[
+        Path,
+        typer.Argument(help='Project path (default: current directory).'),
+    ] = Path(),
+) -> None:
+    """
+    Re-apply the dreamteam template to an existing project.
+
+    MVP behavior: re-renders all template files with stored answers,
+    overwriting local changes to template-managed files. Use with
+    caution. Full diff/merge update (copier.run_update) requires
+    git-tracked template, which is non-trivial for PyPI-distributed
+    packages — planned as a follow-up.
+    """
+    target = Path(path).expanduser().resolve()
+    answers_file = target / ANSWERS_FILE
+    if not answers_file.exists():
+        typer.echo(
+            f'No {ANSWERS_FILE} found in {target}. '
+            'Is this a dreamteam-managed project?',
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    user_answers = _read_user_answers(answers_file)
+    run_copy(
+        src_path=str(_template_path()),
+        dst_path=str(target),
+        data=user_answers,
+        defaults=True,
+        overwrite=True,
+        quiet=False,
+    )
+    _write_answers_file(target, user_answers)
+    typer.echo(f'Project updated at {target} (template re-applied).')
