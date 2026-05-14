@@ -2,5 +2,52 @@
 
 {{ project_description }}
 
-Created with [dreamteam](https://github.com/vlakir/dreamteam) by
-{{ author_name }} (`{{ author_email }}`).
+<!-- 1-3 предложения выше заполнились из ответов на `dreamteam init`.
+     Расширь по необходимости. Технические детали и история — в
+     PROJECT.md и DECISIONS.md. -->
+
+## Быстрый старт
+
+```bash
+uv sync                       # создать .venv и поставить зависимости
+uv run python src/main.py     # запустить
+```
+
+## Зависимости
+
+```bash
+uv add <pkg>                  # runtime
+uv add --dev <pkg>            # dev
+```
+
+## Проверки перед push
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy <путь к коду>
+```
+
+Все три должны проходить с 0 ошибок. Обходные манёвры (`# noqa`,
+`# type: ignore`, расширение `ignore`-секции) — только по согласованию.
+
+## Структура проекта
+
+- `src/` — корень исходников.
+- `PROJECT.md` — паспорт проекта: цель, статус, стек, ссылки.
+- `DECISIONS.md` — архитектурные решения с обоснованиями (ADR-Lite).
+- `BOARD.md` — рабочая Kanban-доска (To Do / Doing / Done).
+- `BACKLOG.md` — парковка идей и побочных находок.
+- `CHANGELOG.md` — журнал заметных изменений.
+- `specs/` — спецификации крупных фич.
+- `CLAUDE.md` — проектные правила для Claude (Claude Code).
+
+## Методика работы
+
+Проект создан из шаблона
+[vlakir/dreamteam](https://github.com/vlakir/dreamteam). Подробное
+описание методики (scope discipline, ритуал spec/clarify/analyze для
+крупных фич, pre-push контроль) — см. репозиторий шаблона.
+
+<!-- Ниже добавляются проект-специфичные разделы: API, развёртывание,
+     схемы БД, документация модулей, контакты и т.п. -->

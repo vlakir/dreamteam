@@ -20,15 +20,35 @@ def test_version_flag_prints_version() -> None:
 
 
 def test_init_creates_project(tmp_path: Path) -> None:
-    """`dreamteam init <path> --defaults` creates a project with rendered files."""
+    """`dreamteam init <path> --defaults` creates a full project skeleton."""
     target = tmp_path / 'my-project'
     result = runner.invoke(app, ['init', str(target), '--defaults'])
     assert result.exit_code == 0, result.output
     assert target.is_dir()
-    assert (target / 'README.md').exists()
-    readme = (target / 'README.md').read_text(encoding='utf-8')
+    expected_files = [
+        'README.md',
+        'CLAUDE.md',
+        'PROJECT.md',
+        'CONCEPT.md',
+        'DECISIONS.md',
+        'CHANGELOG.md',
+        'BACKLOG.md',
+        'BOARD.md',
+        'pyproject.toml',
+        'hooks/pre-push',
+        'specs/spec-template.md',
+        'src/main.py',
+        'tests/test_main.py',
+    ]
+    for relative in expected_files:
+        assert (target / relative).exists(), f'missing {relative}'
     # Jinja-substitution happened: project_name appears in rendered content.
+    readme = (target / 'README.md').read_text(encoding='utf-8')
     assert 'my-project' in readme
+    pyproject = (target / 'pyproject.toml').read_text(encoding='utf-8')
+    assert 'name = "my-project"' in pyproject
+    main_py = (target / 'src' / 'main.py').read_text(encoding='utf-8')
+    assert 'Hello from my-project!' in main_py
     # .copier-answers.yml requires VCS-versioned template; addressed in Phase 4.
 
 
