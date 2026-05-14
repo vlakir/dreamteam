@@ -1,0 +1,28 @@
+_min_copier_version: "9.0"
+
+# Render all files as Jinja templates (no .jinja suffix required).
+# Files without Jinja syntax pass through unchanged.
+_templates_suffix: ""
+
+# Persist answers so `dreamteam update` can re-apply the template later.
+_answers_file: .copier-answers.yml
+
+project_name:
+  type: str
+  help: "Project name (lowercase, alphanumeric, dashes/underscores)"
+  default: "my-project"
+
+project_description:
+  type: str
+  help: "Short project description (one sentence)"
+  default: ""
+
+author_name:
+  type: str
+  help: "Author name"
+  default: "Your Name"
+
+author_email:
+  type: str
+  help: "Author email"
+  default: "you@example.com"

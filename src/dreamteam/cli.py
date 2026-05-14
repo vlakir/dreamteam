@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from copier import run_copy
 
 from dreamteam import __version__
 
@@ -14,6 +15,10 @@ app = typer.Typer(
     help='Project scaffolding CLI with built-in methodology.',
     no_args_is_help=True,
 )
+
+
+def _template_path() -> Path:
+    return Path(__file__).parent / 'template'
 
 
 def _version_callback(*, value: bool) -> None:
@@ -39,10 +44,26 @@ def _main(
 
 
 @app.command()
-def init(path: Path) -> None:
-    """Initialize a new project from the dreamteam template (stub)."""
+def init(
+    path: Path,
+    *,
+    defaults: Annotated[
+        bool,
+        typer.Option(
+            '--defaults',
+            help='Use default values for all prompts (non-interactive).',
+        ),
+    ] = False,
+) -> None:
+    """Initialize a new project from the dreamteam template."""
     target = Path(path).expanduser().resolve()
-    typer.echo(f'Stub: would initialize project at {target}')
+    run_copy(
+        src_path=str(_template_path()),
+        dst_path=str(target),
+        defaults=defaults,
+        quiet=False,
+    )
+    typer.echo(f'Project initialized at {target}')
 
 
 @app.command()
