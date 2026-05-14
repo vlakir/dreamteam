@@ -76,6 +76,62 @@
 
   **Блокер:** требует ручного действия Разработчика (credentials).
 
+- **T013** — [2026-05-14] Многоязыковая поддержка методических
+  документов в derived projects.
+
+  **Языки (минимум):** English, Русский, Français, Deutsch, 中文.
+
+  **Подход:** **Variant A — N статических копий** каждого
+  методического файла per язык. Решение Разработчика 2026-05-14:
+  «5 переводов каждого файла — вопрос дисциплины, справимся».
+  Альтернативы рассмотрены и отвергнуты:
+  - B (AI translation на лету через Anthropic SDK) — dependency на
+    провайдера, latency + cost при `dreamteam init`.
+  - C (Hybrid: narrative переводится, rules — на английском) —
+    mixed-language файлы выглядят странно для пользователя.
+  - D (Defer to community) — не решает боли неанглоязычных
+    пользователей сейчас.
+
+  **Scope перевода:** narrative content — `CLAUDE.md` intro и блоки
+  описаний, `CONCEPT.md` prompts, `PROJECT.md` заголовки секций,
+  `README.md`, `BACKLOG.md` / `BOARD.md` / `CHANGELOG.md` /
+  `DECISIONS.md` intros, `specs/spec-template.md` структура секций.
+
+  **НЕ переводятся:** технические термины (ruff/mypy/ADR/kanban/
+  scope/WIP-limit), имена файлов, имена CLI команд и flags,
+  code blocks, имена kanban-колонок (`To Do` / `Doing` / `Done` —
+  international keywords), pyproject.toml / src/ / tests/ / hooks/.
+
+  **Структура (предложение для spec):** в `src/dreamteam/template/`
+  — папка `i18n/<lang>/` с translated narrative files; common
+  files остаются на root template level без перевода. После
+  copier render — post-generation task (через copier `_tasks`)
+  переносит `i18n/{{ language }}/*` в root проекта и удаляет
+  `i18n/` целиком. Альтернативный layout — full duplicate per
+  language через `_subdirectory: "{{language}}"` — обсудить
+  в spec.
+
+  **Требует:** spec в `specs/T013-multilang/spec.md` с clarify
+  (точная структура, fallback при missing translation, обработка
+  заголовков kanban-секций, кто проверяет качество переводов) и
+  analyze (drift-risk между языками, maintenance burden, bilingual
+  reviewer-ы).
+
+  **Acceptance:**
+  - В `copier.yml` появляется prompt `language` с choices
+    `[en, ru, fr, de, zh]`, default `en`.
+  - `dreamteam init <path> --defaults` (без явного language) даёт
+    English derived project.
+  - `dreamteam init <path>` с выбранным language — derived проект
+    с переведённым narrative content; технические части идентичны
+    на любом языке.
+  - Integration tests verify rendering для каждого из 5 языков.
+  - ADR в `DECISIONS.md` фиксирует выбор Variant A с rejected
+    alternatives.
+
+  **Приоритет:** ниже T011 (publish) — international scaling имеет
+  смысл только после первых пользователей.
+
 - **T010** — [2026-05-14] Выбрать и добавить LICENSE.
 
   README ссылается на «to be added». Перед PyPI publish (T011)
