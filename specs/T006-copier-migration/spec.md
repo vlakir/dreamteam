@@ -1,6 +1,7 @@
-# Spec: T006 — Copier migration
+# Spec: T006 — Copier migration (PyPI-distributed CLI package)
 
-**Статус:** Analyzed
+**Статус:** Analyzed (revised 2026-05-14 после уточнения scope:
+PyPI publication поднята из Out of Scope в Functional Requirements)
 **Дата создания:** 2026-05-14
 **Связанные документы:**
 - `TEMPLATE-BACKLOG.md → T006` (краткое описание задачи)
@@ -21,105 +22,169 @@ Repository — пользователь жмёт «Use this template», и ре�
 И с ростом методики оно растёт: чем больше правил, тем больше шагов
 очистки.
 
-Миграция на **Copier** инкапсулирует всё это в одну команду:
-`copier copy gh:vlakir/dreamteam ./my-project` создаёт **уже чистый**
-проект, без TEMPLATE-* мусора, с подставленными именами и
-плейсхолдерами. Бонусом — `copier update` для подтягивания изменений
-методики в уже созданные проекты (главное преимущество copier vs
-cookiecutter).
+Миграция превращает шаблон в **PyPI-distributed CLI-инструмент**
+(в духе `django-admin startproject`). Пользователь:
+
+```bash
+pip install dreamteam        # или uvx dreamteam (zero-install)
+dreamteam init my-project    # одна команда → чистый проект
+dreamteam update             # обновить существующий проект
+```
+
+Внутри CLI вызывает [Copier](https://copier.readthedocs.io/) через
+Python API — Copier инкапсулирует jinja-render, interactive prompts,
+diff-based update. Сам же `dreamteam`-package содержит copier-template
+как package-data resource.
+
+**Архитектурный выигрыш:** методика **отвязана от конкретного хостинга**
+(`gh:`-reference больше не нужен). Сегодня GitHub, завтра GitFlic /
+GitLab / Forgejo — `pip install dreamteam` работает одинаково.
 
 ## 2. User Stories
 
+- **Как разработчик**, я хочу установить инструмент **одной командой**
+  (`pip install dreamteam` или `uvx dreamteam`) — без необходимости
+  знать про copier, gh-references и т.п.
 - **Как разработчик**, я хочу создать новый проект из шаблона одной
-  командой, без последующей ручной чистки, чтобы старт занимал минуты,
-  а не четверть часа.
-- **Как разработчик**, я хочу интерактивно ответить на вопросы (имя
-  проекта, краткая цель, нужен ли pytest / pre-push hook), чтобы
-  шаблон сразу адаптировался под мой случай.
-- **Как разработчик**, я хочу обновить существующий проект, созданный
-  ранее, до новой версии методики (`copier update`), чтобы накопленные
-  улучшения шаблона подтягивались без копирования вручную.
-- **Как поддерживающий шаблон**, я хочу простую структуру (`copier.yml`
-  + папка `template/`), чтобы изменения в методике вносились
-  естественно и тестировались автоматически.
+  командой (`dreamteam init my-project`) с интерактивными prompts,
+  без последующей ручной чистки — старт занимает минуты, а не четверть
+  часа.
+- **Как разработчик**, я хочу обновить существующий проект до новой
+  версии методики (`dreamteam update`), чтобы накопленные улучшения
+  шаблона подтягивались без копирования вручную.
+- **Как поддерживающий шаблон**, я хочу простую структуру
+  (`src/dreamteam/template/` + `copier.yml`), чтобы изменения в
+  методике вносились естественно и тестировались автоматически.
+- **Как разработчик в команде, использующей GitFlic / GitLab / любой
+  хостинг**, я не должен зависеть от GitHub — установка через PyPI
+  работает на любой машине с pip.
 
 ## 3. Functional Requirements
 
-- **ДОЛЖНА:** команда `copier copy gh:vlakir/dreamteam ./project`
-  создаёт работающий derived проект **без любых TEMPLATE-* файлов**
-  и без примеров-для-удаления.
-- **ДОЛЖНА:** интерактивные prompts при создании, с разумными
-  defaults. Минимум — имя проекта, краткое описание, email автора.
-- **ДОЛЖНА:** подстановка переменных в нужные файлы (`pyproject.toml`,
-  `CONCEPT.template.md`, `PROJECT.md`, `README.md`).
-- **ДОЛЖНА:** поддержка `copier update` — повторное применение
-  шаблона к существующему проекту с merge user-изменений.
+### Distribution
+
+- **ДОЛЖНА:** инструмент устанавливается как Python-package с PyPI:
+  `pip install dreamteam` или `uvx dreamteam`. Сам package содержит
+  copier-template как data resource — пользователю не нужно знать
+  про copier или хостинг шаблона.
+- **ДОЛЖНА:** package работает на любом OS, любом хостинге репо.
+  Привязки к `gh:` / `gl:` / `bb:` ссылкам **нет**.
+
+### CLI
+
+- **ДОЛЖНА:** команда `dreamteam init <path>` создаёт работающий
+  derived проект **без любых `TEMPLATE-*` файлов** и без
+  примеров-для-удаления.
+- **ДОЛЖНА:** команда `dreamteam update` подтягивает изменения
+  шаблона в существующий проект (через `copier.run_update`).
+- **ДОЛЖНА:** интерактивные prompts при `init`, с разумными
+  defaults. Минимум — `project_name`, `project_description`,
+  `author_name`, `author_email`.
 - **ДОЛЖНА:** все 4 pre-push проверки (ruff / format / mypy / pytest)
-  проходят на сгенерированном проекте **immediately после
-  `copier copy`** (без дополнительных правок).
+  проходят на сгенерированном проекте **immediately** после
+  `dreamteam init` (без дополнительных правок).
+- **МОЖЕТ:** `--no-input` режим для CI / автоматических тестов
+  (использовать defaults).
+
+### Internals
+
+- **ДОЛЖНА:** template-файлы попадают в package как `package-data`
+  (через `[tool.hatch.build.targets.wheel]` / `package_data` /
+  `importlib.resources`).
+- **ДОЛЖНА:** подстановка переменных в файлы (`pyproject.toml`,
+  `CONCEPT.template.md` → `CONCEPT.md`, `PROJECT.md`, и т.п.).
 - **МОЖЕТ:** post-generation hooks для удобства (например, `git init`
-  в новом проекте) — но не как обязательное требование MVP.
-- **НЕ ДОЛЖНА:** требовать установки template-package на PyPI —
-  на MVP достаточно `gh:vlakir/dreamteam` reference.
+  в новом проекте) — не как обязательное требование MVP.
+
+### Compatibility
+
 - **НЕ ДОЛЖНА:** ломать совместимость с пока не мигрированными
   старыми проектами Разработчика. Они продолжают жить как есть.
+- **НЕ ДОЛЖНА:** требовать gh-CLI / GitHub Auth для использования.
 
 ## 4. Success Criteria
 
-- **Скорость:** `copier copy gh:vlakir/dreamteam ./project` <
-  30 секунд от запуска до готового проекта (включая интерактивные
-  ответы).
+- **Установка:** `pip install dreamteam` (или `uvx dreamteam`)
+  успешно отрабатывает на свежей машине с Python 3.10+; команда
+  `dreamteam --help` доступна.
+- **Скорость:** `dreamteam init ./project` < 30 секунд от запуска
+  до готового проекта (включая интерактивные ответы).
 - **Чистота:** в новом проекте 0 `TEMPLATE-*` файлов, 0 строк-примеров
   «удалить при заполнении», 0 плейсхолдеров `Your Name` / `you@`.
 - **Готовность к работе:** `cd project && uv sync && uv run pytest`
   проходит зелёным без правок.
-- **Update flow:** `copier update` в derived проекте подтягивает
-  изменения шаблона; merge conflicts отображаются стандартным copier
-  способом для ручного resolve.
-- **Tests:** ≥ 80% coverage на copier-конфигурацию (через pytest +
-  `copier.run_copy` API).
+- **Update flow:** `dreamteam update` в derived проекте подтягивает
+  изменения шаблона; merge conflicts отображаются стандартным
+  copier-способом для ручного resolve.
+- **Tests:** ≥ 80% coverage на сам `dreamteam` package (CLI + helpers),
+  плюс end-to-end test через `dreamteam init` во временной директории
+  с прогоном проверок на результате.
+- **PyPI:** package публикуется на TestPyPI (`pip install --index-url
+  https://test.pypi.org/simple/ dreamteam` работает) перед публикацией
+  на основной PyPI. После основной публикации — `pip install dreamteam`
+  ставит ту же версию.
 
 ## 5. Key Entities
 
-- **`copier.yml`** в корне репо шаблона — конфигурация: переменные,
-  prompts, validators, exclude rules, версия copier-engine.
-- **`template/`** — папка-родитель для всех файлов, которые попадают
-  в derived проект (с jinja-переменными `{{ project_name }}` etc.).
+- **`src/dreamteam/`** — Python-package, который публикуется на PyPI.
+  Содержит:
+  - `__init__.py` (version, public API);
+  - `cli.py` (Typer-based CLI: `init`, `update`, `--version`);
+  - `__main__.py` (поддержка `python -m dreamteam`);
+  - `template/` (data resource — copier-template).
+- **`src/dreamteam/template/`** — папка с copier-шаблоном. Содержит
+  `copier.yml` и template-файлы с jinja-переменными (`{{project_name}}`
+  и т.п.). Эта папка упаковывается как package-data.
+- **`src/dreamteam/template/copier.yml`** — конфигурация copier:
+  переменные, prompts, validators, `_min_copier_version`, exclude rules.
+- **`pyproject.toml`** в корне репо — package metadata для PyPI
+  (`name = "dreamteam"`, `version`, `dependencies = ["copier",
+  "typer"]`, `[project.scripts] dreamteam = "dreamteam.cli:app"`,
+  `[tool.hatch.build.targets.wheel] packages = ["src/dreamteam"]`,
+  и т.п.).
 - **Мета-документы шаблона** — `TEMPLATE-BACKLOG.md`,
-  `TEMPLATE-BOARD.md`, `TEMPLATE-DECISIONS.md`, `TEMPLATE-CHANGELOG.md`
-  — остаются в корне репо шаблона как maintainer-документы, **не**
-  попадают в `template/`.
-- **Тесты `tests/test_template.py`** — проверяют `copier copy` end-
-  to-end (создание во временной директории, прогон ruff/mypy/pytest
-  на результате).
-- **`.copier-answers.yml`** — артефакт в derived проекте, который
-  copier создаёт автоматически. Содержит ответы на prompts, version,
-  и используется для `copier update`.
+  `TEMPLATE-BOARD.md`, `TEMPLATE-DECISIONS.md`, `TEMPLATE-CHANGELOG.md`,
+  `specs/` — остаются в корне репо как maintainer-документы, **не**
+  попадают в `src/dreamteam/template/`.
+- **Тесты `tests/test_cli.py` + `tests/test_template.py`** —
+  проверяют CLI (вызов `dreamteam init` через `typer.testing.CliRunner`)
+  и end-to-end (создание во временной директории, прогон
+  ruff/mypy/pytest на результате).
+- **`.copier-answers.yml`** — артефакт в derived проекте, copier
+  создаёт автоматически. Содержит ответы на prompts, version,
+  используется для `dreamteam update`.
 
 ## 6. Assumptions & Constraints
 
 - Python ≥ 3.10 на машине пользователя (требование copier).
-- `git` установлен (требование copier для GitHub-templates).
+- `git` установлен на пользовательской машине (copier использует git
+  для diff-based update; при `init` тоже создаёт `.copier-answers.yml`,
+  но git не строго обязателен).
 - `uv` установлен — для использования сгенерированного проекта.
 - Сценарий: один разработчик, один проект за раз. Multi-tenancy не
   рассматривается.
-- Хостинг: репо лежит на GitHub. Для других хостингов copier
-  поддерживает `gl:` / `bb:` префиксы — потенциально универсально,
-  но MVP только GitHub.
+- Hosting репо самого `dreamteam`-package: GitHub. После публикации
+  на PyPI хостинг становится **деталью** реализации, не частью
+  пользовательского контракта.
+- PyPI account и публикация — Разработчик (как maintainer) отвечает
+  за credentials и `uv publish` команды. Документировать.
 
 ## 7. Out of Scope
 
 - **Не-Python шаблоны.** Сейчас только Python-проекты; универсальный
   multi-language скаффолдер — отдельная задача (T8XX).
-- **PyPI публикация template-package.** На MVP `gh:vlakir/dreamteam`
-  как reference достаточно.
 - **Миграция старых Разработчиковых проектов.** Они остаются как
   есть; будут мигрироваться отдельной задачей по мере необходимости.
 - **CI/CD пайплайн** для самого шаблона (тестирование через GitHub
-  Actions на каждый PR) — желательно, но не блокер MVP. Это пересекается
+  Actions на каждый PR) — желательно, но не блокер MVP. Пересекается
   с **T007** (замена qodo / автоматический code review).
 - **Сложные post-generation hooks** (git init, initial commit,
-  pre-commit setup и т.п.). MVP: вручную после `copier copy`.
+  pre-commit setup и т.п.). MVP: вручную после `dreamteam init`.
+- **Опциональность стека.** На MVP — фиксированный стек (uv + ruff
+  + mypy + pytest + hooks/pre-push). Опциональные prompts типа
+  «нужен ли mypy?» — отдельная задача в будущем.
+- **Поддержка пакетных менеджеров кроме pip/uv.** Conda / pdm /
+  poetry — пользователь сам адаптирует, если нужно.
 
 ---
 
@@ -189,13 +254,24 @@ cookiecutter).
 ### 🟡 Warnings (обсудить / возможно учесть в реализации)
 
 - **`TEMPLATE-*` переосмысление.** После миграции на copier у нас
-  будет **нативное** разделение: исходник шаблона = папка `template/`,
-  результат = derived проект. **`TEMPLATE-*` мета-файлы (BACKLOG /
-  BOARD / DECISIONS / CHANGELOG) остаются в корне репо шаблона** —
-  но **не** в `template/`. То есть они продолжают существовать как
-  «документы разработки самого шаблона», но физически уезжают **выше**
-  по дереву. Это переосмысление T005 — не отмена, а уточнение в
-  новом контексте.
+  будет **нативное** разделение: исходник шаблона = `src/dreamteam/
+  template/`, результат = derived проект. **`TEMPLATE-*` мета-файлы
+  (BACKLOG / BOARD / DECISIONS / CHANGELOG) остаются в корне репо
+  шаблона** — но **не** в `template/`. То есть они продолжают
+  существовать как «документы разработки самого шаблона», но
+  физически уезжают **выше** по дереву. Это переосмысление T005 —
+  не отмена, а уточнение в новом контексте.
+
+- **PyPI namespace.** Имя `dreamteam` на PyPI — может быть занято.
+  Проверить через `pip search` (deprecated) или прямой PyPI lookup
+  до Phase 8. Если занято — `dreamteam-template` / `dreamteam-cli`
+  как fallback. Решение отложено до Phase 8 (есть простор
+  переименовать `[project.name]` без переписывания CLI).
+
+- **`uv publish` vs `flit` / `twine`.** `uv publish` — современный
+  путь, но **требует PyPI API token**. Конфигурация — через
+  `UV_PUBLISH_TOKEN` env var или `~/.pypirc`. Документировать
+  в Phase 8.
 
 - **Двойной jinja.** Документация шаблона (`CLAUDE.md`,
   `README.template.md`, `CONCEPT.template.md`) сама содержит примеры
@@ -240,35 +316,55 @@ cookiecutter).
 Намечено как ориентир. Каждая фаза = отдельный PR с `T006`-prefix и
 осмысленным slug:
 
-- **Phase 1 — `T006-copier-bootstrap`.** Минимальный `copier.yml` +
-  `template/` структура. Перенос Python-стартера (src/, tests/,
-  pyproject.toml, uv.lock) в template/ с jinja-переменными
-  (`{{project_name}}`, `{{author_name}}`, `{{author_email}}`).
-  Acceptance: `copier copy` создаёт минимальный работающий проект
-  (без методических `.md`-документов).
-- **Phase 2 — `T006-copier-method-files`.** Перенос методических
+- **Phase 1 — `T006-package-skeleton`.** Создать `src/dreamteam/`
+  с минимальным CLI (Typer-based) и `pyproject.toml` для PyPI
+  publication (`name="dreamteam"`, `[project.scripts]`,
+  `[build-system]`). CLI имеет только `dreamteam --version` и
+  `dreamteam init <path>` — последний выводит stub-сообщение.
+  Acceptance: `pip install -e .` ставит package; `dreamteam --version`
+  и `dreamteam init /tmp/test` отрабатывают.
+- **Phase 2 — `T006-copier-integration`.** Добавить copier как
+  dependency. `dreamteam init` вызывает `copier.run_copy` через
+  Python API. Минимальный `src/dreamteam/template/copier.yml` +
+  `template/` с одним placeholder-файлом для проверки render.
+  Acceptance: `dreamteam init /tmp/test` создаёт файл с
+  подставленными переменными.
+- **Phase 3 — `T006-template-content`.** Перенос всех методических
   файлов (`CLAUDE.md`, `PROJECT.md`, `DECISIONS.md`, `CHANGELOG.md`,
-  `BACKLOG.md`, `BOARD.md`, `CONCEPT.template.md`,
-  `specs/spec-template.md`, `hooks/pre-push`) в `template/`.
-  Подстановка переменных там где уместно. Acceptance: новый проект
-  полностью соответствует текущей методике без TEMPLATE-* мусора.
-- **Phase 3 — `T006-copier-tests`.** `tests/test_template.py`
-  через `pytest-copier` или subprocess: `copier copy` →
-  `uv sync && uv run pytest && ruff check && mypy` на результате.
-  Coverage ≥ 80% на copier-config (если применимо).
-- **Phase 4 — `T006-copier-docs`.** Переписать `README.md` репо
-  шаблона под copier-flow (install copier, `copier copy gh:vlakir/
-  dreamteam ./my-project`, `copier update` для существующих проектов).
-  Удалить устаревшую инструкцию из 9 шагов. Обновить
-  `TEMPLATE-CHANGELOG.md → [Unreleased]` (или сразу финализировать
-  как `[1.0.0]`).
-- **Phase 5 — `T006-copier-cleanup`.** Удалить ставшие ненужными
-  default-name файлы из корня репо (они теперь живут только в
-  `template/`). Удалить `README.template.md` (теперь
-  `template/README.md`). Удалить `CONCEPT.template.md` (теперь
-  `template/CONCEPT.md`). Сделать репозиторий шаблона **чистым** в
-  плане «что вижу в корне = либо инструмент шаблона, либо документы
-  его разработки».
+  `BACKLOG.md`, `BOARD.md`, `CONCEPT.template.md → CONCEPT.md`,
+  `specs/spec-template.md`, `hooks/pre-push`, `src/main.py` стартер,
+  `tests/test_main.py`, `pyproject.toml` derived, `.gitignore`,
+  `README.template.md → README.md`) в `src/dreamteam/template/`
+  с jinja-переменными. Acceptance: `dreamteam init` создаёт
+  полностью функциональный derived проект.
+- **Phase 4 — `T006-cli-update`.** Добавить `dreamteam update`
+  команду (вызывает `copier.run_update`). Документировать
+  merge-conflict resolution flow.
+- **Phase 5 — `T006-tests`.** `tests/test_cli.py` (через
+  `typer.testing.CliRunner`) + `tests/test_template.py` (e2e:
+  `dreamteam init` в tmp dir → прогон ruff/mypy/pytest на результате).
+  Coverage ≥ 80% на `src/dreamteam/`.
+- **Phase 6 — `T006-docs`.** Переписать `README.md` репо шаблона
+  под PyPI/CLI flow (`pip install dreamteam`, `dreamteam init`,
+  `dreamteam update`). Удалить устаревшую инструкцию из 9 шагов.
+  Обновить `TEMPLATE-CHANGELOG.md → [Unreleased]` (или сразу
+  финализировать `[1.0.0]`).
+- **Phase 7 — `T006-cleanup`.** Удалить дубликаты из корня репо
+  шаблона: default-name `*.md` (`BACKLOG.md`, `BOARD.md`,
+  `DECISIONS.md`, `CHANGELOG.md`, `CLAUDE.md`, `PROJECT.md`),
+  `README.template.md`, `CONCEPT.template.md`, `hooks/`,
+  `src/main.py`, `tests/test_main.py` — они теперь живут только в
+  `src/dreamteam/template/`. Репо шаблона остаётся с: `src/dreamteam/`
+  (package), `tests/` (тесты package), `pyproject.toml` (package),
+  `TEMPLATE-*.md` (maintainer-документы), `specs/`, `.gitignore`,
+  `README.md` (пользовательский — про установку и использование
+  CLI), `uv.lock`.
+- **Phase 8 — `T006-publish`.** TestPyPI publication (sanity check
+  через `uv publish --publish-url https://test.pypi.org/legacy/`).
+  Затем — основной PyPI (`uv publish`). Документировать процесс
+  release в `TEMPLATE-DECISIONS.md`. Финализация `v1.0.0` в
+  `TEMPLATE-CHANGELOG.md` с retrospective.
 
-После Phase 5 — закрываем как **`v1.0.0`** в `TEMPLATE-CHANGELOG.md`
-с retrospective.
+После Phase 8 — закрываем как **`v1.0.0`** в `TEMPLATE-CHANGELOG.md`
+с retrospective. PR-ов больше — но каждый меньше; проще обзор и
+откат при необходимости.
