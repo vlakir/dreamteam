@@ -22,6 +22,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`CLAUDE.md` в корне репо** для разработки `dreamteam`-пакета
+  (T012). Отдельный документ от `src/dreamteam/template/CLAUDE.md`
+  (который попадает в derived проекты через `dreamteam init`). Этот
+  CLAUDE.md описывает правила работы над **самим пакетом**: стек
+  (Python 3.14, uv, hatchling, typer, copier), команды разработки
+  (uv sync / pytest / dreamteam init smoke / uv build), pre-push
+  контракт (4 проверки), специфика репо (two CLAUDE.md, template
+  exclude из ruff/mypy, copier.Worker deprecation, MVP update
+  limitation), task numbering (T<NNN>), Git workflow (Branch
+  Protection, squash merge, code review). Глобальные правила в
+  `~/.claude/CLAUDE.md` применяются как есть; этот файл — только
+  специфика репо.
+
 ### Changed
 
 - **`TEMPLATE-*.md` → default names** в корне репо. После того как в
