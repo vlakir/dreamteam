@@ -1,283 +1,113 @@
-# Project Template
+# dreamteam
 
-> **⚠️ Этот файл — README самого шаблона, а не нового проекта.**
-> При создании нового проекта из шаблона перезапиши `README.md`
-> полностью под свой проект. В качестве отправной точки используй
-> заготовку `README.template.md` (скопируй её содержимое поверх).
->
-> Методическая часть (рабочий процесс, scope discipline, линтеры)
-> при перезаписи не теряется — она живёт в проектном `CLAUDE.md`
-> и в глобальном `~/.claude/CLAUDE.md` (если он у разработчика
-> настроен).
->
-> **Префикс `TEMPLATE-*`** — это маркер «только для разработки
-> самого шаблона `vlakir/dreamteam`»: `TEMPLATE-BACKLOG.md`,
-> `TEMPLATE-BOARD.md`, `TEMPLATE-DECISIONS.md`, `TEMPLATE-CHANGELOG.md`.
-> При создании нового проекта эти файлы удаляются (`rm TEMPLATE-*.md`),
-> остаются их обычные без-префиксных эквиваленты (`BACKLOG.md`,
-> `BOARD.md`, `DECISIONS.md`, `CHANGELOG.md`) как пустые заготовки.
-> `README.md` — special case: он описывает сам шаблон, но без
-> `TEMPLATE-` префикса, потому что github показывает именно `README.md`
-> на странице репо; в derived проекте `README.md` перезаписывается
-> через `README.template.md`.
-
-Шаблон структуры для новых проектов с участием Claude Code. Цель —
-закрепить рабочую методику, чтобы Claude и Разработчик говорили на
-одном языке от первой итерации проекта до зрелой кодовой базы.
-
-Методика выработана из двух разборов: канбан-подход AI-команды и
-GitHub SpecKit. Из них взято только то, что реально оправдывает себя
-на малых и средних проектах одного разработчика.
-
-## Файлы шаблона
-
-| Файл                       | Назначение                                        |
-| -------------------------- | ------------------------------------------------- |
-| `CLAUDE.md`                | Проектные правила для Claude (Claude Code)        |
-| `PROJECT.md`               | Паспорт проекта: цель, статус, стек, контакты     |
-| `DECISIONS.md`             | Архитектурные решения и их обоснования (ADR-Lite) |
-| `CHANGELOG.md`             | История заметных изменений                        |
-| `BACKLOG.md`               | Парковка идей и побочных находок                  |
-| `BOARD.md`                 | Рабочая Kanban-доска (To Do / Doing / Done)       |
-| `README.template.md`       | Заготовка проектного README                       |
-| `CONCEPT.template.md`      | Заготовка immutable документа начального видения проекта |
-| `TEMPLATE-CHANGELOG.md`    | Журнал эволюции самого шаблона (TEMPLATE-* — мета, удаляется в derived) |
-| `TEMPLATE-BACKLOG.md`      | Бэклог разработки шаблона (TEMPLATE-* — мета, удаляется в derived) |
-| `TEMPLATE-BOARD.md`        | Kanban разработки шаблона (TEMPLATE-* — мета, удаляется в derived) |
-| `TEMPLATE-DECISIONS.md`    | ADR-Lite шаблона (TEMPLATE-* — мета, удаляется в derived) |
-| `specs/spec-template.md`   | Шаблон спецификации крупной фичи                  |
-
-`src/main.py`, `pyproject.toml`, `uv.lock` — минимальный Python-стартер.
-**Корень исходников — всегда `src/`** (см. ADR в `DECISIONS.md`).
-Менеджер окружений — `uv`. При не-Python стеке `src/main.py` и
-`pyproject.toml` можно заменить / удалить.
-
-## Как использовать
-
-Шаги намеренно выстроены так, что разрушительные действия над
-`README.md` идут **последними** — иначе пользователь, следующий списку
-сверху вниз, потерял бы оставшиеся инструкции вместе с перезаписанным
-файлом.
-
-1. Клонировать или скопировать содержимое в новый репозиторий.
-2. **Заполнить `CONCEPT.md`** (скопировать `CONCEPT.template.md`)
-   через ритуал встречных вопросов с Claude. Это immutable документ
-   начального видения — заполняется один раз, потом не изменяется.
-3. Заполнить `PROJECT.md` (минимум — цель и текущий статус).
-4. Удалить пример из `DECISIONS.md` и оставить только реальные решения.
-5. Очистить `CHANGELOG.md`, `BACKLOG.md` и `BOARD.md`.
-6. В `pyproject.toml` заменить плейсхолдеры `name` / `authors` под
-   свой проект.
-7. При первой крупной фиче — скопировать `specs/spec-template.md` в
-   `specs/T<NNN>-feature-name/spec.md` и пройти ритуалы clarify + analyze
-   (см. ниже).
-8. Удалить все мета-файлы шаблона: `rm TEMPLATE-*.md`. Они относятся
-   только к разработке самого шаблона `vlakir/dreamteam` и в derived
-   проекте не нужны (бэклог шаблона, его board, его ADR, его
-   changelog).
-9. **В последнюю очередь:** скопировать `README.template.md` поверх
-   `README.md` и заполнить. После этого setup-инструкции выше уже не
-   видны — поэтому шаг финальный.
-
-## Роль Claude в методике
-
-Соблюдение конвенций шаблона — зона ответственности Claude, а не
-Разработчика. В начале работы над новым проектом Claude кратко
-пересказывает схему работы (scope discipline, `src/`-layout, `uv`,
-линтеры с pre-push 0 ошибок, импорты только в шапке, ритуал
-spec/clarify/analyze для крупных фич). В дальнейшем — следит за
-соблюдением правил без напоминаний.
-
-Если Разработчик предлагает что-то, нарушающее конвенции, Claude
-явно подсвечивает нарушение, просит подтверждения и предлагает
-конвенциональную альтернативу. Окончательное решение всегда за
-Разработчиком, но осознанное.
-
-## Рабочий процесс
-
-### Мелкие задачи (одиночные правки, баг-фиксы, конфиги)
-
-Идём напрямую к коду — **без ритуалов** spec/clarify/analyze, которые
-убили бы темп. Но feature-ветка и PR всё равно обязательны (см. «Git
-workflow» ниже) — правило «не пушить напрямую в `main`» действует
-даже на однострочные правки.
-
-**И:** scope-дисциплина действует всегда. Если в процессе всплывает
-побочная идея — она едет в `BACKLOG.md`, а не в текущее изменение.
-
-### Крупные фичи (>1 дня работы или новая подсистема)
-
-Полный путь:
-
-1. **Spec.** Копируем `specs/spec-template.md` → `specs/T<NNN>-name/spec.md`,
-   заполняем разделы «что» и «зачем». Никаких технических деталей.
-2. **Clarify.** Claude читает спеку и задаёт встречные вопросы про
-   слепые зоны: auth, edge cases, ошибки, безопасность, лимиты. Ответы
-   вшиваются в спеку.
-3. **Plan.** Опционально — `plan.md` рядом со спекой, если стек и
-   архитектура неочевидны. Решает «как».
-4. **Analyze.** Claude перечитывает spec + plan и ищет противоречия,
-   несоответствия, упущения. Правим до чистого прохода.
-5. **Implement.** Реализация по фазам. Одна фаза = одна сессия с `/clear`
-   в конце. Каждая завершённая фаза — коммит.
-6. **Update.** После фичи: `CHANGELOG.md` обновлён, новые архитектурные
-   решения занесены в `DECISIONS.md`.
-
-### Архитектурные изменения
-
-Никогда не «заодно». Только как отдельная задача с явным согласованием
-и записью в `DECISIONS.md`.
-
-### Нумерация задач
-
-Каждая задача из `BOARD.md` / `BACKLOG.md` получает уникальный ID
-формата `T<NNN>` (три цифры, префикс `T` для «task»). ID не
-переиспользуется. Новый = `max(существующих T-ID в BACKLOG.md,
-BOARD.md и CHANGELOG.md) + 1`. ID общий для `BOARD.md` и `BACKLOG.md`,
-сохраняется при перетекании.
-
-**Почему `CHANGELOG.md` входит в подсчёт `max()`:** задачи удаляются
-из `BOARD.md` после релиза, поэтому единственный persistent-источник
-T-ID завершённых задач — `CHANGELOG.md`. Запись о релизе
-**обязательно** содержит T-ID (например, `Added: Превью постов
-(T<NNN>).`). Без этого правило «ID не переиспользуется» сломается на
-первой же ротации доски.
-
-**Применение ID:**
-
-- В `BOARD.md` / `BACKLOG.md`: `- **T<NNN>** — <описание>`.
-- Имя ветки: `T<NNN>-<slug>` (без namespace типа `fixes/` /
-  `feature/` — ID уже идентифицирует задачу).
-- Заголовок PR: `T<NNN>: <title>`.
-- Описание PR ссылается на ID (`Implements T<NNN>` или
-  `Addresses T<NNN>`). GitHub-style `Closes T<NNN>` не сработает —
-  задачи живут в markdown, не в Issues; статус обновляется вручную
-  переносом записи между секциями `To Do` / `Doing` / `Done`.
-- Спецификация крупной фичи: `specs/T<NNN>-<slug>/spec.md`.
-
-**Исключение:** методические PR (вводящие или меняющие правила
-процесса) могут идти без `T`-ID — это не «задачи проекта», а
-правки самой методики. Называются осмысленно: `rules/...`,
-`fixes/...`, и т.п.
-
-### Git workflow: только через PR, без прямого push в main
-
-Прямой push в `main` (или `master`) — запрещён. Любое изменение идёт
-через feature-ветку и PR/MR, независимо от хостинга.
-
-Цикл:
-
-1. `git checkout -b <feature-branch>` от свежего `main`.
-2. Коммитим как удобно для процесса.
-3. `git push -u origin <feature-branch>`.
-4. Создаём PR/MR.
-5. Merge через PR (с squash — см. ниже).
-
-Опционально как «второй слой» защиты:
-
-- **Локальный pre-push hook** — готовый скрипт лежит в `hooks/pre-push`.
-  Установить:
-
-  ```bash
-  cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
-  ```
-
-  Универсальный путь, не зависит от хостинга.
-- **Branch Protection Rules / Protected Branches** на стороне платформы
-  (GitHub, GitLab, GitFlic, Forgejo и т.д.) — настраивается через UI
-  или CLI конкретной платформы.
-
-### Code review каждого PR
-
-Каждый PR проходит code review перед merge.
-
-**По умолчанию ревьюер — Claude.** Структурный self-review по чеклисту:
-
-1. **Scope** — diff в рамках задачи, без «заодно».
-2. **Архитектура** — есть ADR в `DECISIONS.md` для значимых изменений; `src/`-layout соблюдён.
-3. **Код** — импорты в шапке модуля (без lazy/conditional), нет `# noqa` / `# type: ignore` / расширений `ignore` без обсуждения.
-4. **Качество** — `ruff check`, `ruff format --check`, `mypy` — 0 ошибок.
-5. **Документация** — `CHANGELOG.md` обновлён для значимого, `README` / `CLAUDE.md` актуальны.
-6. **Соглашения** — осмысленные branch name, commit message, PR description.
-7. **Безопасность** — нет секретов и личных имён в публичных артефактах.
-
-GitHub (и аналогичные платформы) запрещают approve собственного PR — self-review в этом случае оформляется как `comment`. Финальный approve / merge делает Разработчик.
-
-**Сторонние ревью** (боты, CI, сервисы вроде qodo-code-review) — **не игнорировать**. Каждое замечание Claude анализирует, обсуждает с Разработчиком и фиксирует решение (учесть / отбросить / отложить с обоснованием).
-
-### Один PR — один коммит
-
-В `main` каждый PR приезжает одним коммитом — правило одинаково
-работает на любом хостинге (GitHub, GitFlic, GitLab, Forgejo и т.д.).
-На feature-ветке можно коммитить как удобно (мелкие WIP-шаги, обратимые
-точки), но перед слиянием всё схлопывается в один.
-
-**Универсальный путь — локальный squash перед merge:**
-
-- `git reset --soft <base> && git commit -m "..."` —
-  где `<base>` обычно `origin/main` или `HEAD~N`.
-- `git rebase -i HEAD~N` — интерактивный (выбрать `squash`/`fixup`).
-- После squash уже запушенной ветки: `git push --force-with-lease`
-  (не `--force`).
-
-**Опциональный ускоритель, если платформа поддерживает.** Многие
-сервисы умеют squash на стороне merge:
-
-- GitHub: «Squash and merge» в repo settings.
-- GitLab: «Squash commits when merge request is accepted».
-- GitFlic, Bitbucket, Forgejo и др. — аналогичные опции.
-
-Если включено — squash происходит автоматически при merge PR/MR,
-локально перематывать не нужно. Если нет — squash локально, правило
-работает одинаково.
-
-### Стек инструментов и pre-push контроль
-
-Менеджер зависимостей и окружений — `uv`. Линтер — `ruff`, тип-чекер —
-`mypy`. Тесты — `pytest` + `pytest-cov` + `pytest-asyncio` (coverage
-threshold ≥ 80%). Конфигурация в `pyproject.toml`.
-
-**Быстрый старт:**
+**Project scaffolding CLI with built-in methodology.** One command —
+working project with linters, tests, kanban, ADR log, and a complete
+set of rules for AI-assisted development baked in.
 
 ```bash
-uv sync                       # создать .venv и поставить deps
-uv run python src/main.py     # запустить
-uv add <pkg>                  # добавить runtime-зависимость
-uv add --dev <pkg>            # добавить dev-зависимость
+pip install dreamteam        # or: uvx dreamteam (zero-install)
+dreamteam init my-project
+cd my-project
+uv sync
 ```
 
-**Перед каждым `git push` обязательно (четыре проверки):**
+That's it. The generated project passes its own pre-push check suite
+(ruff / ruff format / mypy / pytest with 80% coverage threshold)
+immediately — verified by the integration test in this repo.
+
+## What you get
+
+Every project scaffolded by `dreamteam init` includes:
+
+- **Python stack** — `uv` for deps, `ruff` (`select = ["ALL"]` with
+  a curated `ignore`), `mypy` (`mypy_path = "src"`), `pytest +
+  pytest-cov + pytest-asyncio` with a `--cov-fail-under=80` gate.
+- **`src/`-layout** with a working `main.py` (CLI-style logging:
+  DEBUG/INFO → stdout, WARNING+ → stderr) and a coverage-100%
+  `tests/test_main.py`.
+- **Methodology files** that are not just placeholders but
+  ready-to-fill documents:
+  - `CONCEPT.md` — immutable initial draft of the project vision.
+  - `PROJECT.md` — passport (purpose, status, stack, links).
+  - `DECISIONS.md` — ADR-Lite for architectural decisions.
+  - `BACKLOG.md` / `BOARD.md` — markdown kanban with task numbering
+    (`T<NNN>` IDs, branch naming, PR naming, spec folder naming).
+  - `CHANGELOG.md` — Keep-a-Changelog style with retrospective
+    sections at milestone boundaries.
+  - `CLAUDE.md` — project rules for [Claude Code](https://claude.com/claude-code),
+    including scope discipline, Git workflow, pre-push contract, and
+    a structured code-review checklist.
+- **`hooks/pre-push`** — optional local hook rejecting direct pushes
+  to `main` / `master`.
+- **`specs/spec-template.md`** — template for major-feature specs
+  with `clarify` / `analyze` sections.
+
+## Updating an existing project
+
+When the methodology evolves, propagate changes:
 
 ```bash
-uv run ruff check .            # 0 ошибок
-uv run ruff format --check .   # 0 ошибок
-uv run mypy <путь к коду>      # 0 ошибок
-uv run pytest                  # 0 fail-ов, coverage ≥ 80%
+cd my-project
+dreamteam update
 ```
 
-100% прохождение — жёсткое условие, не «по возможности».
+> **MVP limitation.** Current `dreamteam update` re-applies the
+> template with stored answers (`overwrite=True`). Local edits to
+> template-managed files will be overwritten. Full diff/merge update
+> requires a git-tracked template, which is non-trivial for
+> PyPI-distributed packages — planned as a follow-up task.
 
-**Никаких обходных манёвров.** Claude не добавляет `# noqa`,
-`# type: ignore`, не расширяет `ignore` в `[tool.ruff.lint]` и не
-вписывает `per-file-ignores` по своей инициативе. Если линтер
-ошибается обоснованно — обсуждаем с Разработчиком явно (показываем
-сообщение, код, аргумент), только после согласия добавляем подавление
-с комментарием.
+## How it works
 
-Дефолтный режим — чинить ошибку, а не глушить.
+`dreamteam` is a thin Typer-based CLI on top of
+[Copier](https://copier.readthedocs.io/). The template lives at
+`src/dreamteam/template/` inside the installed package; `dreamteam
+init` calls `copier.run_copy` programmatically, then persists answers
+to `.copier-answers.yml` so updates can replay them.
 
-## Что НЕ входит в шаблон
+Methodology evolves in this repository:
+- **`TEMPLATE-BACKLOG.md` / `TEMPLATE-BOARD.md`** — what's planned /
+  in progress for the methodology itself.
+- **`TEMPLATE-DECISIONS.md`** — ADRs for the template (e.g., why
+  `uv` over `poetry`, why `src/`-layout, why `TEMPLATE-*` prefix,
+  why Copier).
+- **`TEMPLATE-CHANGELOG.md`** — Keep-a-Changelog for the template,
+  with retrospective sections.
 
-Сознательно не добавлены:
+These `TEMPLATE-*` files stay in this repo only; derived projects
+get the cleaner default-named versions as starting points.
 
-- Vibe Kanban, SpecKit и любые отдельные инструменты — методика
-  держится на дисциплине и markdown-файлах, а не на стеке.
-- Constitution-файл — его роль выполняет проектный `CLAUDE.md` плюс
-  глобальный `~/.claude/CLAUDE.md` (если он у разработчика настроен).
-- CI/тесты/линтеры в отдельных пайплайнах — pre-push контроль покрывает
-  базовый случай; CI добавляется, когда проект до него дорастёт.
+## Development
 
-## Эволюция
+```bash
+git clone https://github.com/vlakir/dreamteam.git
+cd dreamteam
+uv sync
+uv run dreamteam init /tmp/sandbox --defaults   # try it
+uv run pytest                                    # fast tests
+uv run pytest -m integration                     # e2e (slow, runs uv sync inside generated project)
+```
 
-Шаблон сам по себе — версия 0.1. Шлифуем на реальных проектах, потом
-подумаем, как мягко переводить старые проекты на эти рельсы.
+Pre-push checks (run all four with 0 errors before any push):
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest
+```
+
+Methodology rules — including scope discipline, never push to `main`,
+one PR one commit, mandatory code review, task numbering `T<NNN>` —
+are documented in `CLAUDE.md` (project-level) and `~/.claude/CLAUDE.md`
+(developer-level, optional).
+
+## Status
+
+Currently `v0.x` (pre-1.0). Stable feature set since `v0.2.0`
+methodology consolidation; `v1.0.0` will be the first release with
+this Copier/CLI architecture (T006). Roadmap in `TEMPLATE-BACKLOG.md`.
+
+## License
+
+(to be added — see `TEMPLATE-BACKLOG.md`).
