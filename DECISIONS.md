@@ -14,6 +14,74 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-14 — PyPI naming: `dreamteam-cli` вместо `dreamteam` (T011)
+
+- **Контекст:** При первой попытке publish (T011) обнаружено, что
+  имя `dreamteam` на PyPI занято с 2019 года: squatter-аккаунт с
+  single-version 0.0.1, заброшен (last upload 2019-09-12, владелец
+  не отвечает на запросы по аналогичным случаям). Имя нужно сейчас.
+- **Альтернативы:**
+  - **PEP 541 reclamation** (запрос реклемации заброшенного package
+    у PyPI admins) — отвергли: процесс на недели, требует emails
+    к admins + период ожидания response от original maintainer.
+    Несовместимо с темпом релиза.
+  - **`dreamteam-scaffold`, `dreamteamkit`, `dreamteamx`, прочие** —
+    отвергли в пользу `dreamteam-cli`: последний более self-
+    descriptive (CLI tool) и следует распространённой Python
+    конвенции (`django-cli`, `kubernetes-cli` и т.п.).
+- **Последствия:**
+  - **PyPI name:** `dreamteam-cli`. `pip install dreamteam-cli`,
+    `uvx --from dreamteam-cli dreamteam ...`.
+  - **Command name** остаётся `dreamteam` (через `[project.scripts]
+    dreamteam = "dreamteam.cli:app"`). Brand сохраняется в
+    повседневной работе.
+  - **Import name** остаётся `dreamteam` (папка `src/dreamteam/`).
+    Python permits PyPI name ≠ import name; common pattern.
+  - **Repo name** остаётся `vlakir/dreamteam` (GitHub).
+  - В `README.md` явно прописан note про PyPI name vs command name
+    distinction.
+  - Известный артефакт: бесполезный squatter package `dreamteam`
+    0.0.1 продолжает существовать на PyPI; наш `dreamteam-cli` —
+    отдельная запись, никаких коллизий.
+
+### 2026-05-14 — Publish flow: `scripts/publish.sh` + `.secrets` (hybrid: twine check + uv publish) (T011)
+
+- **Контекст:** Для регулярных публикаций dreamteam-cli на PyPI
+  нужен скрипт. Передавать токен в командной строке каждый раз —
+  опасно (попадает в shell history); хранить токен в коде —
+  нельзя. Validation артефактов перед upload желательна (PyPI
+  не позволяет re-upload одной версии, ошибка в metadata = bump
+  version).
+- **Альтернативы:**
+  - **Чистый `uv publish` без validation step** — отвергли. `uv
+    publish` не имеет аналога `twine check`; ошибка в metadata
+    обнаружится после irrevocable upload. Bump-and-republish —
+    плохой UX для первой публикации.
+  - **Чистый `twine upload`** — отвергли. Заменять `uv publish`
+    на twine в пользу одного дополнительного шага не нужно.
+    Hybrid берёт лучшее из обоих.
+  - **Inline команды без скрипта** (как было сначала) — отвергли.
+    Токен в командной строке + shell history + повторение при
+    каждом релизе.
+  - **`.env` вместо `.secrets`** — отвергли. У Разработчика уже
+    устоявшаяся конвенция `.secrets` family (от dynaconf-эпохи
+    старых проектов).
+- **Последствия:**
+  - **`scripts/publish.sh`** (bash, `set -euo pipefail`):
+    1. Source `.secrets` (export PYPI_TOKEN / PYPI_TEST_TOKEN).
+    2. `rm -rf dist/ && uv build`.
+    3. `uv run twine check dist/*` (validation).
+    4. `UV_PUBLISH_TOKEN=$TOKEN uv publish` (или с
+       `--publish-url https://test.pypi.org/legacy/` при `--test`).
+    5. Print verify-команду.
+  - **`.secrets`** в `.gitignore` (явно, поскольку `.secrets.*`
+    pattern не покрывает bare `.secrets`).
+  - **`.secrets.example`** в git (через negation
+    `!.secrets.example` в `.gitignore`) — template для onboarding.
+  - **`twine`** добавлен в `[dependency-groups].dev`.
+  - Usage: `cp .secrets.example .secrets`, paste tokens, run
+    `scripts/publish.sh` (или `--test` для TestPyPI).
+
 ### 2026-05-14 — MIT License для `dreamteam` package (T010)
 
 - **Контекст:** `dreamteam` — scaffolding CLI, ориентирован на широкую

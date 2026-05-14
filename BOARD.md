@@ -20,6 +20,13 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Done
 
+- **T011** — `dreamteam-cli` v1.0.0 опубликован на PyPI 2026-05-14.
+  Имя `dreamteam` оказалось занято squatter-аккаунтом с 2019 — PyPI
+  package переименован в `dreamteam-cli`, command остался `dreamteam`.
+  Скрипт публикации `scripts/publish.sh` + `.secrets` (git-ignored).
+  Два ADR в `DECISIONS.md` (naming + publish flow). В CHANGELOG.md
+  → [Unreleased].
+
 - **T010** — Добавлен MIT License (`LICENSE` файл, classifier,
   README, ADR). Снимает блокер T011 (PyPI publish). В CHANGELOG.md
   → [Unreleased] → Added.

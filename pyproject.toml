@@ -1,5 +1,5 @@
 [project]
-name = "dreamteam"
+name = "dreamteam-cli"
 version = "1.0.0"
 description = "Project scaffolding CLI with built-in methodology (Copier-backed)."
 readme = "README.md"
@@ -58,6 +58,7 @@ dev = [
     "pytest>=8.4",
     "pytest-cov>=7.0",
     "pytest-asyncio>=1.0",
+    "twine>=6.2.0",
 ]
 
 
