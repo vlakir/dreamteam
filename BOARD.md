@@ -16,7 +16,28 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Doing
 
-<!-- Максимум 1-2 задачи. -->
+- **T011** — Опубликовать `dreamteam` v1.0.0 на PyPI (hybrid:
+  `twine check` для validation + `uv publish` для upload).
+
+  **Готово к публикации:** wheel и sdist собраны
+  (`dist/dreamteam-1.0.0-py3-none-any.whl` + `.tar.gz`),
+  `uv run twine check dist/*` → **PASSED** на оба artefacts,
+  smoke-test через `uvx --from <wheel>` пройден.
+
+  **Требуется от Разработчика** (PyPI credentials):
+  ```bash
+  # 1. TestPyPI (sanity check)
+  UV_PUBLISH_TOKEN=<test-token> \
+    uv publish --publish-url https://test.pypi.org/legacy/
+
+  # 2. Verify install из TestPyPI
+  uvx --index https://test.pypi.org/simple/ \
+      --extra-index https://pypi.org/simple/ \
+      --from dreamteam==1.0.0 dreamteam --version
+
+  # 3. Real PyPI
+  UV_PUBLISH_TOKEN=<prod-token> uv publish
+  ```
 
 ## Done
 
