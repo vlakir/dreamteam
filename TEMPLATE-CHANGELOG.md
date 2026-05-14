@@ -19,6 +19,25 @@
 
 Изменения, накопленные после `v0.2.0`.
 
+### Changed
+
+- **Branch Protection на `main`** через GitHub-side enforcement
+  (T001). На репозитории `vlakir/dreamteam` включена защита:
+  `gh repo edit` оставил только Squash merge; `gh api .../branches/
+  main/protection` блокирует прямой push (включая admin —
+  `enforce_admins=true`). Acceptance verified: `git push origin
+  main` напрямую → `GH006: Protected branch update failed`.
+  ADR в `TEMPLATE-DECISIONS.md`.
+
+### Notes
+
+- В истории `main` остался artefact `49bbebe` («T001 smoke-test:
+  this should be rejected by branch protection») — пустой коммит,
+  попавший в main во время первого smoke-теста с
+  `enforce_admins=false`. Не revert-ил, чтобы не нарушать своё
+  же правило «не force-push в main». Lesson learned: проверять
+  `enforce_admins` до smoke-теста, не после.
+
 ---
 
 ## [0.2.0] — 2026-05-14 — Methodology consolidation
