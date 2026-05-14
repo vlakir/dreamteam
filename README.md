@@ -90,7 +90,6 @@ because they're physically separated by the package boundary.
 git clone https://github.com/vlakir/dreamteam.git
 cd dreamteam
 uv sync
-uv run dreamteam init /tmp/sandbox --defaults   # try it
 uv run pytest                                    # fast tests
 uv run pytest -m integration                     # e2e (slow, runs uv sync inside generated project)
 ```
@@ -108,6 +107,42 @@ Methodology rules — including scope discipline, never push to `main`,
 one PR one commit, mandatory code review, task numbering `T<NNN>` —
 are documented in `CLAUDE.md` (project-level) and `~/.claude/CLAUDE.md`
 (developer-level, optional).
+
+### Sandbox (try the tool without touching the repo)
+
+`scripts/sandbox.sh` creates throwaway `dreamteam`-projects inside
+`/tmp/dreamteam-sandbox/` (ephemeral, wiped on reboot). The path is
+hardcoded — script refuses to write anywhere else.
+
+```bash
+scripts/sandbox.sh init                         # install from PyPI
+scripts/sandbox.sh init --local                 # install from local dist/*.whl (builds if missing)
+scripts/sandbox.sh init --name my-experiment    # custom name (default: test-<HHMMSS>)
+
+scripts/sandbox.sh list                         # list existing sandbox projects
+scripts/sandbox.sh shell my-experiment          # open sub-shell inside that sandbox
+scripts/sandbox.sh clean                        # remove /tmp/dreamteam-sandbox/ (asks confirm)
+```
+
+Use `--local` when testing changes before publishing to PyPI. The
+script builds `dist/dreamteam_cli-*.whl` if missing and installs
+into a uv-managed cache (does not touch the repo's `.venv/`).
+
+### Releases — publishing to PyPI
+
+`scripts/publish.sh` builds and uploads to PyPI. Token lives in
+`.secrets` (git-ignored — copy `.secrets.example` and fill in):
+
+```bash
+cp .secrets.example .secrets
+# edit .secrets, paste PYPI_TOKEN
+
+scripts/publish.sh                              # publish to real PyPI
+scripts/publish.sh --test                       # publish to TestPyPI
+```
+
+The script runs `twine check` on built artefacts before upload to
+catch metadata / README rendering issues.
 
 ## Status
 
