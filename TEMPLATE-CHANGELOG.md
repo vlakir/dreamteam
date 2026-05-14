@@ -17,7 +17,38 @@
 
 ## [Unreleased]
 
-Изменения, накопленные после `v0.2.0`.
+(empty — будет наполняться после v1.0.0)
+
+---
+
+## [1.0.0] — 2026-05-14 — PyPI-distributed CLI architecture
+
+Архитектурная переориентация: шаблон стал полноценным CLI-инструментом
+`dreamteam` на PyPI, на смену GitHub Template Repository.
+
+### Added
+
+- **Python-package `dreamteam`** с Typer-based CLI (`init`,
+  `update`, `--version`). Установка: `pip install dreamteam` или
+  `uvx dreamteam` (zero-install).
+- **Команда `dreamteam init <path>`** создаёт чистый derived
+  project одной командой — без 9 ручных шагов очистки. Внутри —
+  `copier.run_copy` через `Worker` (для capture user answers).
+- **Команда `dreamteam update`** re-applies template к существующему
+  проекту с stored answers. MVP-режим: `overwrite=True`, без
+  diff/merge — это known limitation (документировано в command
+  docstring и в ADR).
+- **`src/dreamteam/template/`** — copier-template как package-data:
+  все методические файлы (CLAUDE/PROJECT/CONCEPT/DECISIONS/CHANGELOG/
+  BACKLOG/BOARD/spec-template, hooks/pre-push, src/main.py, tests/
+  test_main.py, pyproject.toml, .gitignore, README.md). Jinja-
+  substitution в нужных файлах (`{{ project_name }}`, `{{
+  project_description }}`, `{{ author_name }}`, `{{ author_email }}`).
+- **`.copier-answers.yml`** в derived проекте — пишется вручную в
+  init (copier не auto-create для unversioned local templates).
+- **Integration tests** `tests/test_template.py` — e2e:
+  `dreamteam init` → `uv sync` → ruff/format/mypy/pytest на
+  результате. Маркер `integration`, opt-in. Self-validating template.
 
 ### Changed
 
@@ -37,6 +68,45 @@
   `enforce_admins=false`. Не revert-ил, чтобы не нарушать своё
   же правило «не force-push в main». Lesson learned: проверять
   `enforce_admins` до smoke-теста, не после.
+
+### Retrospective
+
+- **Что зашло:**
+  - **8-фазный план** T006 (с PR на каждую фазу) сработал хорошо.
+    Большая архитектурная задача разбита на читаемые куски, каждый
+    с self-review и acceptance. Если бы шло одним PR — обзор был бы
+    невозможен.
+  - **Copier как зрелый инструмент** — не пришлось писать template
+    engine с нуля; jinja, prompts, `--defaults`, `copier-answers`
+    готовы из коробки.
+  - **Self-validating template** через integration test — generated
+    project сам проходит 4-check suite, что гарантирует «дойдёт ли
+    user до зелёного pre-push после `dreamteam init`» — гарантирует.
+  - **Catch-it-at-the-text работает** — поймал у себя **два**
+    noqa-temptation в одном Phase 4: subprocess.run с S603/S607 и
+    local `import Worker` с PLC0415. Оба отрефакторил без noqa, до
+    коммита.
+- **Что не зашло:**
+  - **`copier.run_update` не работает** с PyPI-distributed template
+    (требует git-tracked template). MVP `dreamteam update` =
+    `run_copy` с `overwrite=True`, без diff/merge. Это **известное
+    ограничение**, документировано — но всё-таки не «full feature».
+    Будущая задача (T009?): bundle template как git repo, или
+    temp-clone-with-git approach.
+  - **`Worker` from copier** помечен как internal API (deprecation
+    warning). Используем потому что run_copy не возвращает answers,
+    а нам нужен capture. Решение: hope copier expose public API
+    later; если internal API ломается — переписать.
+  - **PyPI publish не выполнен** — credentials у Разработчика, не у
+    Claude. v1.0.0 build готов локально, документация для publish
+    в TEMPLATE-DECISIONS, но actual upload отложен.
+  - **License не определена** — README ссылается на TEMPLATE-BACKLOG
+    как placeholder. Перед PyPI publish нужен license.
+- **Правки методики (в `[Unreleased]` для v1.1):**
+  - T009 (новая) — полноценный `dreamteam update` с diff/merge
+    через bundled git-template или temp-clone.
+  - T010 (новая) — выбрать и добавить license file.
+  - T011 (новая) — actually publish to TestPyPI then PyPI.
 
 ---
 
