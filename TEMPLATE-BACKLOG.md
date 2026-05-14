@@ -65,6 +65,34 @@
   **Приоритет:** после T001 (Branch Protection).
 -->
 
+- **T011** — [2026-05-14] Опубликовать `dreamteam` v1.0.0 на PyPI.
+
+  `uv build` готов (см. `TEMPLATE-DECISIONS.md → T006 ADR →
+  Process для release на PyPI`). Нужно: PyPI API tokens
+  (TestPyPI + real), затем `uv publish --publish-url
+  https://test.pypi.org/legacy/`, smoke-test через `pip install
+  --index-url=test`, затем `uv publish` на основной.
+
+  **Блокер:** требует ручного действия Разработчика (credentials).
+
+- **T010** — [2026-05-14] Выбрать и добавить LICENSE.
+
+  README ссылается на «to be added». Перед PyPI publish (T011)
+  нужен license file (LICENSE) в корне + classifier в `pyproject.
+  toml`. Кандидаты: MIT (permissive, common), Apache-2.0 (with
+  explicit patent grant), GPL-3.0. Выбор Разработчика.
+
+- **T009** — [2026-05-14] Полноценный `dreamteam update` (diff/merge).
+
+  Текущий MVP update делает `run_copy(..., overwrite=True)` —
+  re-applies template, теряет user-edits в template-managed
+  файлах. Полноценный `copier.run_update` требует git-tracked
+  template, чего нет у PyPI-distributed package.
+
+  Подходы: (1) bundle bare git repo внутри `src/dreamteam/template/`,
+  (2) temp-clone-with-git перед update, (3) другая стратегия.
+  Требует spec.
+
 - **T007** — [2026-05-14] Найти замену для qodo-code-review.
 
   **Контекст.** qodo исчерпал monthly quota к концу ночной сессии

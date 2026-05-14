@@ -14,6 +14,66 @@
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-14 — Миграция на Copier + PyPI-distributed CLI (T006)
+
+- **Контекст:** Шаблон распространялся как GitHub Template Repository.
+  Каждый новый проект требовал 9 ручных шагов очистки (`rm TEMPLATE-*`,
+  очистка примеров, копирование `README.template.md`, замена
+  плейсхолдеров). Это трение в самый ценный момент — старт проекта.
+- **Альтернативы:**
+  - **Остаться на gh-template** — отвергли. Трение растёт с
+    методикой.
+  - **Cookiecutter** — отвергли. Нет нативного `update`, экосистема
+    стагнирует на фоне `copier`.
+  - **Свой CLI с нуля** — отвергли. 1-2 недели работы vs 1 день с
+    `copier`-инфраструктурой. Reinventing the wheel.
+  - **Чистый `copier copy gh:vlakir/dreamteam`** (без своего CLI и
+    PyPI) — отвергли. Привязка к `gh:`-reference нарушает правило
+    «методика универсальная, не привязанная к платформе».
+- **Последствия:**
+  - `dreamteam` — Python-package на PyPI, тонкий Typer CLI поверх
+    `copier`. Команды: `dreamteam init <path>`, `dreamteam update`.
+  - Template живёт в `src/dreamteam/template/` (package-data),
+    `copier` вызывается через Python API.
+  - **`dreamteam update` ограничен на MVP** — re-applies template
+    с stored answers (`overwrite=True`), не делает diff/merge. Full
+    diff/merge через `copier.run_update` требует git-tracked
+    template, что нетривиально для PyPI-distributed package.
+    Планируется отдельной задачей.
+  - **`Worker` from copier** используется для capture user answers
+    (run_copy возвращает None). Worker помечен как internal API,
+    deprecation warning принимается до публичного API.
+  - Файлы методики в корне репо удалены (Phase 7) — они теперь
+    только в `src/dreamteam/template/`. Корень репо: package +
+    tests + `TEMPLATE-*.md` meta-docs + specs + README + .gitignore +
+    pyproject + uv.lock.
+- **Process для release на PyPI** (для maintainer):
+  ```bash
+  # 1. Локально проверить build
+  uv build
+  unzip -l dist/dreamteam-1.0.0-py3-none-any.whl   # sanity check
+
+  # 2. TestPyPI (sanity check)
+  # Требует API token на test.pypi.org, переменная UV_PUBLISH_TOKEN
+  uv publish --publish-url https://test.pypi.org/legacy/
+
+  # 3. Verify install из TestPyPI работает
+  pip install --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              dreamteam
+
+  # 4. Основной PyPI (после OK на TestPyPI)
+  # Требует API token на pypi.org
+  uv publish
+  ```
+- **Versioning policy** для `dreamteam` package:
+  - Semver. `1.0.0` — первый release с Copier/CLI архитектурой.
+  - `MAJOR` bump при breaking changes методики (изменения, которые
+    `dreamteam update` не может применить безопасно).
+  - `MINOR` — новые правила / features в шаблоне (backward-compatible
+    через `update`).
+  - `PATCH` — fix-ы / documentation / tooling без изменения шаблона.
+
 ### 2026-05-14 — Branch Protection на `main` через GitHub-side enforcement (T001)
 
 - **Контекст:** правило «не пушить напрямую в `main`» было

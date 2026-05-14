@@ -1,6 +1,6 @@
 [project]
 name = "dreamteam"
-version = "0.1.0"
+version = "1.0.0"
 description = "Project scaffolding CLI with built-in methodology (Copier-backed)."
 readme = "README.md"
 authors = [
@@ -12,6 +12,25 @@ dependencies = [
     "pyyaml>=6.0.3",
     "typer>=0.25.1",
 ]
+keywords = ["scaffolding", "template", "copier", "methodology", "kanban", "adr", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Build Tools",
+    "Typing :: Typed",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/vlakir/dreamteam"
+Issues = "https://github.com/vlakir/dreamteam/issues"
+Source = "https://github.com/vlakir/dreamteam"
+Changelog = "https://github.com/vlakir/dreamteam/blob/main/TEMPLATE-CHANGELOG.md"
 
 
 [project.scripts]
@@ -25,10 +44,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dreamteam"]
-
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/dreamteam/template" = "dreamteam/template"
+# template/ contains non-.py resources (md, yml, hooks); hatch
+# includes them via the parent package directive above. No
+# explicit force-include needed.
 
 
 [dependency-groups]
