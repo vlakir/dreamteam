@@ -24,6 +24,14 @@
 
 ### Added
 
+- **MIT License** (T010). `LICENSE` файл в корне репо со стандартным
+  MIT-текстом (Copyright (c) 2026 vlakir). В `pyproject.toml`:
+  `license = "MIT"` + `license-files = ["LICENSE"]` (PEP 639 syntax).
+  README обновлён с линком на LICENSE и note про derived projects
+  (которые license-choice не наследуют). ADR в `DECISIONS.md`
+  фиксирует выбор и rejected alternatives (Apache 2.0, GPL-3.0,
+  BSD-3-Clause). Снимает блокер T011 (PyPI publish).
+
 - **`CLAUDE.md` в корне репо** для разработки `dreamteam`-пакета
   (T012). Отдельный документ от `src/dreamteam/template/CLAUDE.md`
   (который попадает в derived проекты через `dreamteam init`). Этот

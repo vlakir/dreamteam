@@ -113,4 +113,8 @@ this Copier/CLI architecture (T006). Roadmap in `BACKLOG.md`.
 
 ## License
 
-(to be added — see `BACKLOG.md`, task T010).
+[MIT](LICENSE) — Copyright (c) 2026 vlakir.
+
+This applies to `dreamteam` itself. Projects generated via
+`dreamteam init` do not automatically inherit MIT — license choice
+is left to the user (add your own `LICENSE` after `init`).
