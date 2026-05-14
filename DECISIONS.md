@@ -14,6 +14,35 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-14 — MIT License для `dreamteam` package (T010)
+
+- **Контекст:** `dreamteam` — scaffolding CLI, ориентирован на широкую
+  adoption и использование в любых проектах (включая proprietary).
+  Перед публикацией на PyPI (T011) требуется явная license; до сих
+  пор её не было.
+- **Альтернативы:**
+  - **Apache 2.0** — permissive + explicit patent grant. Отвергли:
+    для small CLI tool patent grant overkill; больше boilerplate.
+    Может быть пересмотрено при росте проекта / контрибьюторов.
+  - **GPL-3.0** — copyleft, viral. Отвергли: для scaffolding tool
+    блокирует использование в proprietary derived projects, что
+    противоречит главной цели (широкая adoption).
+  - **BSD-3-Clause** — like MIT + non-endorsement clause. Отвергли:
+    extra clause без значимой выгоды для small Python tool.
+- **Последствия:**
+  - `LICENSE` file в корне репо со standard MIT text (Copyright (c)
+    2026 vlakir).
+  - В `pyproject.toml`: `license = "MIT"` + `license-files = ["LICENSE"]`
+    (PEP 639 syntax). License classifier из `[project.classifiers]`
+    **не дублируется** — PEP 639 запрещает.
+  - Wheel автоматически включает LICENSE через hatchling +
+    `license-files` directive.
+  - Снимает блокер T011 (PyPI publish).
+  - **Discrete от derived projects:** template/ не содержит LICENSE.
+    Пользователь `dreamteam init` сам решает что добавить (или
+    оставить unlicensed). Если в будущем хотим предложить license
+    choice в `dreamteam init` — отдельная задача.
+
 ### 2026-05-14 — `TEMPLATE-*.md` → default names в корне репо
 
 - **Контекст:** Префикс `TEMPLATE-` для мета-документов (BACKLOG,

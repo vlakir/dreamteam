@@ -3,6 +3,8 @@ name = "dreamteam"
 version = "1.0.0"
 description = "Project scaffolding CLI with built-in methodology (Copier-backed)."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "vlakir", email = "vlakir1234@gmail.com"},
 ]

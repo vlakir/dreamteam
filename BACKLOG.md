@@ -132,13 +132,6 @@
   **Приоритет:** ниже T011 (publish) — international scaling имеет
   смысл только после первых пользователей.
 
-- **T010** — [2026-05-14] Выбрать и добавить LICENSE.
-
-  README ссылается на «to be added». Перед PyPI publish (T011)
-  нужен license file (LICENSE) в корне + classifier в `pyproject.
-  toml`. Кандидаты: MIT (permissive, common), Apache-2.0 (with
-  explicit patent grant), GPL-3.0. Выбор Разработчика.
-
 - **T009** — [2026-05-14] Полноценный `dreamteam update` (diff/merge).
 
   Текущий MVP update делает `run_copy(..., overwrite=True)` —
