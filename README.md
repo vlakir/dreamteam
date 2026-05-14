@@ -66,16 +66,19 @@ init` calls `copier.run_copy` programmatically, then persists answers
 to `.copier-answers.yml` so updates can replay them.
 
 Methodology evolves in this repository:
-- **`TEMPLATE-BACKLOG.md` / `TEMPLATE-BOARD.md`** — what's planned /
-  in progress for the methodology itself.
-- **`TEMPLATE-DECISIONS.md`** — ADRs for the template (e.g., why
-  `uv` over `poetry`, why `src/`-layout, why `TEMPLATE-*` prefix,
-  why Copier).
-- **`TEMPLATE-CHANGELOG.md`** — Keep-a-Changelog for the template,
-  with retrospective sections.
+- **`BACKLOG.md` / `BOARD.md`** — what's planned / in progress for
+  the `dreamteam` package itself.
+- **`DECISIONS.md`** — ADRs for the package (e.g., why `uv` over
+  `poetry`, why `src/`-layout, why Copier, why TEMPLATE-prefix was
+  introduced and then dropped).
+- **`CHANGELOG.md`** — Keep-a-Changelog for the package, with
+  retrospective sections at milestone boundaries.
 
-These `TEMPLATE-*` files stay in this repo only; derived projects
-get the cleaner default-named versions as starting points.
+In derived projects (created via `dreamteam init`) there is a
+separate set of these files with the same names but different
+content — they live in `src/dreamteam/template/` here and get
+rendered into the user's project. The two sets never collide
+because they're physically separated by the package boundary.
 
 ## Development
 
@@ -106,8 +109,8 @@ are documented in `CLAUDE.md` (project-level) and `~/.claude/CLAUDE.md`
 
 Currently `v0.x` (pre-1.0). Stable feature set since `v0.2.0`
 methodology consolidation; `v1.0.0` will be the first release with
-this Copier/CLI architecture (T006). Roadmap in `TEMPLATE-BACKLOG.md`.
+this Copier/CLI architecture (T006). Roadmap in `BACKLOG.md`.
 
 ## License
 
-(to be added — see `TEMPLATE-BACKLOG.md`).
+(to be added — see `BACKLOG.md`, task T010).

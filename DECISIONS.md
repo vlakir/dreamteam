@@ -1,18 +1,47 @@
-# Template architecture decisions
+# Architecture decisions (dreamteam package)
 
-Архитектурные решения **самого шаблона** `vlakir/dreamteam` (ADR-Lite).
-Этот файл — мета-документ; в derived projects он **удаляется** (см.
-`rm TEMPLATE-*.md` в `README.md`).
+Архитектурные решения `dreamteam`-пакета (scaffolding CLI на Copier),
+ADR-Lite. В derived projects — свой `DECISIONS.md` (из
+`src/dreamteam/template/`), они не пересекаются.
 
-Формат и принципы — те же, что и у пользовательского `DECISIONS.md`:
-решения фиксируются и не редактируются после; новый блок при
-пересмотре.
+Формат и принципы: решения фиксируются и не редактируются после
+принятия; новый блок при пересмотре. Исторические упоминания
+`TEMPLATE-*.md` в старых ADR ниже **не правлены** — immutable history.
 
 ---
 
-## Решения шаблона
+## Решения
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
+
+### 2026-05-14 — `TEMPLATE-*.md` → default names в корне репо
+
+- **Контекст:** Префикс `TEMPLATE-` для мета-документов (BACKLOG,
+  BOARD, CHANGELOG, DECISIONS) был введён в T005 для разделения
+  «мета шаблона» vs «заготовки для derived» в одном репо. После
+  T006 заготовки уехали в `src/dreamteam/template/` как package
+  data; в корне репо остались только мета-документы — коллизия
+  исчезла, префикс стал избыточным.
+- **Альтернативы:**
+  - **Оставить префикс** — отвергли. Избыточен после T006, делает
+    файлы менее обычными для нового читателя репо.
+  - **Перенести мета-документы в `meta/` подпапку** — отвергли.
+    Default позиция меты — корень репо (как везде в Python проектах).
+- **Последствия:**
+  - `TEMPLATE-BACKLOG.md → BACKLOG.md`,
+    `TEMPLATE-BOARD.md → BOARD.md`,
+    `TEMPLATE-CHANGELOG.md → CHANGELOG.md`,
+    `TEMPLATE-DECISIONS.md → DECISIONS.md` (через `git mv`).
+  - Live references (в README, pyproject `[project.urls] Changelog`,
+    intro секциях самих файлов) обновлены на default-names.
+  - Historical entries в CHANGELOG (внутри версий) и в этом
+    DECISIONS (внутри старых ADR), а также `specs/T006-.../spec.md`
+    — **не правлены**. Это immutable history.
+  - Глобальный `~/.claude/CLAUDE.md` обновлён: scope правила
+    нумерации T-ID для репо шаблона теперь по `BACKLOG.md`/`BOARD.md`/
+    `CHANGELOG.md` (без `TEMPLATE-`-префикса).
+  - Файлы в `src/dreamteam/template/` (внутри template для derived)
+    не затронуты — там и были без префикса.
 
 ### 2026-05-14 — Миграция на Copier + PyPI-distributed CLI (T006)
 

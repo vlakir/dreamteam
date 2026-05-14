@@ -1,23 +1,36 @@
-# Template evolution log
+# Changelog (dreamteam package)
 
-Журнал эволюции **самого шаблона** `vlakir/dreamteam` между версиями.
-**Не путать с `CHANGELOG.md`** — тот предназначен для конкретного
-проекта, созданного из шаблона.
-
-Этот файл живёт только в репозитории шаблона. При создании нового
-проекта из шаблона `TEMPLATE-CHANGELOG.md` **удалить** вместе с
-прочими `TEMPLATE-*.md` (см. инструкцию в `README.md`).
+Журнал эволюции `dreamteam`-пакета (scaffolding CLI на Copier).
+В derived projects (создаваемых через `dreamteam init`) — свой
+собственный `CHANGELOG.md` для их истории; они не пересекаются.
 
 Формат — упрощённый
 [Keep a Changelog](https://keepachangelog.com/) с группировкой по
-версиям шаблона и категориям (Added / Changed / Fixed / Removed).
-Дата в заголовке — дата выпуска версии шаблона.
+версиям и категориям (Added / Changed / Fixed / Removed) + секция
+`### Retrospective` при закрытии milestone.
+
+> **Note про префиксы:** до v1.0.0 этот файл назывался
+> `TEMPLATE-CHANGELOG.md` (как и `TEMPLATE-BACKLOG/BOARD/DECISIONS`).
+> Префикс `TEMPLATE-` был введён в T005 для разделения мета-документов
+> шаблона от заготовок для derived. После T006 заготовки уехали в
+> `src/dreamteam/template/` как package data, коллизия исчезла,
+> префикс убран — см. соответствующий ADR в `DECISIONS.md`.
+> Исторические упоминания `TEMPLATE-*.md` в записях ниже **не
+> правлены** — это immutable history.
 
 ---
 
 ## [Unreleased]
 
-(empty — будет наполняться после v1.0.0)
+### Changed
+
+- **`TEMPLATE-*.md` → default names** в корне репо. После того как в
+  T006 заготовки для derived переехали в `src/dreamteam/template/`,
+  префикс `TEMPLATE-` стал избыточным — `BACKLOG.md` / `BOARD.md` /
+  `CHANGELOG.md` / `DECISIONS.md` в корне репо теперь однозначно
+  относятся к разработке самого `dreamteam`-пакета. Live references
+  в README / pyproject / самих файлах обновлены; historical entries
+  в CHANGELOG / DECISIONS / spec.md **не** правлены (immutable).
 
 ---
 
