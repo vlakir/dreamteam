@@ -1,27 +1,28 @@
-# Template development backlog
+# Backlog (dreamteam package)
 
-Парковка идей и задач **для разработки самого шаблона**
-`vlakir/dreamteam`. Этот файл — мета-документ; в derived projects он
-**удаляется** (см. инструкцию `rm TEMPLATE-*.md` в `README.md`).
+Парковка идей и задач **разработки самого `dreamteam`-пакета**
+(scaffolding CLI на Copier). В derived projects (создаваемых через
+`dreamteam init`) — свой собственный `BACKLOG.md` с другим
+содержимым; они не пересекаются, потому что репо `dreamteam`
+содержит template как **package data** в `src/dreamteam/template/`,
+не как файлы в корне.
 
-Структура и правила — те же, что и у пользовательского `BACKLOG.md`:
-порядок имеет значение (сверху — что планируется ближайшим),
-формат — `- **T<NNN>** — [<дата>] <описание>`. Когда задача берётся
-в работу — переезжает в `TEMPLATE-BOARD.md → To Do`.
+Структура и правила: порядок имеет значение (сверху — что
+планируется ближайшим), формат —
+`- **T<NNN>** — [<дата>] <описание>`. Когда задача берётся в работу
+— переезжает в `BOARD.md → To Do`.
 
-**Scope правила нумерации для шаблона:** `max()` для T-ID считается
-по `TEMPLATE-BACKLOG.md`, `TEMPLATE-BOARD.md` и
-`TEMPLATE-CHANGELOG.md`. Default-name файлы (`BACKLOG.md` /
-`BOARD.md` / `CHANGELOG.md`) — заготовки для derived users, их
-содержимое в формуле `max()` для шаблона **не участвует**.
+**Scope правила нумерации:** `max()` для T-ID считается по
+`BACKLOG.md`, `BOARD.md` и `CHANGELOG.md` этого репо. Раньше
+(до v1.0.0) файлы имели префикс `TEMPLATE-`; ADR об обратном
+ренейме — в `DECISIONS.md`.
 
 ## Items
 
-<!-- Завершённые задачи v0.2.0 (T002, T003, T004, T005) перенесены
-     в TEMPLATE-CHANGELOG.md → [0.2.0]. Записи ниже — план v0.3.0. -->
-
-<!-- T006 — Миграция на Copier — переехала в TEMPLATE-BOARD → Doing.
-     Spec в specs/T006-copier-migration/spec.md. -->
+<!-- Историческая справка: завершённые задачи T002–T005 ушли в
+     CHANGELOG → [0.2.0], T001/T006 — в CHANGELOG → [1.0.0]. Все
+     завершённые задачи лежат в CHANGELOG.md. Records ниже —
+     актуальный backlog. -->
 
 <!--
 - **T006** — [2026-05-14] Миграция шаблона на **Copier** для
@@ -67,7 +68,7 @@
 
 - **T011** — [2026-05-14] Опубликовать `dreamteam` v1.0.0 на PyPI.
 
-  `uv build` готов (см. `TEMPLATE-DECISIONS.md → T006 ADR →
+  `uv build` готов (см. `DECISIONS.md → T006 ADR →
   Process для release на PyPI`). Нужно: PyPI API tokens
   (TestPyPI + real), затем `uv publish --publish-url
   https://test.pypi.org/legacy/`, smoke-test через `pip install

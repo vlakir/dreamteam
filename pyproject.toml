@@ -30,7 +30,7 @@ classifiers = [
 Homepage = "https://github.com/vlakir/dreamteam"
 Issues = "https://github.com/vlakir/dreamteam/issues"
 Source = "https://github.com/vlakir/dreamteam"
-Changelog = "https://github.com/vlakir/dreamteam/blob/main/TEMPLATE-CHANGELOG.md"
+Changelog = "https://github.com/vlakir/dreamteam/blob/main/CHANGELOG.md"
 
 
 [project.scripts]
