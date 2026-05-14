@@ -14,6 +14,58 @@
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-14 — Branch Protection на `main` через GitHub-side enforcement (T001)
+
+- **Контекст:** правило «не пушить напрямую в `main`» было
+  поведенческим + локальный `hooks/pre-push` как опциональная
+  защита. Сервер пропускал прямой push, если поведенческое правило
+  было нарушено. Это «дыра» в дисциплине: один неосторожный
+  `git push origin main` — и история запачкана.
+- **Альтернативы:**
+  - **Только поведенческое правило + локальный hook** — отвергли.
+    Локальный hook нужно установить вручную (`cp hooks/pre-push
+    .git/hooks/pre-push`), а если разработчик забыл — защиты нет.
+    Сервер всё разрешит.
+  - **GitHub Actions check** (workflow проверяет каждый push на
+    main) — отвергли. Это reactive (фиксирует факт), а не
+    preventive (не позволяет случиться).
+  - **Branch Protection без `enforce_admins`** — отвергли по
+    результатам smoke-теста: admin (владелец репо) bypass'ит
+    защиту с warning «Bypassed rule violations», push проходит.
+    Acceptance не достигается.
+- **Последствия:**
+  - На `vlakir/dreamteam` через `gh api .../branches/main/
+    protection -X PUT` включена защита со следующими настройками:
+    - `required_pull_request_reviews: { required_approving_review_count: 0 }`
+      — push в `main` запрещён, мерджить можно через PR без
+      обязательных approvals (Разработчик один, не имеет смысла
+      требовать approval себя самого).
+    - `enforce_admins: true` — защита применяется и к владельцу
+      репо. **Autonomous decision** после первого smoke-теста,
+      когда `enforce_admins=false` оказался дырявым.
+    - `required_status_checks: null` — checks не требуются пока
+      не настроим CI (`T007` после миграции на copier).
+    - `restrictions: null` — нет ограничений по push users.
+    - `allow_force_pushes: false`, `allow_deletions: false` —
+      от автомата.
+  - Через `gh repo edit --enable-merge-commit=false
+    --enable-rebase-merge=false` оставлен только Squash-merge.
+    Это enforces правило «один PR — один коммит» через GitHub UI.
+  - Acceptance verified: `git push origin main` напрямую
+    отклоняется сервером с `GH006: Protected branch update
+    failed for refs/heads/main. Changes must be made through a
+    pull request.`
+- **Known artifact** в истории `main`: коммит `49bbebe` «T001
+  smoke-test: this should be rejected by branch protection» —
+  пустой коммит, попавший в main во время первого smoke-теста с
+  `enforce_admins=false`. Не revert-ил, чтобы не нарушать своё же
+  правило «не force-push в main». Остаётся как историческое
+  свидетельство bootstrap процесса.
+- **Платформо-специфично:** настройка через `gh` — для GitHub.
+  Для других хостингов (GitLab, GitFlic, Forgejo) — аналоги
+  через UI или API соответствующей платформы. Behavioral правило
+  «не пушить напрямую в main» остаётся универсальным.
+
 ### 2026-05-14 — Префикс `TEMPLATE-*` для мета-файлов шаблона (T005)
 
 - **Контекст:** Файлы шаблона несли двойную нагрузку: заготовка для

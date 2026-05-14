@@ -16,22 +16,9 @@ To Do (можно поднимать приоритетное).
 
 ## To Do
 
-- **T001** — Реализовать защиту `main` через Branch Protection Rules.
-  Серверный «второй слой» в дополнение к локальному `hooks/pre-push`.
-  Платформо-специфично; для GitHub:
-
-  ```bash
-  gh api repos/<owner>/<repo>/branches/main/protection -X PUT \
-    -F required_pull_request_reviews.required_approving_review_count=0
-  gh repo edit <owner>/<repo> \
-    --allow-squash-merge \
-    --allow-merge-commit=false \
-    --allow-rebase-merge=false
-  ```
-
-  На других хостингах (GitLab, GitFlic, Forgejo) — аналоги через UI
-  или API. Acceptance: прямой `git push origin main` отклоняется
-  сервером, merge PR возможен только через Squash and merge.
+<!-- Здесь — задачи готовые к взятию. Сейчас пусто (после закрытия
+     T001). Следующая по плану — T006 (copier migration), но она
+     требует spec/clarify/analyze. -->
 
 ## Doing
 
