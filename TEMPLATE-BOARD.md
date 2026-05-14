@@ -22,7 +22,10 @@ To Do (можно поднимать приоритетное).
 
 ## Doing
 
-<!-- Максимум 1-2 задачи. -->
+- **T006** — Миграция шаблона на Copier (взята в работу 2026-05-14).
+  Spec: `specs/T006-copier-migration/spec.md` (Analyzed). План
+  реализации — 5 фаз в spec. Текущая фаза: подготовка spec / pre-
+  implementation. Следующий шаг: Phase 1 — copier bootstrap.
 
 ## Done
 
