@@ -20,5 +20,11 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Done
 
+- **T012** — Создан `CLAUDE.md` в корне репо для разработки `dreamteam`-
+  пакета (отдельный документ от `src/dreamteam/template/CLAUDE.md`,
+  который попадает в derived проекты через `dreamteam init`).
+  Готово к переносу в `CHANGELOG.md → [Unreleased]` при следующем
+  релизе.
+
 <!-- Закрытые задачи, ждущие переноса в CHANGELOG.md при следующем
      релизе. После переноса — очищаем. -->
