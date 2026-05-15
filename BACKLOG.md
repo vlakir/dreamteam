@@ -69,29 +69,12 @@
 <!-- T013 (multilang) уехала в CHANGELOG → [1.3.0] 2026-05-15.
      T009 (full update diff/merge) переехала в BOARD.md → Doing
      2026-05-15. Spec phase активен:
-     specs/T009-full-update/spec.md. -->
+     specs/T009-full-update/spec.md.
+     T007 (qodo replacement) закрыта 2026-05-15: выбран CodeRabbit
+     + manual Claude Code hybrid. Запись в CHANGELOG → [Unreleased]
+     → Notes. -->
 
-- **T007** — [2026-05-14] Найти замену для qodo-code-review.
-
-  **Контекст.** qodo исчерпал monthly quota к концу ночной сессии
-  14 мая (PR #14 прошёл без стороннего review). Чтобы поддерживать
-  правило «сторонние ревью не игнорировать», нужна стабильная
-  замена.
-
-  **Опции для оценки:**
-  - **GitHub Apps:** CodeRabbit, Sweep AI, Sonarcloud (free tier).
-  - **Self-hosted:** запуск Claude API через GitHub Actions на
-    `pull_request` событие (вызов anthropic SDK, comment в PR).
-  - **Hybrid:** разные сервисы для разных типов проверок (например,
-    Sonarcloud для security + свой бот для process compliance).
-
-  **Acceptance:**
-  - На новом PR в `vlakir/dreamteam` появляется content-aware
-    review (не просто «LGTM») без quota-ограничений, либо с
-    бесплатным quota достаточным для 1-2 PR/день.
-  - Содержательное качество замечаний хотя бы сопоставимо с qodo
-    (по результатам обкатки на 3-5 PR).
-
-  **Приоритет:** ниже T006 — но не низкий: без стороннего review
-  методика теряет «второй взгляд» как ритуал.
+<!-- Backlog пуст — все актуальные задачи в BOARD.md → Doing
+     или ушли в CHANGELOG. Новые идеи приземляются здесь со
+     следующим T-ID (max существующих + 1; см. правило выше). -->
 
