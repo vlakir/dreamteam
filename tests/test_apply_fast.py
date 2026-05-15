@@ -391,6 +391,31 @@ def test_apply_already_dreamteam_errors_before_render(tmp_path: Path) -> None:
     assert 'dt update' in combined
 
 
+def test_apply_no_arg_targets_cwd(
+    tmp_path: Path, monkeypatch: object,
+) -> None:
+    """T019: bare `dt apply` from inside a project targets cwd."""
+    target = tmp_path / 'inside'
+    target.mkdir()
+    # Pre-seed `.copier-answers.yml` so we exit on the already-dreamteam
+    # branch *without* attempting a real copier render — that's all we
+    # need to prove the default `path = Path()` resolved to cwd.
+    (target / '.copier-answers.yml').write_text(
+        '_commit: 1.5.0\nlanguage: en\npackage_manager: uv\n',
+        encoding='utf-8',
+    )
+    monkeypatch.chdir(target)  # type: ignore[attr-defined]
+    # No path argument — must default to '.'.
+    result = runner.invoke(
+        app, ['apply', '--defaults', '--on-conflict', 'keep'],
+    )
+    assert result.exit_code == EXIT_ERROR
+    combined = result.output + (result.stderr or '')
+    # Error mentions the resolved cwd path (proves it was used as target).
+    assert 'dt update' in combined
+    assert str(target) in combined
+
+
 def test_apply_non_tty_without_on_conflict_errors(tmp_path: Path) -> None:
     target = tmp_path / 'tty-less'
     # CliRunner.invoke() emulates non-TTY stdin by default — exactly the

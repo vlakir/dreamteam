@@ -811,7 +811,10 @@ def _render_apply_preview(
 
 @app.command()
 def apply(
-    path: Path,
+    path: Annotated[
+        Path,
+        typer.Argument(help='Project path (default: current directory).'),
+    ] = Path(),
     *,
     defaults: Annotated[
         bool,
