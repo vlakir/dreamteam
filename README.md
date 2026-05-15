@@ -109,7 +109,9 @@ wizard, `poetry new`, `hatch new`, or just `mkdir + cd` — and now
 want to layer dreamteam's methodology on top, use:
 
 ```bash
-dt apply my-existing-project
+cd my-existing-project
+dt apply           # or `dt apply .` — defaults to the current directory
+# from one level up: `dt apply my-existing-project` also works
 ```
 
 `dt apply` renders the template into a temporary preview, walks
