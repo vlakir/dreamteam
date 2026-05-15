@@ -22,116 +22,184 @@
 
 ## [Unreleased]
 
+<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+
+---
+
+## [1.3.0] — 2026-05-15 — Multilang methodology + maturation
+
+Накопленные изменения через серию bump-ов `1.0.0 → 1.1.0 → 1.2.0
+→ 1.3.0` (без промежуточных release cuts; PyPI на 1.0.0, следующая
+публикация прыгнет сразу к 1.3.0). Главное событие цикла — T013
+multilang, плюс созревание процесса (CI workflow, MIT License,
+publish flow, root CLAUDE.md, PROJECT.md retirement, validation-
+chain pattern).
+
 ### Added
 
-- **Multilang поддержка методических документов** (T013). При
-  `dreamteam init` появляется prompt `language` со списком `en /
-  ru / fr / de / zh` (default `en`); narrative-файлы
-  (`CLAUDE.md`, `README.md`, `CONCEPT.md`, `BACKLOG.md`, `BOARD.md`,
-  `CHANGELOG.md`, `DECISIONS.md`, `specs/spec-template.md`)
-  рендерятся на выбранном языке. Технические файлы
-  (`pyproject.toml`, `src/`, `tests/`, `hooks/`) и kanban-keyword'ы
-  (`To Do` / `Doing` / `Done`) одинаковы для любого языка.
-  Внутри шаблона narrative лежит в `src/dreamteam/template/i18n/
-  <lang>/`; post-render task (`_tasks_post_render.py`) переносит
-  выбранный язык в корень derived-проекта и удаляет `i18n/`.
-  **ru — source of truth**; `en/fr/de/zh` — AI-перевод через Claude
-  Code session (не runtime API), с frontmatter
-  (`translated_from`, `source_hash`, `translation_engine`,
-  `translation_date`). CI guard `scripts/translate_check.py`
-  (pure stdlib + PyYAML) сверяет sha256 ru-source с
-  `source_hash` в каждом не-русском файле — drift в ru без
-  regeneration переводов блокирует PR. Step добавлен в
-  `.github/workflows/ci.yml` после pytest. Версия пакета
-  `dreamteam-cli` → 1.3.0 (MINOR — default `en` сохраняет
-  существующее поведение, derived проекты на v1.2.0 после
-  `dreamteam update` получат `language: en`). Реализация
-  выехала тремя PR-ами: Phase 1 (skeleton + ru source + bootstrap
-  всех 5 языков + unit/integration tests), Phase 2 (CI guard
-  step), Phase 3 (этот PR: documentation + version bump). Spec —
-  `specs/T013-multilang/spec.md` (Analyzed, Q1–Q9 resolved).
+- **Multilang поддержка методических документов** (T013, v1.3.0).
+  При `dreamteam init` появляется prompt `language` со списком `en
+  / ru / fr / de / zh` (default `en`); narrative-файлы (`CLAUDE.md`,
+  `README.md`, `CONCEPT.md`, `BACKLOG.md`, `BOARD.md`, `CHANGELOG.md`,
+  `DECISIONS.md`, `specs/spec-template.md`) рендерятся на выбранном
+  языке. Технические файлы (`pyproject.toml`, `src/`, `tests/`,
+  `hooks/`) и kanban-keyword'ы (`To Do` / `Doing` / `Done`)
+  одинаковы для любого языка. Внутри шаблона narrative лежит в
+  `src/dreamteam/template/i18n/<lang>/`; post-render task
+  (`_tasks_post_render.py`) переносит выбранный язык в корень
+  derived-проекта и удаляет `i18n/`. **ru — source of truth**;
+  `en/fr/de/zh` — AI-перевод через Claude Code session (не runtime
+  API), с frontmatter (`translated_from`, `source_hash`,
+  `translation_engine`, `translation_date`). CI guard
+  `scripts/translate_check.py` (pure stdlib + PyYAML) сверяет
+  sha256 ru-source с `source_hash` в каждом не-русском файле — drift
+  в ru без regeneration переводов блокирует PR. Step добавлен в
+  `.github/workflows/ci.yml` после pytest. Реализация выехала
+  четырьмя PR-ами: Phase 0 (spec — PR #37), Phase 1 (skeleton + ru
+  source + bootstrap всех 5 языков + unit/integration tests —
+  PR #38), Phase 2 (CI guard step — PR #41), Phase 3 (CHANGELOG +
+  ADR + README + version bump — PR #40). Spec —
+  `specs/T013-multilang/spec.md` (Analyzed, Q1–Q9 resolved). ADR
+  в `DECISIONS.md` фиксирует Variant A vs B/C, ru-as-source vs
+  English-source, manual Claude Code session vs scripted Anthropic
+  SDK, hash-based vs diff-based drift check.
 
-- **CI workflow (GitHub Actions) для PR-проверок** (T015).
+- **CI workflow (GitHub Actions) для PR-проверок** (T015, v1.2.0+).
   `.github/workflows/ci.yml` запускает 4 проверки (`ruff check`,
   `ruff format --check`, `mypy src`, `pytest`) на каждый
   `pull_request` к `main` и `push` в `main`. Concurrency group
-  cancel-in-progress на новые пуши в одну ветку.
-  Использует `astral-sh/setup-uv@v3` с cache по `uv.lock`,
-  Python 3.14, `uv sync --frozen`. Timeout 5 минут.
-  После merge → Branch Protection обновлён через `gh api` —
-  required status check `ruff + format + mypy + pytest`
-  блокирует merge при fail (закрывает gap, проявившийся на slip
-  T014, когда failing test замержился в main без CI).
+  cancel-in-progress на новые пуши в одну ветку. Использует
+  `astral-sh/setup-uv@v3` с cache по `uv.lock`, Python 3.14,
+  `uv sync --frozen`. Timeout 5 минут. После merge → Branch
+  Protection обновлён через `gh api` — required status check
+  `ruff + format + mypy + pytest` блокирует merge при fail
+  (закрывает gap, проявившийся на slip T014, когда failing test
+  замержился в main без CI).
 
 - **Pattern `validation && commit` в шаблонном `CLAUDE.md`**
-  (методический PR). В Pre-push секцию добавлен chained example
-  (все 4 проверки + `git add && commit && push` через `&&`)
+  (методический PR, v1.2.0). В Pre-push секцию добавлен chained
+  example (все 4 проверки + `git add && commit && push` через `&&`)
   и заметка про **catch-it-at-the-output**: видишь `FAILED` /
   `1 failed` в выводе — стоп. `pytest | tail` НЕ годится (pipe
   возвращает exit-код tail, не pytest). Урок выучен на slip T014:
   failing test замержился в main, потому что bash chain не
-  блокировал pytest fail. Версия пакета `dreamteam-cli` → 1.2.0
-  (MINOR — backward-compatible content change в template).
+  блокировал pytest fail.
 
-- **Spec для T013 (multilang)** — `specs/T013-multilang/spec.md`
-  в статусе Draft. Содержит Overview / User Stories / Functional
-  Requirements / Success Criteria / Key Entities / Assumptions /
-  Out of Scope, плюс Clarify (7 Open Questions для Разработчика)
-  и Analyze (3 Warnings + 3 Notes; Critical блокеров нет). Implementation
-  Plan — 3 phase отдельными PR-ами после approve spec. Phase 0
-  (spec) — этот PR; T013 переехала в `BOARD.md → Doing`.
+- **Скрипт публикации** `scripts/publish.sh` + `.secrets` file для
+  токенов (T011). Hybrid flow: source `.secrets` → `rm -rf dist/
+  && uv build` → `twine check dist/*` → `UV_PUBLISH_TOKEN=… uv
+  publish` (опционально `--test` для TestPyPI). Подробности — ADR
+  в `DECISIONS.md` → «Publish flow: scripts/publish.sh + .secrets».
+
+- **MIT License** (T010). `LICENSE` файл в корне репо со
+  стандартным MIT-текстом (Copyright (c) 2026 vlakir). В
+  `pyproject.toml`: `license = "MIT"` + `license-files =
+  ["LICENSE"]` (PEP 639 syntax). README обновлён с линком на
+  LICENSE и note про derived projects (которые license-choice не
+  наследуют). ADR в `DECISIONS.md` фиксирует выбор и rejected
+  alternatives (Apache 2.0, GPL-3.0, BSD-3-Clause). Снял блокер
+  T011 (PyPI publish).
+
+- **`CLAUDE.md` в корне репо** для разработки `dreamteam`-пакета
+  (T012). Отдельный документ от `src/dreamteam/template/CLAUDE.md`
+  (который попадает в derived проекты через `dreamteam init`).
+  Этот CLAUDE.md описывает правила работы над **самим пакетом**:
+  стек (Python 3.14, uv, hatchling, typer, copier), команды
+  разработки (uv sync / pytest / dreamteam init smoke / uv build),
+  pre-push контракт (4 проверки), специфика репо (two CLAUDE.md,
+  template exclude из ruff/mypy, copier.Worker deprecation, MVP
+  update limitation), task numbering (T<NNN>), Git workflow
+  (Branch Protection, squash merge, code review). Глобальные
+  правила в `~/.claude/CLAUDE.md` применяются как есть; этот файл
+  — только специфика репо.
+
+### Changed
+
+- **`TEMPLATE-*.md` → default names** в корне репо. После того как
+  в T006 заготовки для derived переехали в
+  `src/dreamteam/template/`, префикс `TEMPLATE-` стал избыточным —
+  `BACKLOG.md` / `BOARD.md` / `CHANGELOG.md` / `DECISIONS.md` в
+  корне репо теперь однозначно относятся к разработке самого
+  `dreamteam`-пакета. Live references в README / pyproject /
+  самих файлах обновлены; historical entries в CHANGELOG /
+  DECISIONS / spec.md **не** правлены (immutable).
 
 ### Removed
 
-- **`PROJECT.md` из шаблона** (T014). Catch-all-документ, дублировавший
-  README / BACKLOG / CHANGELOG / DECISIONS / pyproject. Удалён ради
-  чёткого «один документ — одна роль» (см. ADR). Версия пакета
-  `dreamteam-cli` → 1.1.0. Backward-compatible: existing derived
-  проекты на v1.0.0 с PROJECT.md не затронуты.
+- **`PROJECT.md` из шаблона** (T014, v1.1.0). Catch-all-документ,
+  дублировавший README / BACKLOG / CHANGELOG / DECISIONS /
+  pyproject. Удалён ради чёткого «один документ — одна роль»
+  (см. ADR). Backward-compatible: existing derived проекты на
+  v1.0.0 с PROJECT.md не затронуты, `dreamteam update` не удаляет
+  файл.
 
 ### Notes
 
 - **2026-05-14:** `dreamteam` v1.0.0 опубликован на PyPI как
-  **`dreamteam-cli`** (имя `dreamteam` занято squatter-аккаунтом
-  с 2019, см. ADR в `DECISIONS.md`). Verify:
+  **`dreamteam-cli`** (имя `dreamteam` занято squatter-аккаунтом с
+  2019, см. ADR в `DECISIONS.md`). Verify:
   `uvx --from dreamteam-cli dreamteam --version` → `dreamteam 1.0.0`.
+  Следующий PyPI publish (1.1.0 / 1.2.0 / 1.3.0) — отложен;
+  накопленные минор-bump-ы запакуются под `1.3.0` при следующем
+  upload через `scripts/publish.sh`.
 
-### Added
+### Retrospective
 
-- **Скрипт публикации** `scripts/publish.sh` + `.secrets` file
-  для токенов (T011). Подробности — ADR в `DECISIONS.md` →
-  «Publish flow: scripts/publish.sh + .secrets».
-
-- **MIT License** (T010). `LICENSE` файл в корне репо со стандартным
-  MIT-текстом (Copyright (c) 2026 vlakir). В `pyproject.toml`:
-  `license = "MIT"` + `license-files = ["LICENSE"]` (PEP 639 syntax).
-  README обновлён с линком на LICENSE и note про derived projects
-  (которые license-choice не наследуют). ADR в `DECISIONS.md`
-  фиксирует выбор и rejected alternatives (Apache 2.0, GPL-3.0,
-  BSD-3-Clause). Снимает блокер T011 (PyPI publish).
-
-- **`CLAUDE.md` в корне репо** для разработки `dreamteam`-пакета
-  (T012). Отдельный документ от `src/dreamteam/template/CLAUDE.md`
-  (который попадает в derived проекты через `dreamteam init`). Этот
-  CLAUDE.md описывает правила работы над **самим пакетом**: стек
-  (Python 3.14, uv, hatchling, typer, copier), команды разработки
-  (uv sync / pytest / dreamteam init smoke / uv build), pre-push
-  контракт (4 проверки), специфика репо (two CLAUDE.md, template
-  exclude из ruff/mypy, copier.Worker deprecation, MVP update
-  limitation), task numbering (T<NNN>), Git workflow (Branch
-  Protection, squash merge, code review). Глобальные правила в
-  `~/.claude/CLAUDE.md` применяются как есть; этот файл — только
-  специфика репо.
-
-### Changed
-
-- **`TEMPLATE-*.md` → default names** в корне репо. После того как в
-  T006 заготовки для derived переехали в `src/dreamteam/template/`,
-  префикс `TEMPLATE-` стал избыточным — `BACKLOG.md` / `BOARD.md` /
-  `CHANGELOG.md` / `DECISIONS.md` в корне репо теперь однозначно
-  относятся к разработке самого `dreamteam`-пакета. Live references
-  в README / pyproject / самих файлах обновлены; historical entries
-  в CHANGELOG / DECISIONS / spec.md **не** правлены (immutable).
+- **Что зашло:**
+  - **PyPI publish flow** (T010 + T011) прошёл за один сессионный
+    проход. MIT License → `LICENSE` + PEP 639 в pyproject → ADR;
+    `scripts/publish.sh` с `.secrets` family + twine validation +
+    `uv publish` hybrid. На первой публикации обнаружили squatter
+    `dreamteam` на PyPI с 2019 — оперативно решили
+    `dreamteam-cli` именованием (ADR с rejected PEP 541 reclamation
+    + alternative names), command name `dreamteam` сохранён через
+    `[project.scripts]`.
+  - **CI workflow (T015)** закрыл gap из T014 slip — failing test
+    замержился в main без external CI. Теперь required status check
+    блокирует ровно эту ситуацию. Branch Protection T001 +
+    GH Actions T015 + Squash-only merge — три слоя защиты main.
+  - **T013 multilang stacked PRs** работали хорошо: spec → Phase 1
+    (~3000 строк bootstrap) → Phase 2 (3 строки CI step) → Phase 3
+    (ADR + CHANGELOG + README + bump). Discrete review boundaries,
+    нет «big-bang» PR.
+  - **Catch-it-at-the-output паттерн** реально применился: я
+    несколько раз останавливался по `FAILED` в выводе перед
+    `git push`, успешно — slip T014-style случаев не повторилось.
+  - **Frontmatter + hash-based CI guard** (T013) — простое и
+    durable решение для drift problem. Pure stdlib + PyYAML,
+    никаких сетевых зависимостей.
+- **Что не зашло:**
+  - **T014 slip:** failing test замержился в main до того, как CI
+    встал. Lesson: CI должен быть впереди методики; вводить рутины
+    проверки сразу при stacked-PR-фазах, не post-hoc.
+  - **qodo monthly quota исчерпана** к концу ночной сессии T015 —
+    PR без стороннего review. Заметили слишком поздно. T007
+    (qodo replacement) остался в backlog с приоритетом «не очень
+    срочно», но фактически стал «нужно решить, пока snapshot CI
+    единственная защита».
+  - **Stacked PR + `--delete-branch` auto-closes dependents** —
+    свежий урок 2026-05-15. При merge T013 Phase 1 удалил
+    `T013-multilang-phase1` ветку, которая была base для Phase 2
+    PR — GitHub auto-closed его без возможности reopen, пришлось
+    создавать replacement (#41). Memory entry добавлена в
+    `~/.claude/projects/.../memory/feedback_stacked_pr_delete_branch.md`.
+  - **Stale `PROJECT.md` reference в root README** прожил до Phase
+    3 T013 — должен был быть починен ещё в T014. Lesson: при
+    удалении файла grep по репо на его имя, не только по template
+    структуре.
+  - **`copier.Worker` остаётся deprecation warning** — internal
+    API copier, используем для capture answers. Известный
+    artifact; T009 (full update flow) может это исправить, но
+    остаётся в backlog.
+- **Правки методики:**
+  - Memory entry «stacked PR + --delete-branch» добавлена,
+    применяется во всех repos.
+  - T007 (qodo replacement) — поднять приоритет до «следующий
+    после T009».
+  - T013 spec process (spec → clarify → analyze → 3 implementation
+    phases) — успешный шаблон для будущих крупных фич; включить
+    в `~/.claude/CLAUDE.md` как «образец крупной фичи» в случае
+    review.
 
 ---
 
