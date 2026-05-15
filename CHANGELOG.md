@@ -22,6 +22,14 @@
 
 ## [Unreleased]
 
+### Removed
+
+- **`PROJECT.md` из шаблона** (T014). Catch-all-документ, дублировавший
+  README / BACKLOG / CHANGELOG / DECISIONS / pyproject. Удалён ради
+  чёткого «один документ — одна роль» (см. ADR). Версия пакета
+  `dreamteam-cli` → 1.1.0. Backward-compatible: existing derived
+  проекты на v1.0.0 с PROJECT.md не затронуты.
+
 ### Notes
 
 - **2026-05-14:** `dreamteam` v1.0.0 опубликован на PyPI как

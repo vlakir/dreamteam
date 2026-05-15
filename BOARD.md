@@ -20,6 +20,13 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Done
 
+- **T014** — Удалён `PROJECT.md` из шаблона (catch-all,
+  дублировавший README / BACKLOG / CHANGELOG / DECISIONS).
+  `CLAUDE.md` / `README.md` / `CONCEPT.md` template обновлены —
+  current state теперь в `README.md`. Версия пакета bumped к
+  v1.1.0 (MINOR). ADR в `DECISIONS.md`, запись в `CHANGELOG.md →
+  [Unreleased] → Removed`.
+
 - **T011** — `dreamteam-cli` v1.0.0 опубликован на PyPI 2026-05-14.
   Имя `dreamteam` оказалось занято squatter-аккаунтом с 2019 — PyPI
   package переименован в `dreamteam-cli`, command остался `dreamteam`.

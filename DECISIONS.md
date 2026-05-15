@@ -14,6 +14,45 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-15 — Удаление `PROJECT.md` из шаблона (T014)
+
+- **Контекст:** `PROJECT.md` в template был задуман как «паспорт
+  проекта» (цель / статус / стек / артефакты / открытые вопросы /
+  история). Каждый из этих блоков **дублируется** более
+  специализированным документом: цель и статус — в `README.md`,
+  открытые вопросы — в `BACKLOG.md`, история — в `CHANGELOG.md`,
+  стек и зависимости — в `pyproject.toml` / `[project.urls]`,
+  архитектурные решения — в `DECISIONS.md`. Catch-all-документ без
+  чёткой роли — гарантированный drift.
+- **Альтернативы:**
+  - **Оставить как есть** — отвергли. Drift между `PROJECT.md` и
+    `README.md` / `BACKLOG.md` / `CHANGELOG.md` неизбежен; дополнительная
+    дисциплина без выгоды.
+  - **Расширить роль `PROJECT.md`** (например, заменить ARCHITECTURE.md)
+    — отвергли. Для текущего масштаба проектов лишняя сущность.
+  - **Merge в `README.md`** (один большой README) — отвергли.
+    README превратится в state-dump, что портит quick-start
+    природу. Стандартное ожидание Python community — README
+    компактный, для onboarding.
+- **Последствия:**
+  - `src/dreamteam/template/PROJECT.md` удалён.
+  - `src/dreamteam/template/CLAUDE.md` — в «Что прочитать в начале
+    сессии» `PROJECT.md` заменён на `README.md` (current state
+    теперь там); в разделе про CONCEPT — упоминание `PROJECT.md`
+    заменено на `README.md`.
+  - `src/dreamteam/template/README.md` — `PROJECT.md` убран из
+    «Структуры проекта»; вместо него добавлен `CONCEPT.md`
+    (immutable initial vision — раньше отсутствовал в списке).
+  - `src/dreamteam/template/CONCEPT.md` — ссылка «Текущее
+    состояние ведётся в `PROJECT.md`» заменена на `README.md`.
+  - Версия `dreamteam-cli`: `1.0.0 → 1.1.0` (MINOR — template
+    change; existing проекты на v1.0.0 с PROJECT.md остаются как
+    есть, `dreamteam update` не удаляет файл).
+  - Итоговая методическая картина: **6 специализированных файлов
+    без catch-all**: CONCEPT (immutable vision), README (public +
+    current state), CLAUDE (правила для Claude), BACKLOG (идеи),
+    BOARD (текущая работа), CHANGELOG (история), DECISIONS (ADR).
+
 ### 2026-05-14 — PyPI naming: `dreamteam-cli` вместо `dreamteam` (T011)
 
 - **Контекст:** При первой попытке publish (T011) обнаружено, что
