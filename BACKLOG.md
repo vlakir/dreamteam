@@ -66,15 +66,40 @@
   **Приоритет:** после T001 (Branch Protection).
 -->
 
-- **T011** — [2026-05-14] Опубликовать `dreamteam` v1.0.0 на PyPI.
+- **T015** — [2026-05-15] Настроить CI для PR-проверок (GitHub Actions).
 
-  `uv build` готов (см. `DECISIONS.md → T006 ADR →
-  Process для release на PyPI`). Нужно: PyPI API tokens
-  (TestPyPI + real), затем `uv publish --publish-url
-  https://test.pypi.org/legacy/`, smoke-test через `pip install
-  --index-url=test`, затем `uv publish` на основной.
+  **Контекст:** Branch Protection на `main` защищает от прямого
+  push, но **не запускает** тесты на PR. На T014 PR #32 это
+  привело к тому, что failing test замержился в main (потребовался
+  hotfix PR #33). Нужна автоматическая verification на каждом PR
+  с blocking merge при fail.
 
-  **Блокер:** требует ручного действия Разработчика (credentials).
+  **Состав:**
+  - `.github/workflows/ci.yml` (GitHub Actions workflow).
+  - Trigger: `pull_request` event + `push` to `main` для consistency.
+  - Steps: `uv sync`, `uv run ruff check .`, `uv run ruff format
+    --check .`, `uv run mypy src`, `uv run pytest` (fast suite).
+  - Cache uv venv для скорости.
+  - Integration tests (`-m integration`) — отдельный job или
+    on-demand, не блокирующий fast PR.
+  - Required status check в Branch Protection: без green CI
+    merge кнопка disabled.
+
+  **Acceptance:**
+  - PR с failing проверкой не может быть merged (GitHub disables
+    merge button или показывает warning).
+  - CI fast suite < 2 min on average.
+  - Integration suite запускается отдельно (не блокирует PR).
+  - Workflow file в репо, документирован.
+
+  **Платформо-нюанс:** GitHub Actions = GitHub. Если когда-то
+  мигрируем на GitFlic/GitLab — переписать в их native CI.
+  Поведенческое правило («4 проверки 0 ошибок перед push»)
+  остаётся universal.
+
+  **Приоритет:** **выше T013 (multilang)** — без CI повторим slip
+  T014 на следующих изменениях template. Это foundational gap
+  в нашей quality gate.
 
 - **T013** — [2026-05-14] Многоязыковая поддержка методических
   документов в derived projects.
