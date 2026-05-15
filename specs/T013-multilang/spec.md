@@ -1,6 +1,6 @@
 # Spec: T013 — Multilang support для derived projects
 
-**Статус:** Clarified (Q1–Q7 resolved 2026-05-15; Q8–Q9 — новые open)
+**Статус:** Analyzed (Q1–Q9 resolved 2026-05-15)
 **Дата создания:** 2026-05-15
 **Связанные документы:**
 - `BACKLOG.md` (entry T013, оригинальная формулировка)
@@ -26,14 +26,18 @@ hooks, kanban-keyword'ы `To Do`/`Doing`/`Done`) остаются одинако
 
 **Source of truth — `ru`** (решение Разработчика 2026-05-15 в Clarify Q7).
 Vladimir редактирует `i18n/ru/` вручную; для `en`/`fr`/`de`/`zh`
-заготавливается AI-перевод (Claude через scripted flow). Это
-переворачивает industry-default «English source», но логично для
-Vladimir-monolingual maintainer и поднимает quality bar — английская
-версия теперь равна по качеству другим AI-переводам, а не source-language privilege.
+заготавливается AI-перевод. У Vladimir нет Anthropic API key (Claude
+Max subscription, не API), поэтому перевод делает Claude в обычной
+Claude Code session по запросу — не scripted CLI, а human-in-the-loop
+maintainer flow (Q8 resolution). Это переворачивает industry-default
+«English source», но логично для Vladimir-monolingual maintainer и
+поднимает quality bar — английская версия теперь равна по качеству
+другим AI-переводам, а не source-language privilege.
 **Default для users остаётся `en`** (стандарт UX expectation для CLI
 tools); ru = source — внутренний maintenance detail. CI guard
-блокирует PR, если `i18n/ru/` изменился без synced изменений в
-остальных 4 языках (см. Q7 resolution).
+(`scripts/translate_check.py`, pure stdlib hashlib) блокирует PR,
+если `i18n/ru/` изменился без synced изменений в остальных 4 языках
+(hash mismatch в frontmatter).
 
 ## 2. User Stories
 
@@ -85,20 +89,34 @@ tools); ru = source — внутренний maintenance detail. CI guard
 - **ДОЛЖНА**: `i18n/ru/` — source of truth, редактируется вручную
   Vladimir-ом (Q7).
 - **ДОЛЖНА**: `i18n/{en,fr,de,zh}/` — AI-сгенерированные переводы из
-  ru source через scripted flow (engine — см. Q8).
-- **ДОЛЖНА**: CI guard (новый job в `.github/workflows/ci.yml` или
-  расширение существующего) блокирует PR, если diff в
-  `i18n/ru/<file>.md` не сопровождается diff в каждом
-  `i18n/{en,fr,de,zh}/<file>.md` (механизм — см. Q7 resolution).
-- **МОЖЕТ**: AI-translation tooling (`scripts/translate.py`) для
-  maintainer, который читает `i18n/ru/` и регенерирует остальные 4
-  языка. Не часть runtime для users.
+  ru source. Flow: Vladimir правит ru-source → запрашивает у
+  Claude в Claude Code session («переведи на все 4 языка, обнови
+  frontmatter») → Claude reads ru-source, generates translations
+  с frontmatter, writes files → Vladimir reviews + commits.
+- **ДОЛЖНА**: каждый файл в `i18n/{en,fr,de,zh}/<file>.md` иметь
+  YAML frontmatter с полями: `translated_from`, `source_hash`,
+  `translation_engine` (имя модели), `translation_date`.
+- **ДОЛЖНА**: CI guard (`scripts/translate_check.py`, pure stdlib
+  через `hashlib` + YAML parse) запускается как step в
+  `.github/workflows/ci.yml`. Для каждого файла в `i18n/{en,fr,de,zh}/`
+  с frontmatter — пересчитывает hash актуального `i18n/ru/<same>.md`,
+  сравнивает с `source_hash`. Mismatch → exit 1 с error message,
+  указывающим конкретный file и hint о regenerate flow.
+- **ДОЛЖНА**: `scripts/translate_check.py` — отдельный standalone
+  Python script (`uv run python scripts/translate_check.py`), 0
+  внешних dependencies (только stdlib + PyYAML, который уже в
+  `dependencies` для copier).
 - **НЕ ДОЛЖНА**: переводить technical termы — `ruff`, `mypy`,
   `kanban`, `ADR`, `WIP-limit`, `scope`, names of CLI flags / commands.
 - **НЕ ДОЛЖНА**: переводить code blocks внутри `.md` файлов.
 - **НЕ ДОЛЖНА**: иметь runtime translation (`anthropic SDK` /
   Google Translate / etc.) при `dreamteam init` — Variant B
-  отвергнут. AI-translation выполняется maintainer-ом offline.
+  отвергнут. AI-translation выполняется через Claude Code session
+  (Q8 Option 2), не runtime в package.
+- **НЕ ДОЛЖНА**: зависеть от Anthropic API / `anthropic` PyPI
+  package как build- или runtime-dependency. У maintainer-а Claude
+  Max subscription, не API access. Перевод — manual flow через
+  Claude Code session.
 
 ## 4. Success Criteria
 
@@ -156,29 +174,45 @@ src/dreamteam/template/
 
 ```
 scripts/
-└── translate.py               # CLI: regenerate i18n/{en,fr,de,zh}/ из i18n/ru/
-                               # Использует Anthropic SDK (Claude API).
-                               # Запускается maintainer-ом локально перед
-                               # commit изменений ru-source.
+└── translate_check.py         # CI guard: hash-based sync verification.
+                               # Pure stdlib (hashlib + PyYAML). Запускается
+                               # как step в CI workflow на каждом PR.
 ```
+
+**Translation flow для maintainer-а (no API):**
+
+1. Vladimir правит `i18n/ru/<file>.md` локально.
+2. Vladimir в Claude Code session пишет: «переведи изменения в
+   i18n/ru/<file>.md на остальные 4 языка, обнови frontmatter с
+   actual source_hash».
+3. Claude (я) reads ru-source, generates translations с frontmatter
+   через стандартные Read/Write tools, computes source_hash через
+   `hashlib.sha256(ru_bytes).hexdigest()`.
+4. Vladimir reviews diff, smoke-check (опционально — Google Translate
+   roundtrip для en на 1-2 ключевых правила), commits.
+5. CI guard verifies hash sync — если несовпадение, PR fail-ит.
 
 ### Файлы AI-переведённых языков
 
-Frontmatter в каждом `i18n/{en,fr,de,zh}/<file>.md` (см. Q7 resolution):
+Frontmatter в каждом `i18n/{en,fr,de,zh}/<file>.md`:
 
 ```yaml
 ---
 translated_from: i18n/ru/<file>.md
 source_hash: <sha256 of ru source at translation time>
-translation_engine: claude-sonnet-4-6
+translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
 ```
 
-CI guard (`scripts/translate_check.py`, dispatched из CI workflow):
-для каждого file в `i18n/{en,fr,de,zh}/` → пересчитать hash актуального
-`i18n/ru/<same>.md` → сравнить с `source_hash`. Mismatch → fail с
-message «русский изменился, regenerate перевод (run scripts/translate.py)».
+CI guard (`scripts/translate_check.py`):
+для каждого file в `i18n/{en,fr,de,zh}/` с frontmatter →
+пересчитать hash актуального `i18n/ru/<same>.md` → сравнить с
+`source_hash`. Mismatch → fail с message: «русский в
+i18n/ru/<file>.md изменился (current hash <X>) с момента последнего
+перевода в i18n/<lang>/<file>.md (recorded hash <Y>). Перегенерируй
+переводы через Claude Code session». Файлы без frontmatter
+пропускаются с warning (Q9 = Option A).
 
 После copier render:
 
@@ -217,16 +251,19 @@ derived-project/
 
 - Только narrative-файлы переводятся (см. Functional Requirements).
 - Maintainer (Vladimir) редактирует только `i18n/ru/` (source of truth).
-  Остальные 4 языка — AI-translated через scripted flow перед commit
-  (Q7).
-- Engine для AI-translation — Claude через Anthropic SDK (см. Q8).
+  Остальные 4 языка — AI-translated через Claude Code session по
+  запросу maintainer-а (Q7 + Q8).
+- Translation flow — manual (human-in-the-loop через Claude Code
+  session), не scripted CLI. У maintainer-а Claude Max subscription,
+  не API access (Q8).
 - Copier поддерживает `_tasks` для post-generation cleanup (есть
   в API copier 9.x).
 - Целевая аудитория derived projects — solo developers / small
   teams, использующие AI-assist (главный consumer narrative-
   контента — Claude, у которого мультиязычность встроена).
-- Anthropic API key для translation tooling — у Vladimir (не нужен
-  у end-users, AI-translation = build-time, не runtime).
+- `scripts/translate_check.py` использует только stdlib (`hashlib`,
+  `pathlib`) + PyYAML (уже dependency для copier) — нет дополнительных
+  внешних пакетов.
 
 ## 7. Out of Scope
 
@@ -318,33 +355,40 @@ derived-project/
   Выбран **hash-based check** + **manual `scripts/translate.py`** —
   баланс между robustness и простотой.
 
-### Open questions (новые после Q7-resolution)
+### Resolved (продолжение, 2026-05-15)
 
-**Q8. AI engine для `scripts/translate.py`.**
+- **Q8 (AI engine) → Option 2 (Manual через Claude Code session)**.
 
-- **Option 1** ← *моё предложение*. Anthropic SDK (Claude API,
-  модель `claude-opus-4-7` или `claude-sonnet-4-6`). Pro:
-  scripted, repeatable, cost-effective (~$0.05–0.15 за полный
-  retranslate всех 4 языков), maintainer контролирует.
-  Cons: dependency на Anthropic API key (уже есть у Vladimir).
-- **Option 2**: Manual через Claude Code session (Vladimir
-  запускает локально, prompting). Pro: zero extra tooling.
-  Cons: error-prone, не reproducible, не frontmatter-aware.
-- **Option 3**: Hook в `dreamteam.cli` сам — отвергается, runtime
-  cost для end-users.
+  Решение Разработчика: «У меня не API-версия, у меня подписка Max.
+  Соответственно, перевод — твоя головная боль».
 
-**Q9. Frontmatter parse failure / отсутствие source_hash.**
-Что делать при initial bootstrap (до первого запуска
-`scripts/translate.py`), либо при community PR на manually edited
-translation file без frontmatter?
+  **Реализация:**
+  - Никакого `scripts/translate.py` с Anthropic SDK. Никакого
+    `anthropic` package в dependencies (ни build, ни runtime, ни dev).
+  - Maintainer flow: Vladimir правит `i18n/ru/<file>.md` → пишет в
+    Claude Code session «переведи на en/fr/de/zh, обнови frontmatter»
+    → Claude (я) использует стандартные Read/Write tools, computes
+    `source_hash = sha256(ru_bytes)` через `hashlib`, формирует
+    frontmatter, пишет в `i18n/<lang>/<file>.md` → Vladimir reviews
+    и commits.
+  - Trade-off vs scripted flow: каждое изменение требует session
+    interaction (не one-line CLI command), но zero API cost, covered
+    by Max subscription, no key management.
+  - `translation_engine` в frontmatter записывает текущую модель
+    Claude в session (e.g., `claude-opus-4-7`) — traceability сохранена.
 
-- **Option A** ← *моё предложение*. CI guard принимает отсутствие
-  frontmatter как «не-AI-translated файл» (e.g., manually edited
-  by community), пропускает hash-check для него с warning в CI log.
-  Pro: не блокирует community contributions, soft-fail.
-- **Option B**: Frontmatter обязателен; PR без него fail-ит.
-  Pro: строгая дисциплина. Cons: затрудняет community contributions
-  и initial bootstrap.
+- **Q9 (frontmatter parse failure) → Option A (soft-fail с warning)**.
+
+  CI guard принимает отсутствие frontmatter в `i18n/<lang>/<file>.md`
+  как «не-AI-translated» (community manual edit, or bootstrap
+  partial state). Skip hash-check для этого файла, log warning в
+  stdout. Это:
+  - Не блокирует community contributions (кто-то правит fr напрямую,
+    без regeneration через Claude).
+  - Не блокирует bootstrap (initial commit может содержать частично
+    frontmatter-ы пока я регенерирую все языки).
+  - Soft-fail. Mismatching hash (frontmatter есть, но hash не
+    совпадает) — fail. Missing frontmatter — warning.
 
 ---
 
@@ -367,17 +411,18 @@ translation file без frontmatter?
   ключевых правила в en (back-translate в ru, compare semantics).
   Long-term — bilingual community reviewers per язык.
 
-- 🟡 **Warning — Maintenance burden + AI translation cost**.
-  После Q7 каждое изменение `i18n/ru/<file>.md` triggers full
-  retranslate всех 4 языков через `scripts/translate.py` →
-  Anthropic API cost (~$0.05–0.15 за полный run по grubbu Q8
-  estimation). Если Vladimir пушит много мелких твиков —
-  cumulative cost растёт, plus latency на каждый PR. **Mitigation**:
-  (1) `scripts/translate.py` поддерживает per-file mode (regenerate
-  только тех файлов, чей ru-source изменился, не всю папку);
-  (2) batched mode для multiple files за один API request когда
-  возможно; (3) `--dry-run` flag для preview перед commit.
-  Cost-monitoring — ad hoc Vladimir-ом, не CI metric.
+- 🟡 **Warning — Maintenance burden = Claude Code session-time**.
+  После Q8 (no API) каждое изменение `i18n/ru/<file>.md` triggers
+  retranslate через Claude Code session — Vladimir пишет prompt,
+  ждёт response, проверяет diff. **API cost = $0** (covered Max
+  subscription), но time-cost per change возрастает vs scripted
+  flow. **Mitigation**: (1) Claude может batch-обрабатывать multiple
+  files за один request («переведи всё изменённое в i18n/ru/ за
+  один проход»); (2) для cosmetic ru-changes (typo, whitespace) —
+  Claude использует hashlib для recompute source_hash без full
+  retranslate (frontmatter-only update mode); (3) session взаимодействие
+  все равно happens когда Vladimir работает над методикой — adding
+  «и переведи» к запросу — incremental cost.
 
 - 🟡 **Warning — `_tasks` cross-platform**.
   `_tasks` в copier 9.x умеет shell commands и Python scripts.
@@ -417,78 +462,80 @@ translation file без frontmatter?
 - 🟡 **Warning — CI guard false positives при non-narrative diff**.
   CI guard срабатывает на любой diff в `i18n/ru/<file>.md`. Но:
   изменение whitespace, typo fix, реструктуризация parag-разделителей
-  меняют hash, требуя regenerate — Vladimir-у придётся либо запускать
-  `scripts/translate.py` (cost!), либо манипулировать source_hash
-  напрямую. **Mitigation**: (1) `scripts/translate.py` имеет
-  `--force-hash-only` mode (обновить frontmatter source_hash без
-  AI re-call, если изменения purely cosmetic); (2) CI guard error
-  message включает hint о `--force-hash-only`. Edge case, но
-  accumulates frustration со временем.
+  меняют hash, требуя regenerate. **Mitigation**: для cosmetic
+  ru-edits Vladimir в Claude Code session говорит «обнови только
+  source_hash во всех 4 языках, перевод не трогай — изменения
+  cosmetic». Claude применяет `hashlib.sha256(ru_bytes)` и обновляет
+  frontmatter без regeneration content. Это manual judgment — нет
+  машинного способа отличить «cosmetic» от «semantic» diff,
+  Vladimir принимает решение per change. CI error message
+  включает hint про этот flow.
 
-- 🟢 **Note — Anthropic SDK как dev dependency, не runtime**.
-  `anthropic` package добавляется в `[dependency-groups] dev` (или
-  отдельный `[project.optional-dependencies] translate`), не в
-  основные `dependencies`. End-users не платят за extra dep.
-  Совместимо с Q8 Option 1.
+- 🟢 **Note — Никаких новых dependencies для T013**.
+  После Q8 (no API): `scripts/translate_check.py` использует stdlib
+  + PyYAML (уже в `dependencies` для copier). Никакого `anthropic`
+  package — ни как build/runtime/dev dependency. End-users не
+  получают extra dep, dreamteam-cli package остаётся lean.
 
-- 🟢 **Note — Bootstrap flow для T013 phases**.
-  Phase 1 (skeleton) требует initial запуск `scripts/translate.py`
-  на newly created `i18n/ru/` чтобы populate `i18n/{en,fr,de,zh}/`
-  с правильными source_hash-ами. Это chicken-and-egg: до scripts/
-  существует translate.py нельзя generate hashes; после — можно.
-  Решение: первые en/fr/de/zh файлы commit-аются с frontmatter
-  uжe сразу после первого запуска translate.py. CI guard работает
-  с первого PR Phase 1.
+- 🟢 **Note — Bootstrap flow для T013 Phase 1**.
+  Vladimir создаёт `i18n/ru/<file>.md` для каждого narrative file
+  → одна Claude Code session по запросу «переведи все ru-файлы
+  на en/fr/de/zh с frontmatter» делает initial bootstrap всех 4
+  языков. Все frontmatter записываются с правильным source_hash от
+  начального ru-state. CI guard `scripts/translate_check.py`
+  работает с первого PR Phase 1.
 
 ### Verdict
 
-После ответов на Clarify Q1-Q7 spec **переведён в Clarified** статус.
-Q8 (AI engine) + Q9 (frontmatter parse failure) — два открытых
-вопроса после Q7-resolution. Critical блокеров не найдено.
-Warning'ов — четыре (quality risk теперь шире из-за en тоже AI;
-maintenance burden + AI cost; CI guard false positives;
+Все Clarify questions Q1-Q9 resolved. Spec **переведён в Analyzed**
+статус — готов к implementation phases. Critical блокеров не
+найдено. Warning'ов — четыре (quality risk шире из-за en тоже AI;
+maintenance burden как session-time; CI guard false positives;
 cross-platform `_tasks`). Все имеют mitigation или принятый trade-off.
 
 ---
 
 ## Implementation Plan (phases — будут отдельными PR-ами после approve spec)
 
-**Phase 1 — Skeleton + ru source + translation tooling.**
-- `copier.yml` prompt + `_tasks` post-render script (Python).
-- `i18n/ru/` — Vladimir переводит текущий English template на ru.
-  Это становится source of truth.
-- `scripts/translate.py` (NEW) — Anthropic SDK-based translator.
-  Reads `i18n/ru/*.md`, generates `i18n/{en,fr,de,zh}/*.md` с
-  frontmatter (`source_hash`, `translation_engine`,
-  `translation_date`). Supports `--language=en|fr|de|zh|all`,
-  `--force-hash-only`, `--dry-run`.
-- `scripts/translate_check.py` (NEW) — CI guard. For each
-  `i18n/{en,fr,de,zh}/<file>.md` с frontmatter: compute current
-  hash of `i18n/ru/<same>.md`, compare with `source_hash`. Mismatch
-  → exit 1 с error message.
-- Initial bootstrap: запустить `translate.py` на ru-source,
-  commit все 5 языков в одном PR.
+**Phase 1 — Skeleton + ru source + bootstrap всех 5 языков.**
+- `copier.yml` prompt + `_tasks` post-render script (Python) для
+  rename `i18n/<lang>/*` → root + cleanup `i18n/`.
+- `i18n/ru/` — Vladimir переводит текущие English narrative-файлы
+  на ru. Это становится source of truth.
+- **Bootstrap translations**: одной Claude Code session — Vladimir
+  просит «переведи весь i18n/ru/ на en/fr/de/zh с frontmatter».
+  Claude (я) generates все 4 языка с правильным `source_hash`,
+  `translation_engine`, `translation_date`. Commits в одном PR.
+- `scripts/translate_check.py` (NEW, ~80 lines Python, stdlib +
+  PyYAML): iterate `i18n/{en,fr,de,zh}/*.md`, parse frontmatter,
+  compute `sha256(i18n/ru/<same>.md bytes)`, compare с
+  `source_hash`. Mismatch → exit 1 с indication file + hint.
+  Missing frontmatter → skip + warning (Q9).
+- `tests/test_translate_check.py` (unit): valid/mismatch/missing
+  frontmatter cases.
 - `tests/test_multilang.py` (integration) для всех 5 языков:
   rendering + 4 pre-push checks на derived проекте.
 
 **Phase 2 — CI guard integration.**
-- Расширить `.github/workflows/ci.yml` step с
-  `python scripts/translate_check.py`. Добавляется в required status
-  checks через Branch Protection (опционально — обсудим: либо в
-  существующий job `ruff + format + mypy + pytest`, либо отдельный
-  `translation-sync-check` для visibility).
-- Smoke PR: edit `i18n/ru/<file>.md` без запуска translate.py —
-  CI должна fail с понятным сообщением.
+- Расширить `.github/workflows/ci.yml`: добавить step
+  `python scripts/translate_check.py` после 4 standard проверок,
+  внутри того же `ruff + format + mypy + pytest` job (для simplicity
+  и single required status check; visibility — через step name в
+  workflow output).
+- Smoke PR на отдельной ветке: edit `i18n/ru/<file>.md` без
+  regeneration переводов → CI должна fail с понятным сообщением.
 
 **Phase 3 — Documentation & version bump.**
-- `CHANGELOG.md` → [Unreleased] → Added (language prompt, multilang,
-  AI-translation flow, CI guard).
+- `CHANGELOG.md` → [Unreleased] → Added (language prompt, multilang
+  support, manual AI-translation flow через Claude Code session,
+  hash-based CI guard).
 - `DECISIONS.md` → ADR T013 (выбор Variant A; ru = source of truth;
-  AI-translation via scripts/translate.py; hash-based CI guard;
-  rejected alternatives B/C/D + alternatives внутри Q7).
+  manual translation flow через Claude Code session vs scripted
+  API approach; hash-based CI guard; rejected alternatives B/C/D
+  и alternatives внутри Q7/Q8).
 - Version bump v1.2.0 → v1.3.0 (MINOR — language default `en`
   preserves behavior для existing derived projects).
 - Final integration suite green для всех 5 языков.
 - README update (template + dreamteam itself): language prompt
   описание, disclaimer о AI-translation, instruction для
-  contributors как edit ru source + run translate.py.
+  contributors как edit ru source + flow для regeneration.
