@@ -32,7 +32,6 @@ Every project scaffolded by `dreamteam init` includes:
 - **Methodology files** that are not just placeholders but
   ready-to-fill documents:
   - `CONCEPT.md` — immutable initial draft of the project vision.
-  - `PROJECT.md` — passport (purpose, status, stack, links).
   - `DECISIONS.md` — ADR-Lite for architectural decisions.
   - `BACKLOG.md` / `BOARD.md` — markdown kanban with task numbering
     (`T<NNN>` IDs, branch naming, PR naming, spec folder naming).
@@ -45,6 +44,56 @@ Every project scaffolded by `dreamteam init` includes:
   to `main` / `master`.
 - **`specs/spec-template.md`** — template for major-feature specs
   with `clarify` / `analyze` sections.
+
+## Multilingual methodology
+
+`dreamteam init` first asks for a methodology language (default `en`):
+
+```
+language  [en (English) / ru (Русский) / fr (Français) /
+           de (Deutsch) / zh (中文)]
+```
+
+The chosen language renders into the derived project's narrative files
+(`CLAUDE.md` / `README.md` / `CONCEPT.md` / `BACKLOG.md` / `BOARD.md` /
+`CHANGELOG.md` / `DECISIONS.md` / `specs/spec-template.md`). Technical
+files (`pyproject.toml`, `src/`, `tests/`, `hooks/`) and kanban
+keywords (`To Do` / `Doing` / `Done`) are language-agnostic.
+
+**Source of truth — Russian.** Files in
+`src/dreamteam/template/i18n/ru/` are hand-edited by the maintainer;
+`en` / `fr` / `de` / `zh` are AI-translations from the Russian
+source, generated through Claude Code (no Anthropic API, no runtime
+cost — covered by the maintainer's Claude Max subscription). Each
+translated file carries a YAML frontmatter with `translated_from`,
+`source_hash` (sha256 of the ru source at translation time),
+`translation_engine`, and `translation_date`. The frontmatter is
+stripped from the rendered derived project — users see clean
+markdown.
+
+**Contributing to the methodology:**
+
+1. Edit only `src/dreamteam/template/i18n/ru/<file>.md` (the source).
+2. In a Claude Code session ask: *"re-translate this change into
+   en/fr/de/zh and refresh `source_hash` in the frontmatter."*
+3. Commit the ru edit together with the four regenerated translations.
+4. CI guard (`scripts/translate_check.py`, runs after pytest in
+   `.github/workflows/ci.yml`) verifies that the recorded
+   `source_hash` matches the actual sha256 of `i18n/ru/<file>.md`.
+   A mismatch fails the PR with a clear hint about regeneration.
+
+For cosmetic ru edits (typo, whitespace, paragraph re-flow) the
+short-cut is to ask Claude to refresh only the `source_hash` in all
+four translations without retranslating the content. There is no
+machine-readable way to distinguish cosmetic from semantic diffs —
+maintainer judgment per change.
+
+> **AI translation disclaimer.** All four non-Russian variants are
+> AI-generated. They are reviewed by the maintainer at translation
+> time but have not gone through a bilingual human review. PRs
+> correcting wording, nuance, or terminology in any of the four
+> languages are welcome. If you find a passage where the meaning
+> diverges from the ru source — please open an issue.
 
 ## Updating an existing project
 

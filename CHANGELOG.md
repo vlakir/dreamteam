@@ -24,6 +24,33 @@
 
 ### Added
 
+- **Multilang поддержка методических документов** (T013). При
+  `dreamteam init` появляется prompt `language` со списком `en /
+  ru / fr / de / zh` (default `en`); narrative-файлы
+  (`CLAUDE.md`, `README.md`, `CONCEPT.md`, `BACKLOG.md`, `BOARD.md`,
+  `CHANGELOG.md`, `DECISIONS.md`, `specs/spec-template.md`)
+  рендерятся на выбранном языке. Технические файлы
+  (`pyproject.toml`, `src/`, `tests/`, `hooks/`) и kanban-keyword'ы
+  (`To Do` / `Doing` / `Done`) одинаковы для любого языка.
+  Внутри шаблона narrative лежит в `src/dreamteam/template/i18n/
+  <lang>/`; post-render task (`_tasks_post_render.py`) переносит
+  выбранный язык в корень derived-проекта и удаляет `i18n/`.
+  **ru — source of truth**; `en/fr/de/zh` — AI-перевод через Claude
+  Code session (не runtime API), с frontmatter
+  (`translated_from`, `source_hash`, `translation_engine`,
+  `translation_date`). CI guard `scripts/translate_check.py`
+  (pure stdlib + PyYAML) сверяет sha256 ru-source с
+  `source_hash` в каждом не-русском файле — drift в ru без
+  regeneration переводов блокирует PR. Step добавлен в
+  `.github/workflows/ci.yml` после pytest. Версия пакета
+  `dreamteam-cli` → 1.3.0 (MINOR — default `en` сохраняет
+  существующее поведение, derived проекты на v1.2.0 после
+  `dreamteam update` получат `language: en`). Реализация
+  выехала тремя PR-ами: Phase 1 (skeleton + ru source + bootstrap
+  всех 5 языков + unit/integration tests), Phase 2 (CI guard
+  step), Phase 3 (этот PR: documentation + version bump). Spec —
+  `specs/T013-multilang/spec.md` (Analyzed, Q1–Q9 resolved).
+
 - **CI workflow (GitHub Actions) для PR-проверок** (T015).
   `.github/workflows/ci.yml` запускает 4 проверки (`ruff check`,
   `ruff format --check`, `mypy src`, `pytest`) на каждый
