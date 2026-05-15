@@ -22,7 +22,25 @@
 
 ## [Unreleased]
 
-<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+### Changed
+
+- **Сторонний code review: qodo → CodeRabbit** (T007). qodo
+  monthly quota иссякла к концу ночной сессии T015 (см.
+  retrospective в `[1.3.0]`), что временно нарушило правило
+  «сторонние ревью не игнорировать» для одного PR. Замена —
+  **CodeRabbit** GitHub App, free tier для public OSS repos
+  (`vlakir/dreamteam` подходит). Обкатано на T009 spec phase
+  PR (#44): 4 findings (1 🟠 Major «Q2 option (b) network vs
+  MUST NOT» — реальное противоречие, 1 🟡 Minor «v1.2.0
+  version reference», 2 💤 Nitpicks про terminology), 3 из 4
+  auto-resolved subsequent commits-ом, 1 fixed targeted commit.
+  Quality findings сопоставимо с qodo; плюс — auto-resolution
+  tracking на subsequent push, и CodeRabbit выставляет
+  собственный CI status check. Hybrid стратегия: **CodeRabbit
+  как automatic baseline на каждый PR + manual deep review
+  через Claude Code session** для нетривиальных PR
+  (architecture, security). Полная оценка качества на code-PR
+  (не только markdown) — после Phase 1 T009.
 
 ---
 
