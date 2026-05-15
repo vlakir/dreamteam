@@ -32,7 +32,6 @@ Every project scaffolded by `dreamteam init` includes:
 - **Methodology files** that are not just placeholders but
   ready-to-fill documents:
   - `CONCEPT.md` — immutable initial draft of the project vision.
-  - `PROJECT.md` — passport (purpose, status, stack, links).
   - `DECISIONS.md` — ADR-Lite for architectural decisions.
   - `BACKLOG.md` / `BOARD.md` — markdown kanban with task numbering
     (`T<NNN>` IDs, branch naming, PR naming, spec folder naming).
