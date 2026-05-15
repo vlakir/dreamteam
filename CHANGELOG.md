@@ -24,7 +24,32 @@
 
 <!-- Что накопилось с момента последнего релиза/значимой точки. -->
 
+---
+
+## [1.5.2] — 2026-05-15 — Bootstrap fixes after efactory shakedown
+
+Короткий PATCH-цикл из обкатки методики на первом реальном
+derived-проекте (`efactory`, 2026-05-15). Два bootstrap-фикса в
+template (T021, T022) + out-of-band методическая cleanup от
+устаревших артефактов (T020). T023 и T024 поднялись в backlog
+к следующему MINOR-циклу (1.6.0).
+
 ### Fixed
+
+- **`template/hooks/pre-push` теперь пропускает initial push**
+  (T021). Hook отклонял любой push в `refs/heads/main` /
+  `refs/heads/master`, не различая bootstrap-сценарий (когда
+  ветка ещё не существует на remote) и обычный push в
+  protected branch. На практике это заставляло использовать
+  `--no-verify` при первой публикации свежесозданного проекта
+  (всплыло в `efactory` bootstrap). Новое поведение: если
+  `remote_sha == 40 zeros` (стандартный Git-маркер «ветки нет
+  на remote») — push разрешён с info-сообщением
+  `Initial push detected — allowing bootstrap of '<branch>'`.
+  Обычный push в существующую protected branch по-прежнему
+  блокируется. Unit-тест `tests/test_pre_push_hook.py`
+  (8 кейсов: initial main/master, regular reject, feature
+  branch, empty stdin, mixed refs — оба направления).
 
 - **`template/.gitignore` теперь покрывает плоский `.secrets`**
   (T022). В секции «Secrets / config» три строки `.env` /
@@ -34,49 +59,37 @@
   `scripts/publish.sh` шаблона для PyPI токенов) не попадал ни
   под один паттерн. На свежем `dt init` это значило риск
   закоммитить токены в первый же commit, если разработчик
-  кладёт их по той же конвенции, что и сам шаблон. Сконсолидировано
-  в `.secrets*` (покрывает плоский `.secrets`, `.secrets.toml`,
-  `.secrets.env`, `.secrets.local` и т.п.); `.env` оставлен
-  отдельно как другой класс файла; `secrets.env` (без leading
-  dot) оставлен — отдельная sh-export конвенция. Fast unit-тест
-  `tests/test_gitignore_secrets.py` (6 кейсов: plain `.secrets`,
-  dotted variants, `.env`, `secrets.env`, sanity check на
-  не-секрет).
-
-- **`template/hooks/pre-push` теперь пропускает initial push**
-  (T021). Hook отклонял любой push в `refs/heads/main` /
-  `refs/heads/master`, не различая bootstrap-сценарий (когда
-  ветка ещё не существует на remote) и обычный push в
-  protected branch. На практике это заставляло использовать
-  `--no-verify` при первой публикации свежесозданного проекта
-  (всплыло в `efactory` bootstrap, см. T020-T024 backlog
-  grooming). Новое поведение: если `remote_sha == 40 zeros`
-  (стандартный Git-маркер «ветки нет на remote») — push
-  разрешён с info-сообщением `Initial push detected — allowing
-  bootstrap of '<branch>'`. Обычный push в существующую
-  protected branch по-прежнему блокируется. Unit-тест
-  `tests/test_pre_push_hook.py` (8 кейсов: initial main/master,
-  regular reject, feature branch, empty stdin, mixed refs —
-  оба направления).
+  кладёт их по той же конвенции, что и сам шаблон.
+  Сконсолидировано в `.secrets*` (покрывает плоский `.secrets`,
+  `.secrets.toml`, `.secrets.env`, `.secrets.local` и т.п.);
+  `.env` оставлен отдельно как другой класс файла; `secrets.env`
+  (без leading dot) оставлен — отдельная sh-export конвенция.
+  Fast unit-тест `tests/test_gitignore_secrets.py` (6 кейсов:
+  plain `.secrets`, dotted variants, `.env`, `secrets.env`,
+  sanity check на не-секрет).
 
 ### Notes
 
-- **2026-05-15 — Out-of-band методическая cleanup: stale упоминания
-  `PROJECT.md` (T020).** После T014 (v1.1.0, удаление `PROJECT.md`
-  из template) три durable-источника, которые Claude загружает в
-  начале каждой сессии, продолжали описывать `PROJECT.md` как
-  живой элемент методики. Это всплыло при обкатке методики на
-  первом derived-проекте (`efactory`): Claude предложил создать
-  `PROJECT.md`, прочитав устаревшие инструкции. Правки **вне репо
-  dreamteam** (не влияют на wheel / package-data):
+- **Bundle re-tag**: `1.5.2` тег добавлен в `.bundle/`; main
+  advanced; `scripts/update_bundle.py` без изменений.
+
+- **Out-of-band методическая cleanup: stale упоминания
+  `PROJECT.md`** (T020). После T014 (v1.1.0, удаление
+  `PROJECT.md` из template) три durable-источника, которые
+  Claude загружает в начале каждой сессии, продолжали описывать
+  `PROJECT.md` как живой элемент методики. Это всплыло при
+  обкатке методики на первом derived-проекте (`efactory`):
+  Claude предложил создать `PROJECT.md`, прочитав устаревшие
+  инструкции. Правки **вне репо dreamteam** (не влияют на
+  wheel / package-data):
   - `~/.claude/CLAUDE.md` — 3 места в разделах «Признак нового
-    проекта», «Работа в проекте с шаблонной структурой», «Ритуал
-    составления `CONCEPT.md`». Заменены на актуальный набор файлов
-    (проектный `CLAUDE.md` как главный признак, `README.md` как
-    current state — см. ADR T014).
+    проекта», «Работа в проекте с шаблонной структурой»,
+    «Ритуал составления `CONCEPT.md`». Заменены на актуальный
+    набор файлов (проектный `CLAUDE.md` как главный признак,
+    `README.md` как current state — см. ADR T014).
   - `~/.claude/projects/-home-vlakir-programming-dreamteam/memory/project_template_dreamteam.md`
-    — обновлён список файлов template и порядок чтения в начале
-    сессии.
+    — обновлён список файлов template и порядок чтения в
+    начале сессии.
   - `~/.claude/projects/-home-vlakir-programming-dreamteam/memory/project_src_layout.md`
     — список файлов в корне.
   Иммутабельные упоминания (в `CHANGELOG`, `DECISIONS`,
@@ -84,6 +97,48 @@
   оставлены как исторический контекст. T020 не требует version
   bump и публикации — правки чисто в личной configuration
   Разработчика.
+
+### Retrospective
+
+- **Что зашло:**
+  - **«Обкатка → grooming → fixes» в одной сессии** сработала.
+    `efactory` shakedown 2026-05-15 19:41 → backlog grooming
+    T020-T024 → закрытие T020 + T021 + T022 + release cut 1.5.2
+    — всё в одной сессии. Контекст не размывается между
+    обнаружением проблемы и фиксом.
+  - **T024 conditional flow** (только что захваченное в backlog
+    и не выкаченное в durable-источники) применился
+    поведенчески через memory сразу — поведенческая память как
+    мост между «обсудили правило» и «выкатили в CLAUDE.md»
+    работает.
+  - **Catch-it-at-the-text** сработал на «Гвидо» → «Claude» в
+    backlog entries T023/T024 — правило нейтральных ролей
+    поймалось до commit (grep, не post-merge).
+- **Что не зашло:**
+  - **CodeRabbit rate-limit три раза подряд** (PRs #59, #60,
+    #61 — все три ушли в Claude self-review fallback по T024).
+    «Usage credits run out» — paid quota не infinite, burst
+    PR-ов её сожрал. Это уже **второй** retrospective подряд с
+    этим паттерном (см. [1.5.0]), но lesson не учтён. Mitigation:
+    либо упорядочивать темп PR-ов, либо batch fixes (но это
+    конфликт с «один PR — одна задача»), либо рассмотреть
+    upgrade плана. Подсветить Разработчику.
+  - **T020 PR содержал backlog grooming T021-T024 как побочно** —
+    formal нарушение strict «один PR — одна задача». Оправдано
+    тем, что добавление T-ID в backlog — пред-условие T020
+    closure, но pattern на грани scope discipline. Альтернатива
+    — `meta/backlog-grooming-*` отдельным PR — добавляет
+    церемонию для рутинной правки.
+- **Правки методики:**
+  - Memory entry о **CodeRabbit usage-credit cap** (отдельно от
+    hourly rate-limit) — добавить в репо memory как явное
+    предупреждение «burst PR-ов сжигает квоту, planning needed».
+  - Если темп требует 3+ PR-ов в час → **явно рассмотреть
+    combined-PR** даже когда задачи разные, описав в PR
+    body, что объединение сделано ради ботового quota economy.
+    Это уже было применено для T017 (Phase 1+2+3 combined) —
+    закрепить как стандарт для bot-quota-constrained
+    obstreloved сессий.
 
 ---
 
