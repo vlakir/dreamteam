@@ -14,6 +14,137 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-15 — Full `dreamteam update` с three-way merge (T009)
+
+- **Контекст:** MVP-вариант `dreamteam update` (T006) выполнял
+  `copier.run_copy(..., overwrite=True)` — re-rendered template
+  поверх derived проекта, **затирал** локальные правки пользователя
+  в template-managed файлах (`CLAUDE.md`, `BACKLOG.md`,
+  `CHANGELOG.md`, `pyproject.toml`, `hooks/pre-push`). Известное
+  ограничение, документировано в command docstring и в ADR T006.
+  T009 — follow-up, заменяющий MVP-overwrite на полноценный
+  three-way merge с сохранением правок и git-style conflict
+  markers.
+- **Альтернативы (layout — Q2, `i18n/<lang>/` interaction):**
+  - **Runtime AI-merge через `anthropic` SDK** — отвергли. У
+    Разработчика Claude Max subscription (не API), и runtime
+    зависимость от LLM делает поведение update-а
+    недетерминированным.
+  - **Pure-Python merge (`merge3` PyPI)** — отвергли как fallback
+    для git-absent сценария (Q3). Дополнительная dependency для
+    редкого случая, менее обкатано чем `git merge-file`. Вместо
+    этого — fall back to MVP overwrite + WARNING.
+  - **Diff-based check** (просто проверять что other-language
+    файлы тоже изменены) — отвергли. PR может cheat-нуть
+    `touch`-ом.
+- **Альтернативы (хранение base state — Q2):**
+  - **Pip-download предыдущей версии** на update — отвергли.
+    Сетевой доступ при runtime противоречит **MUST NOT:
+    требовать сетевого доступа в runtime** из spec.md
+    (caught CodeRabbit-ом в spec PR #44 ranee как противоречие).
+  - **Hash-based + versioned history в wheel** (separate
+    `dreamteam/_history/` с each snapshot) — отвергли.
+    Линейный рост wheel-а с каждой версией; ~150% уже при 4
+    версиях.
+  - **Two-way merge без base** (только theirs vs ours) —
+    отвергли как слишком неточный для overlapping kanban-edits;
+    user правки и template changes часто пересекаются в
+    BACKLOG/BOARD/CHANGELOG.
+  - **Выбран bundled bare git repo** в
+    `src/dreamteam/template/.bundle/` (Q2 → option a). Каждый
+    release добавляет один annotated tag (`1.3.0`, `1.4.0`, …)
+    через `scripts/update_bundle.py`. Wheel вырастает ~50 KB →
+    ~165 KB (acceptable; rough ~3× против оценки в Analyze
+    Warning ~5×).
+- **Альтернативы (формат тегов — обнаружено в Phase 1):**
+  - **`v`-prefixed теги** (`v1.3.0`, `v1.4.0`) — естественный
+    git-style, но **dunamai** внутри copier-а использует
+    `Pattern.DefaultUnprefixed` для определения версии. Отвергли
+    в пользу PEP-440 unprefixed (`1.3.0`, `1.4.0`).
+  - **Выбран PEP 440 без prefix-а**. `scripts/update_bundle.py`
+    отклоняет `v`-prefixed input с понятной ошибкой.
+- **Альтернативы (`Subproject.template` source — обнаружено в Phase 1):**
+  - **Bundle как `_src_path` в answers напрямую** — отвергли.
+    Bare repo не имеет working tree, copier-овский Template
+    class на нём ломается («Updating is only supported in
+    git-tracked templates»).
+  - **Переписать `_src_path` в answers перед update** — отвергли.
+    Запись на диск делает derived dirty, copier отказывается
+    обновлять dirty subproject.
+  - **Выбрано: pre-populate `worker.subproject.__dict__['last_answers']`
+    с указанием temp clone path** до вызова `run_update`. Это
+    bypass-ит cached_property без записи на диск. Documented
+    как hack-зависимый от copier internals; работает на 9.x.
+- **Альтернативы (conflict resolution UX — Q1):**
+  - **`.rej` файлы** (`patch -R` стиль) — отвергли. Чище в
+    основном файле, но нестандартный для git-developers; IDE
+    merge tools не подхватывают.
+  - **Дублирующие `.theirs.<lang>` файлы** — отвергли. Менее
+    интрузивно, но user сам делает 3-way merge через IDE.
+    Дополнительная нагрузка.
+  - **Выбрано: git-style in-file markers**
+    (`<<<<<<< before updating` / `=======` / `>>>>>>> after updating`).
+    Стандарт, vimdiff/VSCode/IDE merge tools понимают.
+- **Альтернативы (`git` absent — Q3):**
+  - **Hard error** + «install git first» — отвергли. Min friction
+    при dev-environments без git (редкий случай).
+  - **Pure-Python merge fallback** (`merge3` PyPI) — отвергли,
+    см. выше.
+  - **Выбрано: fall back to MVP `run_copy(..., overwrite=True)`
+    с явным WARNING** в stderr.
+- **Альтернативы (atomicity — Q9):**
+  - **All-or-nothing** через tempdir + swap — отвергли.
+    Откат успешных мержей из-за одного конфликта — плохой UX;
+    user должен сам решать сохранять ли progress частично.
+  - **Выбрано: best-effort**. Per-file успех/конфликт/error;
+    итоговый exit code mirrors самый серьёзный исход (0 / 1 / 2).
+- **Альтернативы (`--dry-run` UX — Q8):**
+  - **Только summary line** — отвергли. Без diff пользователь не
+    знает что именно изменится.
+  - **Только per-file unified diff** — отвергли. Без summary
+    сложно быстро оценить scope.
+  - **Выбрано: both** — top-line summary с 5 bucket-ами + per-file
+    unified diff через `difflib.unified_diff`. Target никогда не
+    модифицируется.
+- **Последствия:**
+  - **`dreamteam update`** теперь по умолчанию делает three-way
+    merge через `copier.Worker.run_update`. Старое поведение
+    доступно через `--force`.
+  - **`--dry-run`** даёт preview без записи.
+  - **Bundle** упакован в wheel, реrender при release через
+    `scripts/update_bundle.py`. Maintainer запускает скрипт на
+    каждый release cut.
+  - **Exit codes**: `0` clean / `1` error / `2` conflicts.
+    CI-friendly: PR в derived проекте может условно блокировать
+    merge при unresolved conflicts.
+  - **`_commit` в `.copier-answers.yml`** теперь PEP-440 без
+    prefix-а (`1.4.0`, не `dreamteam-1.4.0`). Legacy
+    `dreamteam-<X.Y.Z>` mapped в `_resolve_base_version_tag` для
+    backward-compat (пре-1.3.0 проекты падают в overwrite
+    fallback т.к. bundle не имеет таких тегов).
+  - **`__version__`** теперь из `importlib.metadata.version()`
+    — single source of truth, синхронизирован с pyproject.toml.
+  - **Открытые упстрим quirks** (документированы в test
+    comments, не блокеры):
+    - Copier diff-ит Jinja-source против rendered subproject
+      content; conflict markers могут попасть на Jinja-only
+      line (`{{ project_name }}`) вместо semantically
+      затронутой line.
+    - Conflict resolution внутри `i18n/<lang>/` файлов трипает
+      copier `git checkout -- <path>` staging step (rendered
+      path ≠ template path после `_tasks_post_render.py`
+      rename). Workaround в Phase 2 test — использовать
+      root-level файл для conflict scenario. Multilang merge
+      без overlap-а работает корректно.
+  - **Version bump:** `1.3.0 → 1.4.0` (MINOR; backward-compatible
+    — default flow изменился, но `--force` сохраняет MVP-поведение
+    для тех кто на него полагался).
+  - **Phase split** в Implementation: Phase 0 (spec, PR #44),
+    Phase 1 (skeleton + merge backend, PR #46), Phase 2
+    (synthetic-bundle integration tests, PR #47), Phase 3
+    (`--dry-run`, PR #48), Phase 4 (docs + version + bundle
+    re-tag, этот PR).
+
 ### 2026-05-15 — Multilang: Variant A + ru = source of truth + manual translation (T013)
 
 - **Контекст:** narrative-файлы методики (`CLAUDE.md`, `README.md`,

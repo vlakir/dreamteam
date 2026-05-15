@@ -22,7 +22,80 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Полноценный `dreamteam update` с three-way merge** (T009,
+  v1.4.0). Заменяет MVP-overwrite (`run_copy(..., overwrite=True)`),
+  который клобберил пользовательские правки template-managed
+  файлов. Новое поведение: при обычном вызове `dreamteam update`
+  делает three-way merge между *base* (template-снапшот на
+  момент `dreamteam init` или предыдущего update, из bundled
+  bare git репо), *theirs* (новый template state из установленного
+  пакета) и *ours* (текущее состояние derived-проекта). Конфликты
+  отмечаются git-style markers (`<<<<<<<` / `=======` / `>>>>>>>`),
+  exit code 2; clean merge → exit 0; жёсткие ошибки → exit 1.
+
+  **Новые флаги:**
+  - `--force` — пропускает merge, делает MVP overwrite (escape hatch
+    «throw away local edits and re-apply template clean»).
+  - `--dry-run` — рендерит would-be outcome в tempdir, печатает
+    per-file unified diff к stdout + summary line с пятью bucket-ами
+    (`N would change, M unchanged, K added, L removed, X conflicts`).
+    Target никогда не модифицируется. Exit 0 если 0 conflicts, 2
+    если есть `<<<<<<<` в preview.
+
+  **Bundled bare git repo** в `src/dreamteam/template/.bundle/` —
+  упакован в wheel как package-data, хранит все template snapshots
+  как git-tags (PEP-440 unprefixed, dunamai требование copier-а:
+  `1.3.0`, `1.4.0`, …). Reproducible build через `scripts/
+  update_bundle.py` (fixed commit dates, `git gc --aggressive`,
+  `.gitkeep` sentinels в `refs/heads/` и `refs/tags/` для
+  переживания fresh clone). Wheel вырос ~50 KB → ~165 KB.
+
+  **Fallback chain** (warning + MVP overwrite):
+  - `--force` явно запрошен пользователем.
+  - `git` не найден в PATH.
+  - Bundle отсутствует в установленном пакете (старый wheel).
+  - Base version tag отсутствует в bundle (derived проекты до
+    v1.4.0, например с `_commit: dreamteam-1.0.0` legacy формата).
+
+  **Реализация выехала четырьмя PR-ами:**
+  - **Phase 0** (PR #44, spec) — `specs/T009-full-update/spec.md`,
+    статус Analyzed, Q1–Q10 resolved.
+  - **Phase 1** (PR #46) — bundled bare git repo, `Worker.run_update`
+    backend, `--force`, exit codes, conflict scan через `<<<<<<<`,
+    `__version__` → `importlib.metadata`. Fix .gitkeep ref dirs
+    после CI flake.
+  - **Phase 2** (PR #47) — synthetic two-tag bundle test fixture,
+    Scenario A/B/C/D integration coverage (`tests/test_t009_phase2.py`,
+    marked `@pytest.mark.integration`).
+  - **Phase 3** (PR #48) — `--dry-run` с per-file unified diff
+    (`difflib.unified_diff`), summary line, target safety
+    invariant, helper-level unit tests.
+  - **Phase 4** (этот PR) — ADR, CHANGELOG, version bump,
+    README, bundle re-tag.
+
+  **`scripts/update_bundle.py`** — maintainer-tool для добавления
+  тега в bundle при release cut. Idempotent (skips если tag уже
+  есть, `--force` для overwrite); fixed dates; `--force-with-lease`
+  на main для single-writer scenario.
+
+  **`pyproject.toml`** ignore-list расширен на S603
+  (`subprocess-without-shell-equals-true`) — bandit overly-
+  conservative для `list[str]` argv; subprocess-вызовы используют
+  `shutil.which`-resolved абсолютные пути (S607 закрыт
+  структурно). Pre-approved с Разработчиком.
+
+  **ADR** в `DECISIONS.md` фиксирует все 10 Q-разрешений
+  (Variant A vs B/C, ru-as-source vs English, manual Claude Code
+  session vs scripted Anthropic SDK, hash-based vs diff-based —
+  see ADR for full breakdown).
+
 ### Changed
+
+- **`README.md` "Updating an existing project"** — описание
+  переписано под new three-way merge default; MVP limitation note
+  удалён.
 
 - **Сторонний code review: qodo → CodeRabbit** (T007). qodo
   monthly quota иссякла к концу ночной сессии T015 (см.
