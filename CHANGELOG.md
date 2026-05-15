@@ -22,6 +22,19 @@
 
 ## [Unreleased]
 
+<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+
+---
+
+## [1.5.0] — 2026-05-15 — Full update flow + package-manager choice + CLI ergonomics
+
+Накопленные изменения через bump-серию `1.3.0 → 1.4.0 → 1.5.0`.
+Центральные две задачи цикла — **T009** (полноценный
+`dreamteam update` с three-way merge, заменивший MVP overwrite)
+и **T017** (параметризация выбора package manager в derived
+template). Плюс ergonomic win T016 (`dt` alias) и organizational
+change T007 (qodo → CodeRabbit как стандартный external bot).
+
 ### Added
 
 - **Параметризованный выбор package manager** для derived
@@ -194,8 +207,75 @@
   собственный CI status check. Hybrid стратегия: **CodeRabbit
   как automatic baseline на каждый PR + manual deep review
   через Claude Code session** для нетривиальных PR
-  (architecture, security). Полная оценка качества на code-PR
-  (не только markdown) — после Phase 1 T009.
+  (architecture, security).
+
+### Retrospective
+
+- **Что зашло:**
+  - **T009 four-phase stacked PRs** (#44 spec → #46 backend →
+    #47 tests → #48 dry-run → #49 docs) — clean review boundaries,
+    каждый PR держит фокус. Один-два «фикс по чужой логике»
+    дополнения не нарушили рабочий ритм.
+  - **CodeRabbit catch 🔴 critical bug в T009 Phase 1
+    (`_bundle_has_tag` silent failure → potential data loss).**
+    Без бота этот silent fallback клобберил бы user edits в
+    реальном usage. T007 trial оправдал hybrid strategy на
+    первой же substantive code-PR.
+  - **CodeRabbit catch на T017 spec (pip pre-push without venv
+    activation flakes).** Реальный bug в spec phase — fix
+    применён до начала implementation. Demonstrates value
+    bot-review на content-PR тоже.
+  - **Combined-PR pattern** для T017 (Phase 1+2+3 в одном PR
+    после Phase 0 spec) — workaround к CodeRabbit's hourly
+    rate-limit. Сэкономило ~3 retrigger cycles.
+  - **`dt` console alias** — trivial change (one line в
+    pyproject) с outsized UX win. «Помилуем пальцы».
+  - **Multilang re-bootstrap flow** scales: T017 потребовал
+    регенерации 8 файлов × 4 languages — ~10 min Claude Code
+    session, hash sync через `translate_check.py` 32 ok.
+  - **Stacked PR + `--delete-branch` memory entry** оказался
+    немедленно полезным (T009 series, потом T017 series).
+- **Что не зашло:**
+  - **CodeRabbit hourly rate-limit** хитaнут дважды (на #48,
+    #49 — третий-четвёртый PR в час). Free tier OSS Pro plan
+    имеет nondisclosed cap; mem0 запись добавлена. Workaround
+    через combined-PR (T017) сработал; rate-limit для бурстов
+    остаётся ограничением.
+  - **PR #39 auto-closed** при `--delete-branch` стейкд-base
+    ветки (T009 Phase 1 → Phase 2 stack). Пришлось пересоздавать
+    как #41. Один из первых случаев в стек-PR паттерне; memory
+    entry зафиксирован.
+  - **`test_template.py` тихо ломался на main** до T017 — был
+    integration-marked, в CI не запускался; T017 work выявил и
+    починил (косвенно, через `[build-system] hatchling`
+    эксперимент → откат). CI должен иметь knob для опционального
+    integration run перед release-cut.
+  - **`[build-system] hatchling`** для uv-mode сломал `uv sync`
+    (`src/main.py` не пакет → auto-detect fail) — поймано только
+    после running test_template. **Lesson:** при добавлении в
+    template build-system всегда мысленно прокручивать
+    «installer pipeline» (uv sync / poetry install / pip
+    install -e .) на minimal derived structure.
+  - **Jinja `{%- ... -%}` whitespace-trim** съел newline после
+    frontmatter end-delim → frontmatter leaked в derived files,
+    20/27 T017 integration tests failed до фикса `_strip_frontmatter`.
+    Subtle Jinja semantics; lesson learned.
+- **Правки методики:**
+  - **mem0 entries** о CodeRabbit characteristics (5 facts —
+    free tier, retrigger, line-proximity auto-resolution,
+    output endpoints, hybrid strategy + rate-limit).
+  - **Combined-PR strategy** для bot economy: при reviews >2
+    PR-ов в час, рассмотреть combined PR. Зафиксировать в
+    проектном CLAUDE.md → «when to combine phases».
+  - **Test invariant**: при изменениях в template build-system
+    или pyproject.toml — обязательно прогнать `test_template.py`
+    integration tests (currently запускаются только локально).
+    Можно добавить в pre-push контракт.
+  - **Jinja whitespace-control awareness**: при использовании
+    `{%- ... -%}` в файлах с frontmatter или другой
+    delimiter-sensitive content — проверить rendered output на
+    leaks. Можно зафиксировать как note в template development
+    guide.
 
 ---
 
