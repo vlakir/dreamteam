@@ -18,40 +18,8 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 <!-- Максимум 1-2 задачи. -->
 
-- **T013** — Многоязыковая поддержка методических документов в derived
-  projects (en/ru/fr/de/zh, Variant A — N статических копий). Phase 0
-  активен: spec в `specs/T013-multilang/spec.md` (Draft → Clarified →
-  Analyzed → Implementation phases отдельными PR-ами).
-
 ## Done
 
-- **T015** — Настроен CI workflow (GitHub Actions) для PR-проверок.
-  `.github/workflows/ci.yml` запускает 4 обязательные проверки на
-  каждом PR; Branch Protection обновлён с required status check.
-  Закрывает quality gate gap из slip T014. В `CHANGELOG.md →
-  [Unreleased] → Added`.
-
-- **T014** — Удалён `PROJECT.md` из шаблона (catch-all,
-  дублировавший README / BACKLOG / CHANGELOG / DECISIONS).
-  `CLAUDE.md` / `README.md` / `CONCEPT.md` template обновлены —
-  current state теперь в `README.md`. Версия пакета bumped к
-  v1.1.0 (MINOR). ADR в `DECISIONS.md`, запись в `CHANGELOG.md →
-  [Unreleased] → Removed`.
-
-- **T011** — `dreamteam-cli` v1.0.0 опубликован на PyPI 2026-05-14.
-  Имя `dreamteam` оказалось занято squatter-аккаунтом с 2019 — PyPI
-  package переименован в `dreamteam-cli`, command остался `dreamteam`.
-  Скрипт публикации `scripts/publish.sh` + `.secrets` (git-ignored).
-  Два ADR в `DECISIONS.md` (naming + publish flow). В CHANGELOG.md
-  → [Unreleased].
-
-- **T010** — Добавлен MIT License (`LICENSE` файл, classifier,
-  README, ADR). Снимает блокер T011 (PyPI publish). В CHANGELOG.md
-  → [Unreleased] → Added.
-- **T012** — Создан `CLAUDE.md` в корне репо для разработки `dreamteam`-
-  пакета (отдельный документ от `src/dreamteam/template/CLAUDE.md`,
-  который попадает в derived проекты через `dreamteam init`).
-  В CHANGELOG.md → [Unreleased] → Added.
-
 <!-- Закрытые задачи, ждущие переноса в CHANGELOG.md при следующем
-     релизе. После переноса — очищаем. -->
+     релизе. После переноса — очищаем. Очищено при release cut
+     1.3.0 — 2026-05-15. -->
