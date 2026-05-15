@@ -72,6 +72,18 @@ def _main(
     """Dreamteam — project scaffolding CLI."""
 
 
+def _parse_data(items: list[str]) -> dict[str, str]:
+    """Parse repeated `--data key=value` options into a dict."""
+    parsed: dict[str, str] = {}
+    for item in items:
+        if '=' not in item:
+            message = f"--data expects 'key=value', got '{item}'"
+            raise typer.BadParameter(message)
+        key, _, value = item.partition('=')
+        parsed[key.strip()] = value
+    return parsed
+
+
 @app.command()
 def init(
     path: Path,
@@ -83,9 +95,17 @@ def init(
             help='Use default values for all prompts (non-interactive).',
         ),
     ] = False,
+    data: Annotated[
+        list[str] | None,
+        typer.Option(
+            '--data',
+            help='Set a copier answer: --data key=value (repeatable).',
+        ),
+    ] = None,
 ) -> None:
     """Initialize a new project from the dreamteam template."""
     target = Path(path).expanduser().resolve()
+    extra_data = _parse_data(data or [])
     # Worker (instead of run_copy) is used to capture user answers
     # for the subsequent answers-file write. run_copy returns None,
     # so we cannot extract answers from it.
@@ -94,8 +114,13 @@ def init(
     with Worker(
         src_path=str(_template_path()),
         dst_path=target,
+        data=extra_data,
         defaults=defaults,
         quiet=False,
+        # Template is shipped as package-data; trust _tasks (multilang
+        # post-render script). Without unsafe=True copier refuses any
+        # template using _tasks / extensions / jinja extras.
+        unsafe=True,
     ) as worker:
         worker.run_copy()
         user_answers = dict(worker.answers.user)
@@ -136,6 +161,7 @@ def update(
         defaults=True,
         overwrite=True,
         quiet=False,
+        unsafe=True,
     )
     _write_answers_file(target, user_answers)
     typer.echo(f'Project updated at {target} (template re-applied).')
