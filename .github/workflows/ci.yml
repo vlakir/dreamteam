@@ -44,3 +44,6 @@ jobs:
 
       - name: Pytest (fast suite)
         run: uv run pytest
+
+      - name: Translate check (multilang source_hash guard)
+        run: uv run python scripts/translate_check.py
