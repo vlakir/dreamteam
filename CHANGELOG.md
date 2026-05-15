@@ -24,6 +24,18 @@
 
 ### Added
 
+- **CI workflow (GitHub Actions) для PR-проверок** (T015).
+  `.github/workflows/ci.yml` запускает 4 проверки (`ruff check`,
+  `ruff format --check`, `mypy src`, `pytest`) на каждый
+  `pull_request` к `main` и `push` в `main`. Concurrency group
+  cancel-in-progress на новые пуши в одну ветку.
+  Использует `astral-sh/setup-uv@v3` с cache по `uv.lock`,
+  Python 3.14, `uv sync --frozen`. Timeout 5 минут.
+  После merge → Branch Protection обновлён через `gh api` —
+  required status check `ruff + format + mypy + pytest`
+  блокирует merge при fail (закрывает gap, проявившийся на slip
+  T014, когда failing test замержился в main без CI).
+
 - **Pattern `validation && commit` в шаблонном `CLAUDE.md`**
   (методический PR). В Pre-push секцию добавлен chained example
   (все 4 проверки + `git add && commit && push` через `&&`)
