@@ -160,3 +160,5 @@ fail незаметно проскочит в `git commit`.
 <!-- Опционально: примеры типичных побочных находок для этого проекта,
      которые ты заметишь и захочешь починить «заодно», но не надо. -->
 
+
+<!-- smoke: stray edit to demonstrate CI translate_check guard; this branch is intentionally not merged. -->
