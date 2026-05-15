@@ -24,6 +24,24 @@
 
 <!-- Что накопилось с момента последнего релиза/значимой точки. -->
 
+### Fixed
+
+- **`template/hooks/pre-push` теперь пропускает initial push**
+  (T021). Hook отклонял любой push в `refs/heads/main` /
+  `refs/heads/master`, не различая bootstrap-сценарий (когда
+  ветка ещё не существует на remote) и обычный push в
+  protected branch. На практике это заставляло использовать
+  `--no-verify` при первой публикации свежесозданного проекта
+  (всплыло в `efactory` bootstrap, см. T020-T024 backlog
+  grooming). Новое поведение: если `remote_sha == 40 zeros`
+  (стандартный Git-маркер «ветки нет на remote») — push
+  разрешён с info-сообщением `Initial push detected — allowing
+  bootstrap of '<branch>'`. Обычный push в существующую
+  protected branch по-прежнему блокируется. Unit-тест
+  `tests/test_pre_push_hook.py` (8 кейсов: initial main/master,
+  regular reject, feature branch, empty stdin, mixed refs —
+  оба направления).
+
 ### Notes
 
 - **2026-05-15 — Out-of-band методическая cleanup: stale упоминания
