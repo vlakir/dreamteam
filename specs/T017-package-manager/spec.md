@@ -82,8 +82,12 @@ prompt в `copier.yml`** и заменяет hardcoded `uv` команды на
   - **hatch:** `hatch run ruff:check . && hatch run ruff:format-
     check . && hatch run mypy . && hatch run test` (через
     `[tool.hatch.envs.default.scripts]`).
-  - **pip:** `ruff check . && ruff format --check . && mypy . &&
-    pytest` (предполагается активированный venv).
+  - **pip:** `.venv/bin/ruff check . && .venv/bin/ruff format
+    --check . && .venv/bin/mypy . && .venv/bin/pytest` (explicit
+    venv-binary paths — `.git/hooks/pre-push` запускается из
+    git без активированной оболочки, поэтому bare `ruff`/`pytest`
+    флакают; путь `.venv/bin/<tool>` env-independent — CodeRabbit
+    finding #51).
 - **ДОЛЖНА:** `dt update` / `dreamteam update` без явного
   `--data package_manager=` сохраняет ранее выбранный manager из
   `.copier-answers.yml` (стандартный copier behavior). При
