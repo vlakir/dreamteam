@@ -377,6 +377,10 @@ implementation phases.
 
 ## Implementation Plan
 
+**Phase 0 — Spec drafting, Clarify, Analyze.** Завершена в PR #44:
+этот документ. Включает Draft → Clarify (Q1–Q10 resolved) →
+Analyze (0 🔴 / 4 🟡 / 3 🟢) → Analyzed.
+
 **Phase 1 — Bundled bare git repo + merge backend.**
 - Hatchling build hook создаёт `src/dreamteam/template/.bundle/`
   с tag-ом `v<current_version>` (reproducible через fixed dates).
