@@ -20,6 +20,12 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Done
 
+- **T015** — Настроен CI workflow (GitHub Actions) для PR-проверок.
+  `.github/workflows/ci.yml` запускает 4 обязательные проверки на
+  каждом PR; Branch Protection обновлён с required status check.
+  Закрывает quality gate gap из slip T014. В `CHANGELOG.md →
+  [Unreleased] → Added`.
+
 - **T014** — Удалён `PROJECT.md` из шаблона (catch-all,
   дублировавший README / BACKLOG / CHANGELOG / DECISIONS).
   `CLAUDE.md` / `README.md` / `CONCEPT.md` template обновлены —
