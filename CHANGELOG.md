@@ -22,6 +22,23 @@
 
 ## [Unreleased]
 
+<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+
+---
+
+## [1.5.1] — 2026-05-15 — Apply template to an existing project
+
+Короткий PATCH-цикл после 1.5.0: единственная фича — **`dt apply`**,
+закрывающая usability gap между `dt init` и `dt update` для
+проектов, скаффолженных другим инструментом (PyCharm new-project,
+`poetry new`, `hatch new`, manual `mkdir`). T018 spec + impl;
+T019 — UX-refinement (default `path = .` для `dt apply`, паритет
+с `dt update`).
+
+PATCH вместо MINOR — explicit departure от strict semver, framing
+«закрытие usability gap», не principally new feature на уровне
+T009 (full update) / T017 (multi-PM). Зафиксировано в ADR.
+
 ### Changed
 
 - **`dt apply` без аргумента = `.`** (T019). `path` теперь имеет
@@ -109,6 +126,70 @@
   Phase split (для CodeRabbit's hourly rate-limit economy,
   T017 pattern): Phase 0 spec (PR #55) + Phase 1+2+3 combined
   (этот PR).
+
+### Retrospective
+
+- **Что зашло:**
+  - **T018 разобран на 2 PR-а** (#55 spec + #56 combined
+    Phase 1+2+3) вместо четырёх — combined pattern из T017
+    закрепился как дефолт для нетяжёлых фич с готовой spec.
+    CodeRabbit не упёрся в rate-limit ни разу за цикл.
+  - **CodeRabbit catch на T018 spec (#55)** — несколько
+    🟡-замечаний на edge-кейсы (non-TTY UX, diff volume,
+    copier 2-way vs 4-way, `.git/` guard); 3 из 4 вылилось в
+    реальные mitigations в impl (`sys.stdin.isatty()` guard,
+    documented diff-paging follow-up, 4-way prompt rationale
+    в ADR). Spec-phase ботом доносится не хуже code-PR.
+  - **Fast tests параллельно integration**: новые helpers в
+    `apply` (8 функций) покрыты unit-тестами с mocked `typer.
+    prompt`/`isatty()` — coverage поднялся обратно до 86%
+    после провала на 60% (integration matrix хорош, но не
+    запускается в fast suite). Pattern для будущих фич:
+    «integration matrix + unit helpers» вместе.
+  - **T019 как немедленный follow-up к T018** — Vladimir
+    спросил «а зачем `dt apply .` если я уже в проекте?» —
+    добавлен default за 5 строк, 1 fast test, ≤24 часа от
+    merge T018. Маленький UX win без церемонии. Scope-
+    дисциплина: формальный T-ID + отдельный PR, а не
+    «заодно».
+- **Что не зашло:**
+  - **PATCH-vs-MINOR пограничный** — T018 это новая публичная
+    команда, что по strict semver = MINOR. Чтобы сохранить
+    1.5.x как «refinement-цикл» 1.5.0, framing — «закрытие
+    usability gap, не principally new feature». Risk: если
+    следующая фича получит такой же framing, мы по факту
+    будем игнорировать MINOR-границу. Mitigation: ADR
+    зафиксировал rationale и явно сказал, что departure
+    sustainable только при подобной framing-аргументации.
+  - **Test coverage drop до 60% после Phase 1+2** — fast
+    suite не покрывал новые helpers, и `--cov-fail-under=80`
+    остановил pre-push. Pattern: integration-only coverage
+    обманчив для дефолтного pytest run. **Lesson:** при
+    добавлении нового модуля / большого блока helpers —
+    сразу планировать fast unit tests параллельно
+    integration matrix, не «доберём, если что».
+  - **`copier.Worker` deprecation warning** появляется
+    громче — каждый apply/init/update тест в pytest output.
+    Не блокер, но шумно. Можно (a) суппрессировать на
+    уровне `pyproject.toml [tool.pytest.ini_options]
+    filterwarnings`, либо (b) подождать стабильного
+    public alternative у copier и мигрировать. Отложили.
+- **Правки методики:**
+  - **Default «fast unit + integration matrix»** для нового
+    модуля. Зафиксировать в репо-CLAUDE.md под «pre-push
+    contract» примечание: integration coverage не считается
+    за основной 80%-gate; pytest run по умолчанию использует
+    fast suite.
+  - **Combined-PR pattern как дефолт** для combined Phase
+    1+2+3 после Phase 0 spec — закреплено как стандарт
+    workflow в нашем проекте, не только workaround для
+    rate-limit. PR boundaries: spec-PR (Phase 0) и
+    impl-PR (Phase 1+2+3) — две границы review-внимания.
+  - **Hot-follow-up T-ID-ы** разрешены и предпочтительны
+    перед «заодно». T019 как пример: маленькая UX-правка
+    получила формальный ID, отдельный PR, отдельный review.
+    Scope discipline не страдает; история PRs читается
+    линейно.
 
 ---
 
