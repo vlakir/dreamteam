@@ -22,7 +22,84 @@
 
 ## [Unreleased]
 
-<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+### Added
+
+- **`dt apply` — наложить dreamteam-template на уже-созданный
+  проект** (T018, v1.5.1). Закрывает пробел между `dt init`
+  (требует пустой каталог) и `dt update` (требует
+  `.copier-answers.yml` от предыдущего init): теперь
+  разработчик, создавший проект через PyCharm new-project /
+  `poetry new` / `hatch new` / `mkdir`, одной командой
+  накатывает методологию dreamteam поверх существующего
+  scaffolding-а. `.venv/`, `.git/`, user code и любые не-
+  template-managed файлы не трогаются.
+
+  **Flow:**
+  1. Render template в tempdir (используя copier + `--data` /
+     `--defaults` / prompts для answers).
+  2. Walk preview tree, сравнить с target file-by-file:
+     - отсутствует в target → `create`;
+     - идентично rendered → `unchanged`;
+     - расхождение → conflict, see resolution below.
+  3. Записать `.copier-answers.yml` (full answers + `_commit
+     = 1.5.1` + `_src_path = <bundle>`), так что subsequent
+     `dt update` работает штатно.
+  4. Итоговая summary line: «`N created, M unchanged, K kept,
+     L overwritten, X saved as .dt-new`».
+
+  **Resolution per conflict (Q2 → 4-way interactive prompt):**
+  - `[k]eep` — keep target version (default).
+  - `[o]verwrite` — write template version.
+  - `[d]iff` — print unified diff, loop back to prompt.
+  - `[s]ave-as-new` — write template content to
+    `<file>.dt-new`; original stays.
+
+  **`--on-conflict <keep|overwrite|save-as-new>`** flag для
+  non-interactive runs (CI / scripts / `--data`-driven). При
+  `sys.stdin.isatty() == False` без `--on-conflict` — exit 1
+  с ошибкой «non-interactive run requires --on-conflict».
+
+  **`--dry-run`** — plan-only output без записи (включая
+  `.copier-answers.yml`). Полезно для preview перед actual
+  apply.
+
+  **Уже-dreamteam проект** (target содержит
+  `.copier-answers.yml`) → exit 1, message «use `dt update`».
+
+  **Integration test matrix** (`tests/test_t018_phase2.py`):
+  5 managers × empty target (sanity per package_manager) +
+  3 scaffold-states × uv (PyCharm-like / Poetry-like /
+  Hatch-like, exercise все три conflict resolutions) +
+  4 sanity (`--dry-run`, already-dreamteam, apply→update
+  pipeline, invalid `--on-conflict`). 12 cases, all green.
+
+  **Version bump:** `dreamteam-cli` **1.5.0 → 1.5.1**
+  (PATCH). Strict semver-чтение предписало бы MINOR для нового
+  CLI-command, но T018 в этом цикле framed как «refinement /
+  закрытие usability gap», не principally new feature на
+  уровне T009 (full update) / T017 (multi-PM). Explicit
+  departure документирован в ADR. Backward-compatible:
+  существующие `dt init` / `dt update` не затронуты.
+
+  **Bundle re-tag**: `1.5.1` тег добавлен в `.bundle/`; main
+  advanced; `scripts/update_bundle.py` без изменений.
+
+  **Rejected alternatives** (см. ADR в `DECISIONS.md`):
+  - **`dt init --existing` flag** (vs new command) — flag
+    obscure без `--help`.
+  - **Auto-detect в `dt init`** (empty → init, non-empty →
+    apply) — implicit behavior, surprising для CI runs.
+  - **Copier's native Y/N prompt** (vs custom 4-way) — менее
+    rich UX, no diff option.
+  - **Auto-save `.dt-new` без prompt** — non-interactive
+    friendly, но user не видит conflicts без проверки рядом.
+  - **Semantic merge `pyproject.toml`** (TOML-level union) —
+    out of MVP scope; добавит сложность без явной выгоды на
+    текущем сценарии.
+
+  Phase split (для CodeRabbit's hourly rate-limit economy,
+  T017 pattern): Phase 0 spec (PR #55) + Phase 1+2+3 combined
+  (этот PR).
 
 ---
 

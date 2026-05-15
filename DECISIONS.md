@@ -14,6 +14,106 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-15 — `dt apply` для наложения template на существующий проект (T018)
+
+- **Контекст:** разработчик создал проект через **другой
+  инструмент** (PyCharm new-project wizard, `poetry new`,
+  `hatch new`, manual `mkdir`), у него уже есть
+  `pyproject.toml` / `.venv/` / возможно `src/` / `tests/`,
+  и теперь он хочет применить методологию dreamteam **поверх**
+  существующего scaffolding-а. Текущие команды не покрывают:
+  - `dt init <path>` — рендерит в пустой каталог; ругается /
+    конфликтует на non-empty target.
+  - `dt update <path>` — требует `.copier-answers.yml`
+    (присутствует только в проекте, ранее `dt init`-нутом).
+  Это реальный usability gap, surfaced когда Vladimir создал
+  `efactory` через PyCharm + uv и спросил «как одной командой
+  применить dreamteam?». T018 закрывает gap новой командой
+  `dt apply`.
+- **Альтернативы (CLI surface — Q1):**
+  - **`dt init --existing` flag** — same command name, flag
+    hints intent. Отвергли — flag obscure без `--help`; users
+    проблему не предсказывают, и `init` с побочным режимом
+    путает API contract.
+  - **Auto-detect в `dt init`** (empty → init, non-empty
+    без answers → apply, with answers → error «use update»).
+    Отвергли — implicit behavior surprising в CI scripts;
+    user не контролирует path однозначно.
+  - **Выбран `dt apply <path>`** — third top-level verb рядом
+    с init / update. Explicit; users учат три глагола, но
+    каждый делает одну вещь.
+- **Альтернативы (conflict UX — Q2):**
+  - **Copier's native Y/N prompt** (через `overwrite=False,
+    defaults=False`) — менее rich, только keep/overwrite, no
+    diff. Отвергли в пользу 4-way prompt с `[d]iff` option.
+  - **Auto save-as `.dt-new` + warning** (non-interactive
+    friendly) — отвергли как default. User мог не заметить
+    `.dt-new` рядом, если работает быстро. Сохранили как
+    explicit option через `--on-conflict save-as-new`.
+  - **Выбран per-file 4-way interactive prompt**: `[k]eep /
+    [o]verwrite / [d]iff / [s]ave-as-new`. `[d]iff` —
+    informational, loops back. Default `keep` (least-destructive).
+- **Альтернативы (already-dreamteam target — Q3):**
+  - **Auto-redirect to `dt update`** — convenience, но риск
+    что user не понял, какая команда фактически выполняется.
+  - **Force re-init** — overwrite all answers (опасно).
+  - **Выбран error + suggest `dt update`** (Q3 → option a).
+    Minimum surprise; user знает что делает.
+- **Альтернативы (`package_manager` detection — Q7):**
+  - **Auto-detect из существующего `pyproject.toml`** (через
+    `[tool.poetry]` / `[tool.hatch.*]` / отсутствие → uv) —
+    intelligent, но complex и легко confused (что если в
+    pyproject `[tool.hatch.envs]` И `[tool.poetry]`?). Отложили
+    как stretch goal (отдельный T-ID при появлении pattern).
+  - **Выбрано: всегда prompt** (default `uv`). Predictable.
+- **Альтернативы (semantic merge `pyproject.toml` — Q9):**
+  - **Special-case** TOML-level union user's `[project.dependencies]`
+    + template's `[tool.ruff]` / `[tool.mypy]` — сложно,
+    edge cases multiply; **отвергли** как out of MVP.
+  - **Выбрано: универсальное правило**, `pyproject.toml`
+    обрабатывается как любой другой template-managed файл
+    через per-file conflict prompt.
+- **Альтернативы (version bump — Q10):**
+  - **MINOR (1.5.0 → 1.6.0)** — strict semver: new CLI command
+    = new public surface = MINOR.
+  - **Выбрано: PATCH (1.5.0 → 1.5.1)** — Vladimir's call.
+    Framing: T018 это «закрытие usability gap / refinement of
+    init use case», не principally new feature на уровне
+    T009 / T017. Explicit departure от strict semver
+    documented здесь — для consistency future T-задачи,
+    которые добавят новый command, тоже могут получить PATCH
+    bump если framing similar.
+- **Реверс-discovered issues (during impl):**
+  - 🟡 **Non-TTY interactive prompt** crash risk → mitigation:
+    `sys.stdin.isatty()` detect + require `--on-conflict` для
+    non-interactive runs. Реализовано.
+  - 🟡 **Diff output volume** на large files → mitigation:
+    в текущем MVP diff просто dump-ится в stdout. Если станет
+    проблемой — добавить paging через `less` (отдельный T-ID).
+- **Последствия:**
+  - **`cli.py`:** new `apply` command + helpers
+    (`_render_apply_preview`, `_classify_apply_files`,
+    `_resolve_conflict`, `_prompt_conflict_choice`,
+    `_execute_apply_decisions`, `_print_apply_summary`).
+    `import sys` added (for `isatty()` check).
+  - **`apply` validates target** — exists/dir/no
+    `.copier-answers.yml`/`--on-conflict` for non-TTY — exits
+    1 with specific message before any rendering work.
+  - **`--dry-run`** включает both write-skip и interactive-
+    prompt-skip (dry-run NEVER prompts, всегда выдаёт
+    «conflict-dry» count).
+  - **`.copier-answers.yml` always written** на successful
+    apply (Q6 → option a) — subsequent `dt update` works.
+  - **Bundle re-tag** через `scripts/update_bundle.py` —
+    `1.5.1` tag добавлен; main advanced.
+  - **`tests/test_t018_phase2.py`:** integration matrix 12
+    cases. Marked `@pytest.mark.integration`; fast suite не
+    затронут.
+  - **Version:** `1.5.0 → 1.5.1` (PATCH per Q10).
+  - **Phase split** в Implementation: Phase 0 (spec, PR #55),
+    Phase 1+2+3 combined в одном PR (T017 pattern, CodeRabbit
+    rate-limit economy).
+
 ### 2026-05-15 — Параметризованный выбор package manager (T017)
 
 - **Контекст:** derived projects shipped с hardcoded `uv`-командами

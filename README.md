@@ -102,6 +102,48 @@ maintainer judgment per change.
 > languages are welcome. If you find a passage where the meaning
 > diverges from the ru source — please open an issue.
 
+## Applying to an existing project
+
+If you started a project with another tool — PyCharm's new-project
+wizard, `poetry new`, `hatch new`, or just `mkdir + cd` — and now
+want to layer dreamteam's methodology on top, use:
+
+```bash
+dt apply my-existing-project
+```
+
+`dt apply` renders the template into a temporary preview, walks
+every file, and decides per file:
+
+- **File absent in target** → create silently.
+- **File matches template render exactly** → no-op.
+- **File differs** → 4-way interactive prompt:
+  - `[k]eep` your version (default if you just hit Enter);
+  - `[o]verwrite` with the template version;
+  - `[d]iff` to see a unified diff (loops back to the prompt);
+  - `[s]ave-as-new` writes the template content next to your
+    file as `<file>.dt-new` for manual merge later.
+
+`.venv/`, `.git/`, your `src/` packages and any non-template-managed
+files are left alone.
+
+For non-interactive runs (CI, scripts) pass `--on-conflict
+<keep|overwrite|save-as-new>`. `--dry-run` prints the per-bucket
+plan without writing anything. `--data key=value` (repeatable)
+seeds copier answers the same way as `dt init`.
+
+> **Pre-flight checks.** If the target already contains
+> `.copier-answers.yml` (i.e. it was created via `dt init`),
+> `dt apply` exits with a hint to use `dt update` instead.
+> If stdin is not a TTY and `--on-conflict` was not supplied,
+> the command exits before any render work with an explicit
+> error.
+
+After a successful apply the target carries a valid
+`.copier-answers.yml`, so subsequent `dt update` (three-way merge
+against future template evolutions) works the same as for an
+`dt init`-ed project.
+
 ## Updating an existing project
 
 When the methodology evolves, propagate the changes into your derived

@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -623,3 +624,296 @@ def update(
         )
         raise typer.Exit(code=EXIT_CONFLICTS)
     typer.echo(f'Project updated at {target} (three-way merge, no conflicts).')
+
+
+# ---------------------------------------------------------------------------
+# `dt apply` command (T018) — layer dreamteam template on top of an existing
+# project that was scaffolded by something else (PyCharm new-project wizard,
+# `poetry new`, `hatch new`, manual `mkdir`). Per-file 4-way conflict prompt
+# in TTY mode; `--on-conflict <keep|overwrite|save-as-new>` for non-interactive.
+# ---------------------------------------------------------------------------
+
+CONFLICT_CHOICES = ('keep', 'overwrite', 'save-as-new')
+
+
+def _print_file_diff(target_file: Path, preview_file: Path, rel: Path) -> None:
+    """Write unified diff (target → preview) for one file to stdout."""
+    try:
+        t_text = target_file.read_text(encoding='utf-8')
+        p_text = preview_file.read_text(encoding='utf-8')
+    except UnicodeDecodeError:
+        typer.echo(f'Binary files a/{rel} and b/{rel} differ', nl=True)
+        return
+    diff = ''.join(
+        difflib.unified_diff(
+            t_text.splitlines(keepends=True),
+            p_text.splitlines(keepends=True),
+            fromfile=f'a/{rel}',
+            tofile=f'b/{rel}',
+        )
+    )
+    typer.echo(diff, nl=False)
+
+
+def _prompt_conflict_choice(rel: Path, target_file: Path, preview_file: Path) -> str:
+    """
+    Interactive 4-way conflict prompt: keep / overwrite / diff / save-as-new.
+
+    `diff` loops back to the prompt (informational only); the three other
+    options are terminal and return the action string used by
+    `_execute_apply_decisions`. Defaults to `keep` if the user hits Enter
+    without typing anything (least-destructive default).
+    """
+    while True:
+        choice = (
+            typer.prompt(
+                f'{rel}: conflict — [k]eep / [o]verwrite / [d]iff / [s]ave-as-new',
+                default='k',
+            )
+            .strip()
+            .lower()
+        )
+        if choice in ('k', 'keep', ''):
+            return 'keep'
+        if choice in ('o', 'overwrite'):
+            return 'overwrite'
+        if choice in ('s', 'save', 'save-as-new'):
+            return 'save-as-new'
+        if choice in ('d', 'diff'):
+            _print_file_diff(target_file, preview_file, rel)
+            continue
+        typer.echo(f'unknown choice {choice!r}; expected k/o/d/s')
+
+
+def _resolve_conflict(
+    rel: Path,
+    target_file: Path,
+    preview_file: Path,
+    on_conflict: str | None,
+) -> str:
+    """Return one of 'keep' / 'overwrite' / 'save-as-new' for a conflict."""
+    if on_conflict is not None:
+        return on_conflict
+    return _prompt_conflict_choice(rel, target_file, preview_file)
+
+
+def _files_equal(target_file: Path, preview_file: Path) -> bool:
+    """Compare two files; tolerate binary content."""
+    try:
+        return target_file.read_text(encoding='utf-8') == preview_file.read_text(
+            encoding='utf-8',
+        )
+    except UnicodeDecodeError:
+        return target_file.read_bytes() == preview_file.read_bytes()
+
+
+def _classify_apply_files(
+    target: Path,
+    preview: Path,
+    on_conflict: str | None,
+    *,
+    dry_run: bool,
+) -> list[tuple[Path, str]]:
+    """
+    Walk the preview tree and decide per file what to do.
+
+    Returns a list of (rel_path, action). Actions:
+    - 'create'        — target file absent, create from preview.
+    - 'unchanged'     — both exist with identical content; no-op.
+    - 'keep'          — conflict, user chose to keep target as-is.
+    - 'overwrite'     — conflict, user chose template version.
+    - 'save-as-new'   — conflict, write preview to `<file>.dt-new`.
+    - 'conflict-dry'  — dry-run only; would prompt.
+    """
+    decisions: list[tuple[Path, str]] = []
+    for rel in sorted(_relfiles(preview), key=str):
+        target_file = target / rel
+        preview_file = preview / rel
+        if not target_file.exists():
+            decisions.append((rel, 'create'))
+            continue
+        if _files_equal(target_file, preview_file):
+            decisions.append((rel, 'unchanged'))
+            continue
+        if dry_run:
+            decisions.append((rel, 'conflict-dry'))
+            continue
+        action = _resolve_conflict(rel, target_file, preview_file, on_conflict)
+        decisions.append((rel, action))
+    return decisions
+
+
+def _execute_apply_decisions(
+    target: Path,
+    preview: Path,
+    decisions: list[tuple[Path, str]],
+    *,
+    dry_run: bool,
+) -> dict[str, int]:
+    """Apply decisions to the target (skip writes on dry-run); return summary."""
+    summary: dict[str, int] = {
+        'create': 0,
+        'unchanged': 0,
+        'keep': 0,
+        'overwrite': 0,
+        'save-as-new': 0,
+        'conflict-dry': 0,
+    }
+    for rel, action in decisions:
+        summary[action] = summary.get(action, 0) + 1
+        if dry_run:
+            continue
+        target_file = target / rel
+        preview_file = preview / rel
+        if action in ('create', 'overwrite'):
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(preview_file, target_file)
+        elif action == 'save-as-new':
+            new_path = target_file.with_name(target_file.name + '.dt-new')
+            shutil.copy2(preview_file, new_path)
+        # 'keep' / 'unchanged' — no-op
+    return summary
+
+
+def _print_apply_summary(summary: dict[str, int], *, dry_run: bool) -> None:
+    """One-line summary in the same shape as `dt update --dry-run`."""
+    label = 'dreamteam apply --dry-run' if dry_run else 'dreamteam apply'
+    parts = [
+        f'{summary["create"]} created',
+        f'{summary["unchanged"]} unchanged',
+        f'{summary["keep"]} kept',
+        f'{summary["overwrite"]} overwritten',
+        f'{summary["save-as-new"]} saved as .dt-new',
+    ]
+    if dry_run and summary.get('conflict-dry'):
+        parts.append(f'{summary["conflict-dry"]} would conflict')
+    typer.echo(f'{label}: ' + ', '.join(parts) + '.')
+
+
+def _render_apply_preview(
+    preview: Path,
+    extra_data: dict[str, str],
+    *,
+    defaults: bool,
+) -> dict[str, Any]:
+    """Run copier into `preview`; return captured user answers."""
+    with Worker(
+        src_path=str(_template_path()),
+        dst_path=preview,
+        data=extra_data,
+        defaults=defaults,
+        quiet=True,
+        unsafe=True,
+    ) as worker:
+        worker.run_copy()
+        return dict(worker.answers.user)
+
+
+@app.command()
+def apply(
+    path: Path,
+    *,
+    defaults: Annotated[
+        bool,
+        typer.Option(
+            '--defaults',
+            help='Use default values for all prompts (non-interactive).',
+        ),
+    ] = False,
+    data: Annotated[
+        list[str] | None,
+        typer.Option(
+            '--data',
+            help='Set a copier answer: --data key=value (repeatable).',
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            '--dry-run',
+            help='Plan only; print decision counts without writing files.',
+        ),
+    ] = False,
+    on_conflict: Annotated[
+        str | None,
+        typer.Option(
+            '--on-conflict',
+            help=(
+                'How to resolve conflicts non-interactively: '
+                'keep | overwrite | save-as-new. Required when stdin '
+                'is not a TTY (e.g. CI).'
+            ),
+        ),
+    ] = None,
+) -> None:
+    """
+    Apply the dreamteam template on top of an existing project.
+
+    Use this when the target was scaffolded by something else (PyCharm,
+    `poetry new`, `hatch new`, manual `mkdir`) and you want to layer
+    dreamteam's methodology + tooling on top. Conflicts on files that
+    already exist in the target are resolved per-file: kept as-is,
+    overwritten with the template version, or saved next to the original
+    as `<file>.dt-new` for manual merge.
+
+    For a brand-new empty directory `dt init` is the simpler choice; for
+    a target that was already `dt init`-ed (carries `.copier-answers.yml`)
+    use `dt update`.
+    """
+    target = Path(path).expanduser().resolve()
+    if target.exists() and not target.is_dir():
+        typer.echo(f'ERROR: {target} is not a directory.', err=True)
+        raise typer.Exit(code=EXIT_ERROR)
+    if not target.exists():
+        target.mkdir(parents=True)
+
+    answers_file = target / ANSWERS_FILE
+    if answers_file.exists():
+        typer.echo(
+            f'{target} already has {ANSWERS_FILE}; this is a dreamteam-managed '
+            'project. Use `dt update` instead of `dt apply`.',
+            err=True,
+        )
+        raise typer.Exit(code=EXIT_ERROR)
+
+    if on_conflict is not None and on_conflict not in CONFLICT_CHOICES:
+        typer.echo(
+            f'ERROR: --on-conflict must be one of: {", ".join(CONFLICT_CHOICES)}.',
+            err=True,
+        )
+        raise typer.Exit(code=EXIT_ERROR)
+
+    if not dry_run and on_conflict is None and not sys.stdin.isatty():
+        typer.echo(
+            'ERROR: stdin is not a TTY; pass --on-conflict '
+            f'<{"|".join(CONFLICT_CHOICES)}> for non-interactive runs.',
+            err=True,
+        )
+        raise typer.Exit(code=EXIT_ERROR)
+
+    extra_data = _parse_data(data or [])
+
+    with tempfile.TemporaryDirectory(prefix='dreamteam-apply-') as tmp:
+        preview = Path(tmp) / 'preview'
+        user_answers = _render_apply_preview(
+            preview,
+            extra_data,
+            defaults=defaults,
+        )
+        decisions = _classify_apply_files(
+            target,
+            preview,
+            on_conflict,
+            dry_run=dry_run,
+        )
+        summary = _execute_apply_decisions(
+            target,
+            preview,
+            decisions,
+            dry_run=dry_run,
+        )
+
+    if not dry_run:
+        _write_answers_file(target, user_answers)
+
+    _print_apply_summary(summary, dry_run=dry_run)
