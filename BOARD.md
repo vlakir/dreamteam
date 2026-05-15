@@ -18,6 +18,14 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 <!-- Максимум 1-2 задачи. -->
 
+- **T018** — Команда для применения dreamteam-template к
+  **уже-созданному** проекту (PyCharm new project, `poetry new`,
+  `hatch new`, etc.). Пробел между `dt init` (нужен пустой
+  каталог) и `dt update` (требует `.copier-answers.yml`).
+  Цель: одной командой, конфликты решаются per-file по мере
+  возникновения. Phase 0 активен: spec в
+  `specs/T018-apply-to-existing/spec.md` (Draft, 10 Open
+  Questions ждут Clarify).
 
 ## Done
 
