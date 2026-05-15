@@ -24,6 +24,18 @@
 
 ### Added
 
+- **Короткий console-script alias `dt`** (T016). `pip install
+  dreamteam-cli` теперь регистрирует две entry-точки:
+  `dreamteam` и `dt`, обе указывают на `dreamteam.cli:app`.
+  `dt init my-project` / `dt update --dry-run` / `dt --version`
+  работают эквивалентно полному имени. Trade-off: PATH-namespace
+  `dt` теперь занят на машине пользователя — известный risk
+  collision с другими `dt`-named утилитами (на типовых Debian/
+  Ubuntu installs ничего стандартного нет). README обновлён;
+  smoke-test через `importlib.metadata.entry_points` верифицирует,
+  что обе entry-точки зарегистрированы при install и указывают
+  на тот же callable.
+
 - **Полноценный `dreamteam update` с three-way merge** (T009,
   v1.4.0). Заменяет MVP-overwrite (`run_copy(..., overwrite=True)`),
   который клобберил пользовательские правки template-managed
