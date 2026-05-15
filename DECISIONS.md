@@ -14,6 +14,121 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-15 — Параметризованный выбор package manager (T017)
+
+- **Контекст:** derived projects shipped с hardcoded `uv`-командами
+  в narrative-файлах (×11 в CLAUDE.md, ×7 в README) + в
+  pyproject.toml. T016 install-via-pip smoke выявил: pip- /
+  poetry-user после `pip install dreamteam-cli && dt init proj`
+  видел в Claude советы по uv-инструментарию, которого у него
+  нет на машине. Параметризация через новый
+  `package_manager` prompt + conditional Jinja rendering.
+- **Альтернативы (set managers — Q1, expanded после consultation):**
+  - **Только `uv` + `poetry` + `pip`** (initial spec proposal) —
+    отвергли в пользу расширения. `pdm` и `hatch` оба
+    PEP 621-native и активные; `hatch` особенно естественен —
+    наш build-backend `hatchling` уже от тех же maintainer-ов.
+  - **Полный landscape (`uv` + `poetry` + `pdm` + `hatch` +
+    `pip` + `pipenv` + `pixi` + `conda` + `rye`)** — отвергли.
+    `pipenv` declining (Pipfile-based, не PEP 621-native);
+    `pixi` niche; `conda`/`mamba` другая парадигма (env + pkg
+    объединены), требует отдельного `env_manager` prompt;
+    `rye` superseded by `uv` (Astral acquired).
+  - **Выбран `uv` + `poetry` + `pdm` + `hatch` + `pip` (5 managers).**
+    Покрывает весь PEP-621-стек от opinionated-fast (uv) до
+    bare (pip).
+- **Альтернативы (default — Q2):**
+  - **`pip` (most universal)** — отвергли. Slower workflow;
+    confusing для current uv-first users.
+  - **Выбран `uv`.** Current behavior, no surprises.
+- **Альтернативы (conditional rendering arch — Q3):**
+  - **Inline `{% if %}` blocks per command** — отвергли. Verbose,
+    `{% if pm == 'uv' %}uv run pytest{% elif ... %}{% endif %}`
+    блоки выглядят как шум в narrative.
+  - **Separate per-manager file fragments + post-render
+    selection** — отвергли. Работает для self-contained файлов,
+    не для inline-heavy narrative (CLAUDE.md имеет много
+    inline-команд).
+  - **Выбраны single-variable Jinja macros** (`{% set pm_run =
+    {...}[package_manager] %}` + body uses `{{ pm_run }}pytest`).
+    DRY, scales до 5+ managers без quadratic growth текста.
+- **Альтернативы (`pyproject.toml` template — Q4):**
+  - **Три+ отдельных файла** (`pyproject.uv.toml`, etc.) +
+    post-render rename — отвергли. Maintenance burden grows
+    linearly, риск drift-а.
+  - **Выбран single Jinja file с conditional sections.** Matches
+    Q3 (single Jinja source). Per-manager блоки внутри `{% if %}`
+    ladder. Build-system + `[tool.poetry]` / `[tool.hatch.*]`
+    appear conditionally.
+- **Альтернативы (build-system per manager — Q5):**
+  - **uv:** `hatchling`.
+  - **poetry:** `poetry-core`.
+  - **pdm:** `pdm-backend`.
+  - **hatch:** `hatchling` (own ecosystem).
+  - **pip:** `hatchling` (modern PyPA-supported choice;
+    `setuptools` не выбран — менее modern для new projects).
+- **Альтернативы (lock-file generation в init — Q6):**
+  - **Опциональный flag `--install`** — отвергли. Усложняет
+    init flow, edge cases (manager not installed → failure).
+  - **Always** — отвергли. Hard requirement.
+  - **Выбрано: не генерировать в MVP.** User сам делает
+    `{{ pm_install }}` после init; documented в derived README.
+- **Альтернативы (backward compat — Q9, simplified после
+  consultation):**
+  - **Warning при missing answer** — отвергли. Cron-friendliness
+    pain.
+  - **Hard error «add --data package_manager=... explicitly»**
+    — отвергли. UX burden.
+  - **Migration command `dreamteam migrate --to <manager>`** —
+    отвергли. Heavy work для edge case.
+  - **Выбрано: ничего специального** (Vladimir's call —
+    «проект молодой, не заморачиваться»). Copier standard
+    silent default → `uv` для existing derived projects без
+    `package_manager` answer.
+- **Альтернативы (integration test scope — Q10):**
+  - **Cut матрица** (5 × 1 en + 1 uv × 4 langs = 9 cases) —
+    отвергли. Защита от drift weaker.
+  - **Полная матрица 5 × 5 = 25 cases**, ~100s в integration
+    suite. Acceptable budget; combined с multilang ~130s
+    under 5-min CI timeout.
+- **Reverse-discovered issue (CodeRabbit на #51 spec):** spec
+  изначально предписывал bare `ruff check .` для pip — CodeRabbit
+  flagged как flake risk (pre-push hook runs without shell
+  activation). **Fixed:** pip pre-push command chain использует
+  `.venv/bin/ruff check .` style.
+- **Реверс-discovered issue (during impl):** Jinja `{%- ... -%}`
+  whitespace-trim eat newline после frontmatter end-delim, что
+  ломало `_tasks_post_render.py:_strip_frontmatter` (looking for
+  exact `\n---\n` pattern). **Fixed:** функция accepts both
+  `\n---\n` (standard) и `\n---` followed by any non-newline
+  char (Jinja-trimmed case).
+- **Последствия:**
+  - **`copier.yml`:** новый prompt `package_manager` с 5
+    choices, default `uv`, display names с native-tool наименованиями.
+  - **`pyproject.toml` template:** conditional build-system +
+    manager-specific `[tool.*]` sections (5 ветвей).
+  - **`i18n/ru/{CLAUDE,README}.md`:** Jinja set-macros (`pm_run`,
+    `pm_install`, `pm_name`) на верху файла, body uses
+    substituted variables + `{% if %}` blocks для major-divergent
+    sections (typical commands, dependency add).
+  - **`i18n/{en,fr,de,zh}/{CLAUDE,README}.md`:** AI-regenerated
+    через Claude Code session с обновлённым `source_hash`. 32
+    ok через `translate_check.py`.
+  - **`_tasks_post_render.py`:** `_strip_frontmatter` принимает
+    Jinja-trimmed end-marker.
+  - **`scripts/update_bundle.py`:** push main с `--force`
+    (single-writer scenario; `--force-with-lease=ref` без
+    expect-value ломается).
+  - **`tests/test_t017_phase2.py`:** 5×5 integration matrix
+    (verify rendered output, not actual install).
+  - **Bundle re-tag:** `1.5.0` добавлен в `.bundle/`.
+  - **Version:** `dreamteam-cli` 1.4.0 → 1.5.0 (MINOR;
+    backward-compat через silent default `uv` для existing
+    derived without `package_manager` answer).
+  - **Phase split:** Phase 0 (spec, PR #51), Phase 1+2+3
+    combined в одном PR для economy на CodeRabbit's hourly
+    rate-limit (T007 trial обнаружил pattern).
+
 ### 2026-05-15 — Full `dreamteam update` с three-way merge (T009)
 
 - **Контекст:** MVP-вариант `dreamteam update` (T006) выполнял

@@ -1,9 +1,12 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 5b86cdd58929d29c1432f734d68d9afec73e4b4c17937907c769d6453624ed1d
+source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # Claude 的项目规则
 
 本文件是 Claude（Claude Code）的项目规则。全局规则
@@ -47,7 +50,9 @@ translation_date: 2026-05-15
 
 **模板的基础栈（适用于 Python 项目）：**
 - Python 3.14+（`pyproject.toml` 中的 `requires-python`）。
-- 依赖与环境管理器：`uv`（Astral 出品，速度快）。
+- 依赖与环境管理器：**`{{ pm_name }}`**（在 `dreamteam init` 时
+  通过 `package_manager` prompt 选择；备选：`uv` / `poetry` /
+  `pdm` / `hatch` / `pip`）。
 - Linter：`ruff`（规则 `select = ["ALL"]`，搭配固定的 `ignore`）。
 - Type checker：`mypy`，`mypy_path = "src"`。
 - 测试栈：`pytest` + `pytest-cov` + `pytest-asyncio`。Coverage
@@ -57,26 +62,55 @@ translation_date: 2026-05-15
 - 测试 —— 位于根目录下的 `tests/`（被 `ruff` 排除，但 `pytest`
   通过 `testpaths = ["tests"]` 找到它们）。
 
-**典型命令：**
+**典型命令（针对所选 `{{ pm_name }}`）：**
+{%- if package_manager == 'uv' %}
 - `uv sync` —— 安装依赖（首次运行时创建 `.venv`）。
 - `uv add <pkg>` / `uv add --dev <pkg>` —— 添加 runtime / dev
   依赖。
 - `uv run python ...` —— 在 `.venv` 中运行，无需激活。
 - `uvx <tool>` —— 运行 CLI 工具，无需本地安装。
+{%- elif package_manager == 'poetry' %}
+- `poetry install` —— 安装依赖（首次运行时创建 venv）。
+- `poetry add <pkg>` / `poetry add --group dev <pkg>` —— 添加
+  runtime / dev 依赖。
+- `poetry run python ...` —— 在 poetry venv 中运行，无需激活。
+- `poetry env activate` —— 打开激活了 venv 的子 shell。
+{%- elif package_manager == 'pdm' %}
+- `pdm install` —— 安装依赖（首次运行时创建 `.venv`）。
+- `pdm add <pkg>` / `pdm add -dG dev <pkg>` —— 添加 runtime /
+  dev 依赖。
+- `pdm run python ...` —— 在 `.venv` 中运行，无需激活。
+{%- elif package_manager == 'hatch' %}
+- `hatch env create` —— 创建带 dev-deps 的 `default`
+  environment。
+- 依赖在 `pyproject.toml` 的
+  `[tool.hatch.envs.default.dependencies]` 中编辑。
+- `hatch run <cmd>` —— 在 `default` env 中运行命令，无需激活。
+- 脚本定义在 `[tool.hatch.envs.default.scripts]` 中，通过
+  `hatch run <script>` 调用。
+{%- else %}
+- `python -m venv .venv && .venv/bin/pip install -e .[dev]` ——
+  创建 venv 并安装 dev 依赖。
+- `.venv/bin/pip install <pkg>` —— 安装包（之后手动将其加入
+  `pyproject.toml` 的 `[project.dependencies]`；pip 不会自动
+  更新清单）。
+- `.venv/bin/python ...` 或激活 venv（`source .venv/bin/activate`）
+  然后运行 `python ...`。
+{%- endif %}
 
 每次 `git push` 之前，**四项**必须以 0 错误通过的检查：
-1. `uv run ruff check .`
-2. `uv run ruff format --check .`
-3. `uv run mypy <code>`
-4. `uv run pytest`（包含 coverage 阈值 ≥ 80%）。
+1. `{{ pm_run }}ruff check .`
+2. `{{ pm_run }}ruff format --check .`
+3. `{{ pm_run }}mypy <code>`
+4. `{{ pm_run }}pytest`（包含 coverage 阈值 ≥ 80%）。
 
 **作为一条链一次运行**，任何一步失败都会中断 commit：
 
 ```bash
-uv run ruff check . && \
-uv run ruff format --check . && \
-uv run mypy <code> && \
-uv run pytest && \
+{{ pm_run }}ruff check . && \
+{{ pm_run }}ruff format --check . && \
+{{ pm_run }}mypy <code> && \
+{{ pm_run }}pytest && \
 git add -A && git commit -m "..." && git push
 ```
 

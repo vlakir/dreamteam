@@ -1,9 +1,12 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 5b86cdd58929d29c1432f734d68d9afec73e4b4c17937907c769d6453624ed1d
+source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # Règles projet pour Claude
 
 Ce fichier contient les règles projet pour Claude (Claude Code). Les
@@ -60,8 +63,10 @@ manuellement plus tard.
 
 **Stack de base du modèle (pour projets Python) :**
 - Python 3.14+ (`requires-python` dans `pyproject.toml`).
-- Gestionnaire de dépendances et d'environnements : `uv` (rapide,
-  d'Astral).
+- Gestionnaire de dépendances et d'environnements : **`{{ pm_name }}`**
+  (choisi lors de `dreamteam init` via le prompt
+  `package_manager` ; alternatives : `uv` / `poetry` / `pdm` /
+  `hatch` / `pip`).
 - Linter : `ruff` (règle `select = ["ALL"]` avec un `ignore` fixe).
 - Type-checker : `mypy` avec `mypy_path = "src"`.
 - Stack de tests : `pytest` + `pytest-cov` + `pytest-asyncio`. Seuil
@@ -71,29 +76,63 @@ manuellement plus tard.
 - Tests — dans `tests/` à la racine (`ruff` l'exclut, mais `pytest`
   les trouve via `testpaths = ["tests"]`).
 
-**Commandes typiques :**
+**Commandes typiques (pour le `{{ pm_name }}` choisi) :**
+{%- if package_manager == 'uv' %}
 - `uv sync` — installer les dépendances (crée `.venv` au premier
   lancement).
 - `uv add <pkg>` / `uv add --dev <pkg>` — ajouter une dépendance
   runtime / dev.
 - `uv run python ...` — exécuter sous `.venv` sans l'activer.
 - `uvx <tool>` — exécuter un outil CLI sans installation locale.
+{%- elif package_manager == 'poetry' %}
+- `poetry install` — installer les dépendances (crée le venv au
+  premier lancement).
+- `poetry add <pkg>` / `poetry add --group dev <pkg>` — ajouter
+  une dépendance runtime / dev.
+- `poetry run python ...` — exécuter sous le venv poetry sans
+  l'activer.
+- `poetry env activate` — ouvrir un sous-shell avec le venv actif.
+{%- elif package_manager == 'pdm' %}
+- `pdm install` — installer les dépendances (crée `.venv` au
+  premier lancement).
+- `pdm add <pkg>` / `pdm add -dG dev <pkg>` — ajouter une
+  dépendance runtime / dev.
+- `pdm run python ...` — exécuter sous `.venv` sans l'activer.
+{%- elif package_manager == 'hatch' %}
+- `hatch env create` — créer l'environnement `default` avec les
+  dev-deps.
+- Les dépendances sont éditées dans
+  `[tool.hatch.envs.default.dependencies]` dans `pyproject.toml`.
+- `hatch run <cmd>` — exécuter une commande dans l'env `default`
+  sans activation.
+- Les scripts sont définis dans
+  `[tool.hatch.envs.default.scripts]` et appelés via
+  `hatch run <script>`.
+{%- else %}
+- `python -m venv .venv && .venv/bin/pip install -e .[dev]` —
+  créer un venv et installer les dépendances dev.
+- `.venv/bin/pip install <pkg>` — installer un paquet (puis
+  ajoute-le à `pyproject.toml` toi-même ; pip ne met pas à jour
+  le manifeste automatiquement).
+- `.venv/bin/python ...` ou activer le venv
+  (`source .venv/bin/activate`) et lancer `python ...`.
+{%- endif %}
 
 Avant chaque `git push`, **quatre** vérifications obligatoires
 avec 0 erreur :
-1. `uv run ruff check .`
-2. `uv run ruff format --check .`
-3. `uv run mypy <code>`
-4. `uv run pytest` (inclut le seuil de coverage ≥ 80 %).
+1. `{{ pm_run }}ruff check .`
+2. `{{ pm_run }}ruff format --check .`
+3. `{{ pm_run }}mypy <code>`
+4. `{{ pm_run }}pytest` (inclut le seuil de coverage ≥ 80 %).
 
 **À lancer en une chaîne unique**, pour qu'un échec à n'importe
 quelle étape interrompe le commit :
 
 ```bash
-uv run ruff check . && \
-uv run ruff format --check . && \
-uv run mypy <code> && \
-uv run pytest && \
+{{ pm_run }}ruff check . && \
+{{ pm_run }}ruff format --check . && \
+{{ pm_run }}mypy <code> && \
+{{ pm_run }}pytest && \
 git add -A && git commit -m "..." && git push
 ```
 

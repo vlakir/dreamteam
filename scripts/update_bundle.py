@@ -149,8 +149,6 @@ def _commit_snapshot(
     bundle: Path,
     version_tag: str,
     date_iso: str,
-    *,
-    force: bool,
 ) -> None:
     """Snapshot template -> tempdir worktree -> commit -> push tag to bundle."""
     with tempfile.TemporaryDirectory(prefix='dreamteam-bundle-') as tmp:
@@ -173,22 +171,21 @@ def _commit_snapshot(
         # after clone) and the version tag (for `copier.run_update`
         # to find the base state).
         #
-        # `main` always advances to the new snapshot; --force-with-lease
+        # `main` always advances to the new snapshot; plain `--force`
         # is required because the bundle is single-writer (this script
         # is the only producer) and the previous main commit is a
-        # different snapshot, not an ancestor. Tag push is non-fast-
-        # forward only when --force is set (overwriting an existing
-        # tag), so we gate tag forcing separately.
+        # different snapshot, not an ancestor. `--force-with-lease`
+        # would be safer in a multi-writer scenario but breaks here
+        # because the temp worktree has never fetched from the bundle,
+        # so the lease has no expected value to compare against.
         push_args = [
             GIT,
             'push',
-            '--force-with-lease=refs/heads/main',
+            '--force',
             str(bundle),
             'refs/heads/main',
             f'refs/tags/{version_tag}',
         ]
-        if force:
-            push_args.append('--force')
         _run(push_args, cwd=workdir, env=env)
 
 
@@ -231,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    _commit_snapshot(BUNDLE_PATH, version_tag, args.date, force=args.force)
+    _commit_snapshot(BUNDLE_PATH, version_tag, args.date)
     # Repack loose objects so wheel ships one tight pack rather than
     # many small blobs. Reproducible: --no-cruft + fixed dates.
     _run([GIT, 'gc', '--quiet', '--aggressive'], cwd=BUNDLE_PATH)

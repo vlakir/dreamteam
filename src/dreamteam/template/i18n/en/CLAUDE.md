@@ -1,9 +1,12 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 5b86cdd58929d29c1432f734d68d9afec73e4b4c17937907c769d6453624ed1d
+source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # Project rules for Claude
 
 This file holds project-specific rules for Claude (Claude Code). The
@@ -55,7 +58,9 @@ hand.
 
 **Baseline template stack (for Python projects):**
 - Python 3.14+ (`requires-python` in `pyproject.toml`).
-- Dependency and environment manager: `uv` (fast, from Astral).
+- Dependency and environment manager: **`{{ pm_name }}`** (chosen
+  during `dreamteam init` via the `package_manager` prompt;
+  alternatives: `uv` / `poetry` / `pdm` / `hatch` / `pip`).
 - Linter: `ruff` (rule `select = ["ALL"]` with a fixed `ignore`).
 - Type checker: `mypy` with `mypy_path = "src"`.
 - Test stack: `pytest` + `pytest-cov` + `pytest-asyncio`. Coverage
@@ -65,26 +70,46 @@ hand.
 - Tests — in `tests/` at the root (`ruff` excludes it, but `pytest`
   finds them via `testpaths = ["tests"]`).
 
-**Typical commands:**
+**Typical commands (for the chosen `{{ pm_name }}`):**
+{%- if package_manager == 'uv' %}
 - `uv sync` — install dependencies (creates `.venv` on first run).
 - `uv add <pkg>` / `uv add --dev <pkg>` — add runtime / dev dependency.
 - `uv run python ...` — run inside `.venv` without activating it.
 - `uvx <tool>` — run a CLI tool without local install.
+{%- elif package_manager == 'poetry' %}
+- `poetry install` — install dependencies (creates venv on first run).
+- `poetry add <pkg>` / `poetry add --group dev <pkg>` — add runtime / dev dependency.
+- `poetry run python ...` — run inside the poetry venv without activating it.
+- `poetry env activate` — open a subshell with the venv activated.
+{%- elif package_manager == 'pdm' %}
+- `pdm install` — install dependencies (creates `.venv` on first run).
+- `pdm add <pkg>` / `pdm add -dG dev <pkg>` — add runtime / dev dependency.
+- `pdm run python ...` — run inside `.venv` without activating it.
+{%- elif package_manager == 'hatch' %}
+- `hatch env create` — create the `default` environment with dev deps.
+- Dependencies are edited in `[tool.hatch.envs.default.dependencies]` in `pyproject.toml`.
+- `hatch run <cmd>` — run a command inside the `default` env without activation.
+- Scripts are defined in `[tool.hatch.envs.default.scripts]` and called as `hatch run <script>`.
+{%- else %}
+- `python -m venv .venv && .venv/bin/pip install -e .[dev]` — create a venv and install dev dependencies.
+- `.venv/bin/pip install <pkg>` — install a package (then add it to `pyproject.toml` yourself; pip does not auto-update the manifest).
+- `.venv/bin/python ...` or activate the venv (`source .venv/bin/activate`) and run `python ...`.
+{%- endif %}
 
 Before every `git push` run **four** checks, each with 0 errors:
-1. `uv run ruff check .`
-2. `uv run ruff format --check .`
-3. `uv run mypy <code>`
-4. `uv run pytest` (includes coverage threshold ≥ 80%).
+1. `{{ pm_run }}ruff check .`
+2. `{{ pm_run }}ruff format --check .`
+3. `{{ pm_run }}mypy <code>`
+4. `{{ pm_run }}pytest` (includes coverage threshold ≥ 80%).
 
 **Run them as a single chain**, so a failure at any step aborts the
 commit:
 
 ```bash
-uv run ruff check . && \
-uv run ruff format --check . && \
-uv run mypy <code> && \
-uv run pytest && \
+{{ pm_run }}ruff check . && \
+{{ pm_run }}ruff format --check . && \
+{{ pm_run }}mypy <code> && \
+{{ pm_run }}pytest && \
 git add -A && git commit -m "..." && git push
 ```
 

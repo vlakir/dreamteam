@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = []
 
 
+{%- if package_manager in ['uv', 'pdm', 'hatch', 'pip'] %}
 [dependency-groups]
 dev = [
     "ruff>=0.12.10",
@@ -18,6 +19,42 @@ dev = [
     "pytest-cov>=7.0",
     "pytest-asyncio>=1.0",
 ]
+{%- elif package_manager == 'poetry' %}
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.12.10"
+mypy = ">=1.17.1"
+pytest = ">=8.4"
+pytest-cov = ">=7.0"
+pytest-asyncio = ">=1.0"
+{%- endif %}
+
+
+{%- if package_manager == 'poetry' %}
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+{%- endif %}
+
+
+{%- if package_manager == 'hatch' %}
+[tool.hatch.envs.default]
+dependencies = [
+    "ruff>=0.12.10",
+    "mypy>=1.17.1",
+    "pytest>=8.4",
+    "pytest-cov>=7.0",
+    "pytest-asyncio>=1.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest"
+lint = "ruff check ."
+format-check = "ruff format --check ."
+typecheck = "mypy ."
+{%- endif %}
 
 
 [tool.ruff]

@@ -22,15 +22,22 @@ def _strip_frontmatter(text: str) -> str:
     Non-ru language files carry a frontmatter with `source_hash` for
     CI guard verification (`scripts/translate_check.py`). Derived
     users do not need that metadata — strip it on materialization.
+
+    Accepts both `\\n---\\n` (standard end marker) and `\\n---` followed
+    by any non-newline char (Jinja whitespace-trim modifiers eat the
+    trailing newline after the closing delimiter — T017 templates
+    place set-macros right after the frontmatter).
     """
     if not text.startswith(FRONTMATTER_DELIM + '\n'):
         return text
-    end_marker = '\n' + FRONTMATTER_DELIM + '\n'
-    idx = text.find(end_marker, len(FRONTMATTER_DELIM) + 1)
-    if idx == -1:
+    after_open = len(FRONTMATTER_DELIM) + 1
+    end_idx = text.find('\n' + FRONTMATTER_DELIM, after_open)
+    if end_idx == -1:
         return text
-    rest = text[idx + len(end_marker):]
-    return rest.lstrip('\n')
+    rest_start = end_idx + 1 + len(FRONTMATTER_DELIM)
+    if rest_start < len(text) and text[rest_start] == '\n':
+        rest_start += 1
+    return text[rest_start:].lstrip('\n')
 
 
 def _materialize(lang_dir: Path, project_root: Path) -> None:

@@ -1,3 +1,6 @@
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # Project rules for Claude
 
 Этот файл — проектные правила для Claude (Claude Code). Глобальные
@@ -48,7 +51,9 @@
 
 **Базовый стек шаблона (для Python-проектов):**
 - Python 3.14+ (`requires-python` в `pyproject.toml`).
-- Менеджер зависимостей и окружений: `uv` (быстрый, от Astral).
+- Менеджер зависимостей и окружений: **`{{ pm_name }}`** (выбран
+  при `dreamteam init` через prompt `package_manager`; альтернативы:
+  `uv` / `poetry` / `pdm` / `hatch` / `pip`).
 - Линтер: `ruff` (правило `select = ["ALL"]` с фиксированным `ignore`).
 - Тип-чекер: `mypy` с `mypy_path = "src"`.
 - Тестовый стек: `pytest` + `pytest-cov` + `pytest-asyncio`. Coverage
@@ -58,26 +63,46 @@
 - Тесты — в `tests/` в корне (в ruff `exclude`, но pytest их
   находит через `testpaths = ["tests"]`).
 
-**Типичные команды:**
+**Типичные команды (для выбранного `{{ pm_name }}`):**
+{%- if package_manager == 'uv' %}
 - `uv sync` — поставить зависимости (создаст `.venv` при первом запуске).
 - `uv add <pkg>` / `uv add --dev <pkg>` — добавить runtime / dev зависимость.
 - `uv run python ...` — запустить под `.venv` без активации.
 - `uvx <tool>` — запустить CLI-инструмент без локальной установки.
+{%- elif package_manager == 'poetry' %}
+- `poetry install` — поставить зависимости (создаст venv при первом запуске).
+- `poetry add <pkg>` / `poetry add --group dev <pkg>` — добавить runtime / dev зависимость.
+- `poetry run python ...` — запустить под poetry venv без активации.
+- `poetry env activate` — открыть подоболочку с активным venv.
+{%- elif package_manager == 'pdm' %}
+- `pdm install` — поставить зависимости (создаст `.venv` при первом запуске).
+- `pdm add <pkg>` / `pdm add -dG dev <pkg>` — добавить runtime / dev зависимость.
+- `pdm run python ...` — запустить под `.venv` без активации.
+{%- elif package_manager == 'hatch' %}
+- `hatch env create` — создать `default` environment с dev-deps.
+- Зависимости редактируются в `[tool.hatch.envs.default.dependencies]` в `pyproject.toml`.
+- `hatch run <cmd>` — запустить команду внутри `default` env без активации.
+- Скрипты определяются в `[tool.hatch.envs.default.scripts]`, вызываются как `hatch run <script>`.
+{%- else %}
+- `python -m venv .venv && .venv/bin/pip install -e .[dev]` — создать venv и поставить dev-зависимости.
+- `.venv/bin/pip install <pkg>` — добавить пакет (запиши его в `pyproject.toml` сам; pip не умеет автоматически).
+- `.venv/bin/python ...` или активируй venv (`source .venv/bin/activate`) и запускай `python ...`.
+{%- endif %}
 
 Перед каждым `git push` обязательно **четыре** проверки с 0 ошибок:
-1. `uv run ruff check .`
-2. `uv run ruff format --check .`
-3. `uv run mypy <код>`
-4. `uv run pytest` (включает coverage threshold ≥ 80%).
+1. `{{ pm_run }}ruff check .`
+2. `{{ pm_run }}ruff format --check .`
+3. `{{ pm_run }}mypy <код>`
+4. `{{ pm_run }}pytest` (включает coverage threshold ≥ 80%).
 
 **Запускать одной цепочкой**, чтобы fail на любом шаге прерывал
 commit:
 
 ```bash
-uv run ruff check . && \
-uv run ruff format --check . && \
-uv run mypy <код> && \
-uv run pytest && \
+{{ pm_run }}ruff check . && \
+{{ pm_run }}ruff format --check . && \
+{{ pm_run }}mypy <код> && \
+{{ pm_run }}pytest && \
 git add -A && git commit -m "..." && git push
 ```
 

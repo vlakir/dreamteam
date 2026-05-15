@@ -24,6 +24,76 @@
 
 ### Added
 
+- **Параметризованный выбор package manager** для derived
+  projects (T017, v1.5.0). Закрывает cross-pollination concern,
+  обнаруженный во время T016 install-via-pip smoke: derived
+  projects shipped hardcoded `uv` команды в narrative-файлах
+  (×11 в CLAUDE.md, ×7 в README, на каждый из 5 языков), и
+  pip- / poetry-user видел в Claude советы по uv-инструментарию,
+  которого у него нет.
+
+  **Новый prompt `package_manager` в `copier.yml`** с 5 choices:
+  `uv` (default, fast-modern) / `poetry` (traditional) / `pdm`
+  (PEP 621-native alt) / `hatch` (PyPA-recommended) / `pip`
+  (bare). Default `uv` сохраняет existing behavior для new
+  inits без явного `--data package_manager=...`.
+
+  **Conditional rendering**:
+  - `pyproject.toml` template содержит conditional `[build-system]`
+    + manager-specific `[tool.<mgr>]` секции:
+    - **uv:** `hatchling` build-backend + `[dependency-groups]`.
+    - **poetry:** `poetry-core` build-backend +
+      `[tool.poetry.group.dev.dependencies]`.
+    - **pdm:** `pdm-backend` build-backend + `[dependency-groups]`.
+    - **hatch:** `hatchling` build-backend +
+      `[tool.hatch.envs.default]` + `[...scripts]`.
+    - **pip:** `hatchling` build-backend + `[dependency-groups]`.
+  - Narrative-файлы (`CLAUDE.md`, `README.md` × 5 langs) используют
+    Jinja set-macros `{{ pm_run }}`, `{{ pm_install }}`,
+    `{{ pm_name }}` для command-prefix substitution. pre-push chain
+    рендерится с правильным prefix: `uv run ruff check .` /
+    `poetry run ruff check .` / `pdm run ruff check .` /
+    `hatch run ruff check .` / `.venv/bin/ruff check .` (pip
+    использует explicit `.venv/bin/` paths — git pre-push hook
+    запускается без shell activation, bare commands флакают).
+
+  **`_strip_frontmatter` в `_tasks_post_render.py`** обновлён —
+  теперь принимает как `\n---\n` (стандартный end-marker), так
+  и `\n---` следующий за любым не-newline char (Jinja whitespace
+  trim `{%- ... -%}` ест trailing newline после closing
+  delimiter, когда set-macros идут сразу после frontmatter).
+
+  **Multilang re-bootstrap**: 8 файлов (`i18n/{en,fr,de,zh}/{CLAUDE,README}.md`)
+  re-translated через Claude Code session с обновлённым
+  `source_hash` (matching new ru-source content). 32 ok через
+  `translate_check.py`.
+
+  **Integration matrix test**: `tests/test_t017_phase2.py`
+  — 5 managers × 5 langs = 25 cases + 2 sanity (default uv,
+  pip explicit venv-bin paths) = 27 cases, all green. Verify
+  rendered output (command prefix + build-backend +
+  manager-specific TOML sections), не actual install (CI
+  runner may not have all managers pre-installed).
+
+  **Bundle re-tag**: `1.5.0` тег добавлен в `.bundle/`; main
+  advanced; `scripts/update_bundle.py` обновлён — push main с
+  `--force` (вместо `--force-with-lease=...` без expect-value,
+  который ломался на single-writer scenarios).
+
+  **Rejected alternatives** (см. ADR в `DECISIONS.md`):
+  `pipenv` (declining, Pipfile-based), `pixi` (niche, conda
+  compat), `conda`/`mamba` (другая парадигма, потребует
+  отдельный `env_manager` prompt), `rye` (superseded by `uv`).
+
+  **Version bump:** `dreamteam-cli` 1.4.0 → 1.5.0 (MINOR;
+  backward-compat через silent default `uv` для existing
+  derived projects без `package_manager` answer — copier
+  standard mechanism).
+
+  Phase split (документировано в ADR): Phase 0 spec (PR #51),
+  Phase 1+2+3 combined в одном PR (этот) для economy на
+  CodeRabbit's hourly rate-limit.
+
 - **Короткий console-script alias `dt`** (T016). `pip install
   dreamteam-cli` теперь регистрирует две entry-точки:
   `dreamteam` и `dt`, обе указывают на `dreamteam.cli:app`.
