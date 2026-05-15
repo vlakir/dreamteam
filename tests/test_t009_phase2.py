@@ -39,6 +39,13 @@ from dreamteam.cli import (
     app,
 )
 
+# Whole module is integration-grade: every test spins up a synthetic
+# bare git bundle via multiple subprocess.run(git, …) calls, then
+# drives copier.Worker.run_copy / .run_update end-to-end. Per-test
+# wall time is ~3 s; total ~10 s. Reserved for the integration suite
+# (`pytest -m integration`) so the fast suite stays under ~2 s.
+pytestmark = pytest.mark.integration
+
 runner = CliRunner()
 GIT = shutil.which('git') or 'git'
 
