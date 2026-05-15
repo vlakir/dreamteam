@@ -18,6 +18,11 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 <!-- Максимум 1-2 задачи. -->
 
+- **T013** — Многоязыковая поддержка методических документов в derived
+  projects (en/ru/fr/de/zh, Variant A — N статических копий). Phase 0
+  активен: spec в `specs/T013-multilang/spec.md` (Draft → Clarified →
+  Analyzed → Implementation phases отдельными PR-ами).
+
 ## Done
 
 - **T015** — Настроен CI workflow (GitHub Actions) для PR-проверок.

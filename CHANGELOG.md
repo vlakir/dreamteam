@@ -46,6 +46,14 @@
   блокировал pytest fail. Версия пакета `dreamteam-cli` → 1.2.0
   (MINOR — backward-compatible content change в template).
 
+- **Spec для T013 (multilang)** — `specs/T013-multilang/spec.md`
+  в статусе Draft. Содержит Overview / User Stories / Functional
+  Requirements / Success Criteria / Key Entities / Assumptions /
+  Out of Scope, плюс Clarify (7 Open Questions для Разработчика)
+  и Analyze (3 Warnings + 3 Notes; Critical блокеров нет). Implementation
+  Plan — 3 phase отдельными PR-ами после approve spec. Phase 0
+  (spec) — этот PR; T013 переехала в `BOARD.md → Doing`.
+
 ### Removed
 
 - **`PROJECT.md` из шаблона** (T014). Catch-all-документ, дублировавший
