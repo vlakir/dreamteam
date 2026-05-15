@@ -47,7 +47,14 @@ BUNDLE_EXCLUDE = {'.bundle'}
 def _read_version_from_pyproject() -> str:
     """Return version from [project] in pyproject.toml (PEP 440, no `v` prefix)."""
     data = tomllib.loads(PYPROJECT.read_text(encoding='utf-8'))
-    return str(data['project']['version'])
+    try:
+        return str(data['project']['version'])
+    except (KeyError, TypeError) as exc:
+        message = (
+            f'{PYPROJECT} is missing [project].version; '
+            'pass --version explicitly or fix pyproject.toml.'
+        )
+        raise ValueError(message) from exc
 
 
 def _run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:

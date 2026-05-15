@@ -88,7 +88,14 @@ def _git_binary() -> str:
 
 
 def _bundle_has_tag(bundle: Path, tag: str) -> bool:
-    """Check whether the given tag exists in the bundle bare repo."""
+    """
+    Check whether the given tag exists in the bundle bare repo.
+
+    Raises RuntimeError if the `git` invocation itself fails (e.g.
+    corrupt bundle) — callers must not silently treat that as
+    "tag absent", which could clobber user edits via the overwrite
+    fallback (CodeRabbit #46/3).
+    """
     if not bundle.is_dir():
         return False
     result = subprocess.run(
@@ -98,7 +105,11 @@ def _bundle_has_tag(bundle: Path, tag: str) -> bool:
         capture_output=True,
         text=True,
     )
-    return result.returncode == 0 and result.stdout.strip() == tag
+    if result.returncode != 0:
+        detail = result.stderr.strip() or 'unknown git failure'
+        message = f'cannot inspect bundle at {bundle}: {detail}'
+        raise RuntimeError(message)
+    return result.stdout.strip() == tag
 
 
 def _clone_bundle(bundle: Path, dst: Path) -> None:
@@ -402,7 +413,12 @@ def update(
         raise typer.Exit(code=EXIT_OK)
 
     base_tag = _resolve_base_version_tag(full)
-    if base_tag is None or not _bundle_has_tag(bundle, base_tag):
+    try:
+        has_base_tag = base_tag is not None and _bundle_has_tag(bundle, base_tag)
+    except RuntimeError as exc:
+        typer.echo(f'ERROR: cannot inspect bundled history: {exc}', err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+    if not has_base_tag:
         typer.echo(
             f'WARNING: base version tag {base_tag!r} absent in bundle '
             '(derived project predates the bundled-history feature); '
