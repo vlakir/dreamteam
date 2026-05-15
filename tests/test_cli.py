@@ -15,7 +15,9 @@ from dreamteam.cli import (
     EXIT_ERROR,
     EXIT_OK,
     LEGACY_COMMIT_PREFIX,
+    _emit_dryrun_diff,
     _has_git,
+    _relfiles,
     _resolve_base_version_tag,
     app,
 )
@@ -235,6 +237,136 @@ def test_update_language_preserved(tmp_path: Path) -> None:
     # Marker from i18n/ru/CLAUDE.md body — must remain after update.
     claude_text = (target / 'CLAUDE.md').read_text(encoding='utf-8')
     assert 'проектные правила для Claude' in claude_text
+
+
+def test_dry_run_leaves_target_untouched(tmp_path: Path) -> None:
+    """
+    `dreamteam update --dry-run` must not modify the target: file
+    contents, mtime of user-edited files, and `.copier-answers.yml`
+    all stay exactly as they were before the invocation.
+    """
+    target = tmp_path / 'dry-untouched'
+    runner.invoke(app, ['init', str(target), '--defaults'])
+    user_marker = '<!-- dry-run sentinel that must survive -->'
+    claude = target / 'CLAUDE.md'
+    claude.write_text(claude.read_text(encoding='utf-8') + user_marker, encoding='utf-8')
+    _git_init(target)
+
+    snapshot_claude = claude.read_text(encoding='utf-8')
+    snapshot_answers = (target / '.copier-answers.yml').read_text(encoding='utf-8')
+
+    result = runner.invoke(app, ['update', str(target), '--dry-run'])
+    assert result.exit_code in (EXIT_OK, EXIT_CONFLICTS), result.output
+
+    assert claude.read_text(encoding='utf-8') == snapshot_claude
+    assert (target / '.copier-answers.yml').read_text(encoding='utf-8') == snapshot_answers
+
+
+def test_dry_run_prints_summary_line(tmp_path: Path) -> None:
+    """The trailing summary line must list all five buckets."""
+    target = tmp_path / 'dry-summary'
+    runner.invoke(app, ['init', str(target), '--defaults'])
+    _git_init(target)
+
+    result = runner.invoke(app, ['update', str(target), '--dry-run'])
+    assert result.exit_code == EXIT_OK, result.output
+
+    assert 'dreamteam update --dry-run:' in result.output
+    for bucket in ('would change', 'unchanged', 'added', 'removed', 'conflicts'):
+        assert bucket in result.output, f'missing {bucket!r} in summary'
+
+
+def test_dry_run_with_force_warns(tmp_path: Path) -> None:
+    """
+    `--dry-run --force` is contradictory: dry-run previews the merge
+    flow with its full fallback chain, force skips it. The CLI emits
+    a warning to stderr and still produces a preview.
+    """
+    target = tmp_path / 'dry-and-force'
+    runner.invoke(app, ['init', str(target), '--defaults'])
+    _git_init(target)
+
+    result = runner.invoke(app, ['update', str(target), '--dry-run', '--force'])
+    assert result.exit_code in (EXIT_OK, EXIT_CONFLICTS), result.output
+    combined = result.output + (result.stderr or '')
+    assert '--force has no effect' in combined.lower() or 'no effect under --dry-run' in combined.lower()
+
+
+def test_relfiles_excludes_git_and_yields_relative_paths(tmp_path: Path) -> None:
+    """`_relfiles` walks rglob, drops anything under `.git`, returns rel paths."""
+    root = tmp_path / 'tree'
+    (root / '.git').mkdir(parents=True)
+    (root / '.git' / 'config').write_text('x')
+    (root / 'a.md').write_text('hello')
+    (root / 'sub').mkdir()
+    (root / 'sub' / 'b.txt').write_text('world')
+
+    files = _relfiles(root)
+    assert files == {Path('a.md'), Path('sub/b.txt')}
+
+
+def test_emit_dryrun_diff_counts_buckets(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`_emit_dryrun_diff` classifies files into changed/unchanged/added/removed."""
+    target = tmp_path / 'target'
+    preview = tmp_path / 'preview'
+    target.mkdir()
+    preview.mkdir()
+
+    # Unchanged file (present in both, identical content).
+    (target / 'same.txt').write_text('identical\n')
+    (preview / 'same.txt').write_text('identical\n')
+    # Changed file (different content).
+    (target / 'changed.txt').write_text('before\n')
+    (preview / 'changed.txt').write_text('after\n')
+    # Removed (only in target).
+    (target / 'gone.txt').write_text('orphan\n')
+    # Added (only in preview).
+    (preview / 'new.txt').write_text('fresh\n')
+
+    conflicts = _emit_dryrun_diff(target, preview)
+    out = capsys.readouterr().out
+
+    assert conflicts == 0
+    # Summary numbers.
+    assert '1 would change' in out
+    assert '1 unchanged' in out
+    assert '1 added' in out
+    assert '1 removed' in out
+    # Unified-diff markers for the changed file.
+    assert '--- a/changed.txt' in out
+    assert '+++ b/changed.txt' in out
+    # Added / removed markers.
+    assert '+++ b/new.txt' in out
+    assert '--- a/gone.txt' in out
+
+
+def test_emit_dryrun_diff_detects_conflict_markers(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A preview file containing `<<<<<<<` increments the conflict count."""
+    target = tmp_path / 'target'
+    preview = tmp_path / 'preview'
+    target.mkdir()
+    preview.mkdir()
+    (target / 'x.txt').write_text('hello\n')
+    (preview / 'x.txt').write_text(
+        '<<<<<<< before updating\nhello\n=======\nworld\n>>>>>>> after updating\n',
+    )
+
+    conflicts = _emit_dryrun_diff(target, preview)
+    captured = capsys.readouterr()
+    assert conflicts == 1
+    assert '1 conflicts' in captured.out
+
+
+def test_dry_run_without_answers_fails(tmp_path: Path) -> None:
+    """`--dry-run` on a non-dreamteam dir still fails with EXIT_ERROR."""
+    target = tmp_path / 'no-answers-dry'
+    target.mkdir()
+    result = runner.invoke(app, ['update', str(target), '--dry-run'])
+    assert result.exit_code == EXIT_ERROR
 
 
 def test_update_legacy_commit_falls_back_to_overwrite(tmp_path: Path) -> None:

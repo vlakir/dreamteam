@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import shutil
 import subprocess
 import tempfile
@@ -316,6 +317,157 @@ def _three_way_update(
     _write_answers_file(target, user_answers)
 
 
+def _relfiles(root: Path) -> set[Path]:
+    """Relative paths of every file under `root`, excluding `.git`."""
+    return {
+        path.relative_to(root)
+        for path in root.rglob('*')
+        if path.is_file() and '.git' not in path.parts
+    }
+
+
+def _emit_dryrun_diff(target: Path, preview: Path) -> int:
+    """
+    Print per-file unified diff (target → preview) and a summary line.
+
+    Returns the number of files in the preview that contain git-style
+    conflict markers (`<<<<<<<`). The caller uses that count to pick
+    the exit code: 0 if zero conflicts, EXIT_CONFLICTS otherwise.
+    """
+    target_files = _relfiles(target)
+    preview_files = _relfiles(preview)
+
+    updated: list[Path] = []
+    unchanged: list[Path] = []
+    added: list[Path] = []
+    removed: list[Path] = []
+
+    for rel in sorted(target_files | preview_files, key=str):
+        in_target = rel in target_files
+        in_preview = rel in preview_files
+        if in_target and not in_preview:
+            removed.append(rel)
+            typer.echo(f'--- a/{rel}\n+++ /dev/null')
+            continue
+        if in_preview and not in_target:
+            added.append(rel)
+            typer.echo(f'--- /dev/null\n+++ b/{rel}')
+            continue
+        t_path = target / rel
+        p_path = preview / rel
+        try:
+            t_text = t_path.read_text(encoding='utf-8')
+            p_text = p_path.read_text(encoding='utf-8')
+        except UnicodeDecodeError:
+            if t_path.read_bytes() != p_path.read_bytes():
+                updated.append(rel)
+                typer.echo(f'Binary files a/{rel} and b/{rel} differ')
+            else:
+                unchanged.append(rel)
+            continue
+        if t_text == p_text:
+            unchanged.append(rel)
+            continue
+        updated.append(rel)
+        diff = ''.join(
+            difflib.unified_diff(
+                t_text.splitlines(keepends=True),
+                p_text.splitlines(keepends=True),
+                fromfile=f'a/{rel}',
+                tofile=f'b/{rel}',
+            )
+        )
+        typer.echo(diff, nl=False)
+
+    conflicts = _conflict_count(preview)
+    typer.echo(
+        f'\ndreamteam update --dry-run: '
+        f'{len(updated)} would change, '
+        f'{len(unchanged)} unchanged, '
+        f'{len(added)} added, '
+        f'{len(removed)} removed, '
+        f'{conflicts} conflicts.'
+    )
+    return conflicts
+
+
+def _dry_run(
+    target: Path,
+    user_answers: dict[str, Any],
+) -> int:
+    """
+    Render what `dreamteam update` would produce, without writing to target.
+
+    Copies the derived (minus `.git`) into a tempdir, re-inits the copy
+    as a git repo so copier accepts it as a tracked subproject, runs
+    the same update flow as production (three-way merge or overwrite
+    fallback per the same chain), then diffs the preview against the
+    original target. The target itself is never touched.
+
+    Returns the number of would-be conflict files (drives the exit
+    code in `update --dry-run`).
+    """
+    with tempfile.TemporaryDirectory(prefix='dreamteam-dryrun-') as tmp:
+        preview = Path(tmp) / 'preview'
+        shutil.copytree(target, preview, ignore=shutil.ignore_patterns('.git'))
+
+        # Re-init preview as git so the three-way merge path is
+        # usable. If git is absent we degrade to overwrite preview.
+        git_ok = _has_git()
+        if git_ok:
+            git = _git_binary()
+            try:
+                subprocess.run(
+                    [git, 'init', '--initial-branch=main', '--quiet'],
+                    cwd=preview,
+                    check=True,
+                )
+                subprocess.run([git, 'add', '-A'], cwd=preview, check=True)
+                subprocess.run(
+                    [
+                        git,
+                        '-c',
+                        'user.email=dryrun@dreamteam',
+                        '-c',
+                        'user.name=dryrun',
+                        'commit',
+                        '-q',
+                        '-m',
+                        'dryrun base',
+                    ],
+                    cwd=preview,
+                    check=True,
+                )
+            except subprocess.CalledProcessError:
+                git_ok = False
+
+        bundle = _bundle_path()
+        full = _read_full_answers(target / ANSWERS_FILE)
+        base_tag = _resolve_base_version_tag(full)
+        can_merge = (
+            git_ok
+            and bundle.is_dir()
+            and base_tag is not None
+            and _bundle_has_tag(bundle, base_tag)
+        )
+
+        if can_merge:
+            try:
+                _three_way_update(preview, user_answers)
+            except Exception:
+                # Three-way merge failed mid-flight in preview; rebuild
+                # the preview as an overwrite-only snapshot so the user
+                # still gets a sensible diff. Production update has its
+                # own fallback chain; here we just want the report.
+                shutil.rmtree(preview)
+                shutil.copytree(target, preview, ignore=shutil.ignore_patterns('.git'))
+                _overwrite_update(preview, user_answers)
+        else:
+            _overwrite_update(preview, user_answers)
+
+        return _emit_dryrun_diff(target, preview)
+
+
 def _conflict_count(target: Path) -> int:
     """
     Count files in target containing git-style conflict markers.
@@ -355,6 +507,16 @@ def update(
             ),
         ),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            '--dry-run',
+            help=(
+                'Preview the update: per-file unified diff + summary, '
+                'no writes to the target.'
+            ),
+        ),
+    ] = False,
 ) -> None:
     """
     Re-apply the dreamteam template to an existing project.
@@ -384,6 +546,16 @@ def update(
         raise typer.Exit(code=EXIT_ERROR)
     full = _read_full_answers(answers_file)
     user_answers = _user_answers(full)
+
+    if dry_run:
+        if force:
+            typer.echo(
+                '--force has no effect under --dry-run; previewing the '
+                'default merge flow (with fallback chain).',
+                err=True,
+            )
+        conflicts = _dry_run(target, user_answers)
+        raise typer.Exit(code=EXIT_CONFLICTS if conflicts else EXIT_OK)
 
     if force:
         typer.echo('--force: applying MVP overwrite without merge.', err=True)
