@@ -70,6 +70,23 @@
 3. `uv run mypy <код>`
 4. `uv run pytest` (включает coverage threshold ≥ 80%).
 
+**Запускать одной цепочкой**, чтобы fail на любом шаге прерывал
+commit:
+
+```bash
+uv run ruff check . && \
+uv run ruff format --check . && \
+uv run mypy <код> && \
+uv run pytest && \
+git add -A && git commit -m "..." && git push
+```
+
+**Catch-it-at-the-output:** если в выводе предыдущей команды
+видишь `FAILED`, `Error`, `1 failed` или подобные маркеры —
+**не двигайся дальше**, проверь причину. И не глуши exit-code:
+`pytest | tail -5` возвращает exit-код `tail`, не `pytest` —
+fail незаметно проскочит в `git commit`.
+
 Никаких `# noqa` / `# type: ignore` / расширений `ignore`-секций
 без явного обсуждения с Разработчиком. Подробно — в глобальном
 `~/.claude/CLAUDE.md`, разделы «Линтеры» и «Тестирование».
