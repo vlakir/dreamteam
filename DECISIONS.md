@@ -14,6 +14,149 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-05-15 — Multilang: Variant A + ru = source of truth + manual translation (T013)
+
+- **Контекст:** narrative-файлы методики (`CLAUDE.md`, `README.md`,
+  `CONCEPT.md`, kanban-файлы, `specs/spec-template.md`)
+  поставлялись только на английском. Это работает для англоязычных
+  пользователей, но создаёт барьер для non-English разработчиков
+  — особенно когда суть документов — narrative описание методики,
+  а не код. Решаем расширить шаблон на 5 языков (`en`/`ru`/`fr`/
+  `de`/`zh`).
+- **Альтернативы (layout — Variant A vs B vs C, см. spec.md Q1–Q2):**
+  - **Variant B (runtime AI-translation в `dreamteam init`)** —
+    отвергли. Требует `anthropic` SDK как build- или runtime-
+    зависимость, у Разработчика Claude Max subscription (не API
+    access), generation на каждый `dreamteam init` нестабилен и
+    дорог.
+  - **Variant C (hybrid mixed-language файлы — narrative на ru,
+    headings на en в одном файле)** — отвергли. Нечитаемая каша,
+    contributor confusion.
+  - **`_subdirectory` copier-механизм с дублированием технических
+    файлов в каждой `i18n/<lang>/`** — отвергли. Duplication
+    burden: одно изменение в `pyproject.toml` → 5 файлов.
+  - **Выбран Variant A:** `src/dreamteam/template/i18n/<lang>/`
+    с narrative; технические файлы — на root template уровне;
+    post-render task (`_tasks_post_render.py`) переносит
+    `i18n/<выбранный>/*` → root и удаляет `i18n/`.
+- **Альтернативы (source of truth — ru vs en, см. spec.md Q7):**
+  - **English source + ru/fr/de/zh AI-перевод** (industry default)
+    — отвергли. Разработчик monolingual maintainer (русскоязычный),
+    редактировать методику на en и затем переводить на ru через
+    AI — лишний этап с потерей качества именно в ru (родном языке
+    Разработчика).
+  - **Выбран ru = source of truth** + AI-перевод на остальные 4
+    языка. Trade-off: en теряет «source language privilege» —
+    теперь это AI-перевод равного trust-level с zh/fr/de. UX
+    expectation `default: en` сохранён (стандарт для CLI tools);
+    ru = source — внутренний maintenance detail.
+- **Альтернативы (AI engine — scripted API vs manual session, см.
+  spec.md Q8):**
+  - **`scripts/translate.py` с Anthropic SDK** (scripted CLI:
+    `python scripts/translate.py` → API call → переводы) —
+    отвергли. Требует `ANTHROPIC_API_KEY` env var, расходы на API
+    при каждом regen, `anthropic` package в `[dependency-groups]
+    .dev` — у Разработчика API не подключен.
+  - **AI translation as CI step** (auto-regenerate на CI с API key
+    в GitHub secrets) — отвергли. Race conditions при concurrent
+    PR, API costs на каждый CI run, secret management.
+  - **Выбран manual flow через Claude Code session.** Разработчик
+    правит `i18n/ru/<file>.md`, в Claude Code session просит
+    «переведи на en/fr/de/zh, обнови frontmatter». Claude
+    (`claude-opus-4-7`) использует стандартные Read/Write tools,
+    computes `sha256(ru_bytes)` через stdlib `hashlib`, пишет
+    переводы с frontmatter. Trade-off: каждое изменение требует
+    session interaction (не one-line CLI), но zero API cost
+    (covered Max subscription), нет key management, нет новых
+    dependencies.
+- **Альтернативы (drift mitigation — diff vs hash, см. spec.md Q7):**
+  - **Diff-based check** (CI проверяет, что other-language файлы
+    тоже изменились) — отвергли. Cheap, но PR может «cheat»-нуть
+    `touch`-ом файла без реального перевода.
+  - **AI translation как CI auto-regen** — см. выше, отвергли.
+  - **Выбран hash-based check** (`scripts/translate_check.py`,
+    pure stdlib + PyYAML). Каждый не-русский файл несёт
+    frontmatter с `source_hash` (sha256 of ru source at translation
+    time); CI step после pytest пересчитывает hash актуального
+    `i18n/ru/<same>.md` и сравнивает. Mismatch → PR fail с
+    указанием конкретного файла + hint regenerate. Отсутствие
+    frontmatter → warning + skip (Q9 — soft-fail, чтобы не
+    блокировать community manual edits / bootstrap partial state).
+- **Последствия:**
+  - **Структура `src/dreamteam/template/`:** narrative-файлы
+    переехали в `i18n/{ru,en,fr,de,zh}/`. ru остаётся
+    единственным редактируемым вручную набором. Технические файлы
+    (pyproject.toml, src/, tests/, hooks/, .gitignore, copier.yml)
+    не дублируются.
+  - **`copier.yml`:** новый prompt `language` (первый, до
+    `project_name`), choices `[en, ru, fr, de, zh]`, default `en`,
+    display names с native variants (`en (English)` / `ru
+    (Русский)` / …). `_tasks` step запускает
+    `_tasks_post_render.py {{ language }}` после рендера.
+  - **`_tasks_post_render.py`** в template root: перемещает
+    `i18n/<lang>/*` в корень derived-проекта, strip-ит translation
+    frontmatter (derived users получают clean markdown), удаляет
+    `i18n/` и сам себя.
+  - **`cli.py`:** `unsafe=True` в `Worker` / `run_copy` (template —
+    package-data, доверяем `_tasks`); новый `--data key=value`
+    (repeatable) на `dreamteam init` для прокидывания answers в
+    copier (нужен для `--data language=ru`).
+  - **`scripts/translate_check.py`** (stdlib `hashlib` + PyYAML,
+    который уже в copier dependencies). Запускается локально и
+    как step в `.github/workflows/ci.yml` после pytest. 32 ok при
+    зелёном состоянии (4 языка × 8 файлов).
+  - **`tests/test_translate_check.py`** — 8 unit-кейсов
+    (valid / mismatch / missing-fm / partial-fm / missing-source
+    / round-trip / dir-skip / live-repo-state).
+  - **`tests/test_multilang.py`** — fast render-per-language тесты
+    + `@pytest.mark.integration` e2e (uv sync + 4 pre-push на
+    каждом из 5 derived проектов, ~16 секунд suite total).
+  - **Frontmatter format** в каждом `i18n/{en,fr,de,zh}/<file>.md`:
+    ```yaml
+    ---
+    translated_from: i18n/ru/<file>.md
+    source_hash: <sha256 of ru at translation time>
+    translation_engine: claude-opus-4-7
+    translation_date: 2026-05-15
+    ---
+    ```
+  - **Maintainer flow при правке методики:**
+    1. Vladimir правит `i18n/ru/<file>.md`.
+    2. В Claude Code session: «переведи изменения в `i18n/ru/<file>.md`
+       на en/fr/de/zh, обнови `source_hash`».
+    3. Claude reads ru-source, computes `hashlib.sha256(ru_bytes)
+       .hexdigest()`, пишет переводы с обновлённым frontmatter.
+    4. Vladimir commits ru + регенерированные переводы.
+    5. CI guard verify hash sync.
+  - **Cosmetic ru-edits** (typo, whitespace, реструктуризация
+    переносов) меняют hash и формально требуют regenerate. Workflow
+    на этот случай: «обнови только `source_hash` во всех 4 языках,
+    перевод не трогай — изменения cosmetic». Claude применяет
+    `hashlib.sha256` и обновляет frontmatter без regeneration
+    content. Manual judgment per change.
+  - **Версия пакета:** `dreamteam-cli` 1.2.0 → 1.3.0 (MINOR).
+    Default `en` сохраняет поведение для existing derived
+    проектов; после `dreamteam update` те получат `language: en`
+    в `.copier-answers.yml` и rendered narrative на en — то же,
+    что у них и так было.
+  - **Quality risk** (warning из Analyze): все 4 не-русских языка
+    — AI-generated, теоретически возможно правило в `CLAUDE.md`
+    на en/zh означает противоположное ru. Mitigation:
+    (1) do-not-translate list в practice (ruff/mypy/ADR/имена
+    файлов/code blocks/kanban keywords оставляются как есть);
+    (2) frontmatter traceability; (3) Google Translate roundtrip
+    smoke на ключевые правила по желанию; (4) long-term —
+    bilingual community reviewers.
+- **Phase split (исторический):**
+  - **Phase 1** — skeleton + ru source + bootstrap всех 5 языков
+    + unit/integration tests (PR #38).
+  - **Phase 2** — CI guard step в workflow (PR #39, stacked).
+  - **Phase 3** — этот ADR + CHANGELOG + README + version bump
+    (этот PR, stacked на Phase 2).
+  - Опциональный **smoke PR** (after Phase 2 merged into main) —
+    edit `i18n/ru/<file>.md` без regen на отдельной ветке,
+    показать CI fail на live runner; не merge-ить.
+
 ### 2026-05-15 — Удаление `PROJECT.md` из шаблона (T014)
 
 - **Контекст:** `PROJECT.md` в template был задуман как «паспорт
