@@ -92,6 +92,25 @@ def _strip_init_noise(bundle: Path) -> None:
         description.unlink()
 
 
+def _pin_empty_refs_dirs(bundle: Path) -> None:
+    """
+    Place `.gitkeep` sentinels in `refs/heads/` and `refs/tags/`.
+
+    After `git gc --aggressive` packs all refs into `packed-refs`,
+    these directories become empty and git does not track empty
+    directories. Without sentinels they disappear after a fresh
+    `git clone` of the outer repo — and a bundle without `refs/`
+    is not recognized as a bare repo, so `git tag --list` walks
+    up to the parent repo and returns nothing. The CI flake on
+    PR #46 traced back here. `.gitkeep` files are zero-byte but
+    tracked by outer git, so the directories survive cloning.
+    """
+    for sub in ('refs/heads', 'refs/tags'):
+        keep = bundle / sub / '.gitkeep'
+        keep.parent.mkdir(parents=True, exist_ok=True)
+        keep.touch(exist_ok=True)
+
+
 def _ensure_bundle_initialized(bundle: Path) -> None:
     """Create a bare git repo at `bundle` if it does not exist yet."""
     if bundle.exists():
@@ -99,6 +118,7 @@ def _ensure_bundle_initialized(bundle: Path) -> None:
     bundle.mkdir(parents=True)
     _run([GIT, 'init', '--bare', '--initial-branch=main', '.'], cwd=bundle)
     _strip_init_noise(bundle)
+    _pin_empty_refs_dirs(bundle)
 
 
 def _tag_exists(bundle: Path, tag: str) -> bool:
@@ -208,6 +228,10 @@ def main(argv: list[str] | None = None) -> int:
     # many small blobs. Reproducible: --no-cruft + fixed dates.
     _run([GIT, 'gc', '--quiet', '--aggressive'], cwd=BUNDLE_PATH)
     _strip_init_noise(BUNDLE_PATH)
+    # `git gc` empties refs/heads and refs/tags after packing — re-pin
+    # them so the outer repo tracks the directories (see docstring of
+    # `_pin_empty_refs_dirs`).
+    _pin_empty_refs_dirs(BUNDLE_PATH)
     sys.stdout.write(f'bundle: tag {version_tag} added at {BUNDLE_PATH}\n')
     return 0
 
