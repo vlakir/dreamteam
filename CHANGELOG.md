@@ -22,6 +22,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Pattern `validation && commit` в шаблонном `CLAUDE.md`**
+  (методический PR). В Pre-push секцию добавлен chained example
+  (все 4 проверки + `git add && commit && push` через `&&`)
+  и заметка про **catch-it-at-the-output**: видишь `FAILED` /
+  `1 failed` в выводе — стоп. `pytest | tail` НЕ годится (pipe
+  возвращает exit-код tail, не pytest). Урок выучен на slip T014:
+  failing test замержился в main, потому что bash chain не
+  блокировал pytest fail. Версия пакета `dreamteam-cli` → 1.2.0
+  (MINOR — backward-compatible content change в template).
+
 ### Removed
 
 - **`PROJECT.md` из шаблона** (T014). Catch-all-документ, дублировавший
