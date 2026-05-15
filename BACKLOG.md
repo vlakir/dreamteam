@@ -74,93 +74,7 @@
      + manual Claude Code hybrid. Запись в CHANGELOG → [Unreleased]
      → Notes. -->
 
-- **T021** — [2026-05-15] `template/hooks/pre-push` должен
-  пропускать initial push.
-
-  **Контекст.** Хук в `src/dreamteam/template/hooks/pre-push`
-  отклоняет любой push, где `remote_ref` совпадает с
-  `refs/heads/main` или `refs/heads/master`. Это корректно
-  для **обычной работы** (всё через feature-ветку и PR), но
-  ломает **bootstrap-сценарий нового проекта**: после
-  `git init && git commit -m "initial commit"` единственный
-  способ опубликовать репозиторий — `git push -u origin main`,
-  и этот push хук блокирует, заставляя использовать
-  `--no-verify` (как пришлось в `efactory`, см. recent session
-  log 2026-05-15 19:41).
-
-  **Корень.** Initial push отличается от регулярного push в
-  `main` тем, что на remote такой ветки ещё **нет** —
-  `_remote_sha` в stdin-формате хука равен 40 нулям
-  (`0000000000000000000000000000000000000000`). Это
-  безопасный, легко детектируемый bootstrap-маркер.
-
-  **Состав правки:**
-  - В цикле `while read` добавить проверку:
-    если `_remote_sha == "0000000000000000000000000000000000000000"` —
-    разрешить (`continue` / no exit), параллельно вывести
-    краткое info-сообщение «detected initial push, allowing
-    bootstrap».
-  - Обновить header-комментарий хука: объяснить, что initial
-    push разрешён.
-  - Unit-тест: smoke-проверка скрипта через подачу
-    stdin-stub-а в `bash hooks/pre-push` (одна строка с
-    `_remote_sha = 40 zeros` → exit 0; обычная строка с
-    `_remote_sha != zeros` → exit 1). Тестировать в
-    fast-suite через `subprocess` (как уже сделано для
-    других CLI-вещей).
-
-  **Acceptance:**
-  - `bash hooks/pre-push <<< "refs/heads/main <sha> refs/heads/main 0000000000000000000000000000000000000000"`
-    → exit 0 (initial push разрешён).
-  - `bash hooks/pre-push <<< "refs/heads/feat <sha> refs/heads/main <existing_sha>"`
-    → exit 1 (обычный push в main по-прежнему запрещён).
-  - В derived-проекте после `dt init && cd <project> && git
-    init && git add . && git commit -m initial` команда
-    `git push -u origin main` (если remote свежий) не
-    требует `--no-verify`.
-  - Тест добавлен в fast-suite (`tests/test_*.py`),
-    coverage не снижается ниже 80%.
-
-  **Тип:** правка template-файла + новый тест. Через PR в
-  dreamteam-репо, version bump PATCH (1.5.1 → 1.5.2),
-  bundle re-tag нужен (`scripts/update_bundle.py 1.5.2`).
-
-- **T022** — [2026-05-15] `template/.gitignore` пропускает
-  `.secrets` без расширения.
-
-  **Контекст.** В `src/dreamteam/template/.gitignore` секция
-  «Secrets / config» покрывает `.env`, `.secrets.*`,
-  `.secrets.toml`, `secrets.env` — но не **`.secrets`**
-  плоского имени (без расширения, source-able shell-файл с
-  токенами). Это ровно тот формат, который шаблон сам же
-  использует в `scripts/publish.sh` для PyPI-токенов (см.
-  CHANGELOG [1.3.0] → «scripts/publish.sh + .secrets»).
-  Обнаружено при bootstrap-е `efactory` 2026-05-15: пришлось
-  доруками править `.gitignore`, прежде чем класть туда
-  токены, иначе риск утечки в первый коммит.
-
-  **Состав правки:**
-  - В template `.gitignore` секция «Secrets / config»: три
-    строки `.secrets.*` / `.secrets.toml` / `secrets.env`
-    консолидировать в `.secrets*` (покрывает `.secrets`,
-    `.secrets.toml`, `.secrets.env`, `.secrets.local` и т.п.).
-    `.env` оставить отдельно (логически другой класс файла).
-  - Можно дополнительно добавить `*.secret` / `*.secrets` для
-    устойчивости — обсудимо.
-
-  **Acceptance:**
-  - В свежесозданном `dt init`-проекте файл с именем `.secrets`
-    (без расширения) попадает в `git status` как ignored.
-  - Существующие шаблоны имён (`.secrets.toml`, `.secrets.env`,
-    `secrets.env`, `.env`) продолжают игнорироваться.
-  - Unit-тест в fast-suite: после `dt init` в tempdir создать
-    `.secrets`, `git status --ignored` показывает его в
-    `Ignored files`. Coverage не падает.
-
-  **Тип:** правка template-файла + тест. Через PR в dreamteam-
-  репо, version bump PATCH. Логично совместить с T021 в одном
-  release cut (1.5.2) — оба касаются «bootstrap нового проекта»
-  и обнаружены в одной обкатке.
+<!-- T021, T022 уехали в CHANGELOG → [1.5.2] 2026-05-15. -->
 
 - **T023** — [2026-05-15] Смягчить требование к структуре
   `CONCEPT.md` — это leading questions, не формальный
@@ -318,4 +232,56 @@
   «правки методики после первой обкатки». T020 (PROJECT.md
   cleanup) и T024 пересекаются по файлу `~/.claude/CLAUDE.md`
   — координировать.
+
+- **T025** — [2026-05-15] Closing-правка `BOARD.md`
+  (`Doing → Done`) разрешена в самом задачном PR.
+
+  **Контекст.** Из обкатки методики на `efactory` и серии PR
+  T020-T022 + release-1.5.2: closing-перенос задачи из
+  `BOARD.md → Doing` в `Done` напрашивается прямо в задачном
+  PR, без парного chore-PR на одну строчку. Формально после
+  merge задача уже Done — `BOARD.md` просто отражает
+  реальность. Парный PR удваивает overhead на каждую задачу
+  и не несёт самостоятельной ценности. Также — в этой же
+  серии PR была критика **дробления** связных изменений
+  (T021/T022 пошли двумя отдельными PR-ами, каждый сжёг
+  CodeRabbit-квоту — combined PR был бы экономнее).
+
+  **Статус:** правило **уже зафиксировано** в durable
+  источниках Разработчиком в ходе этой же сессии:
+  - `~/.claude/CLAUDE.md` — новый раздел «Закрытие задачи:
+    перенос `Doing → Done` в задачном PR» (включает явный
+    пункт про укрупнение PR vs anti-pattern «PR покороче»).
+  - `/home/vlakir/programming/dreamteam/CLAUDE.md` — секция
+    «Git workflow» дополнена пунктом про closing-правку
+    BOARD со ссылкой на глобальный CLAUDE.md.
+
+  **Остающаяся propagation работа (это и есть T025
+  implementation):**
+  - `src/dreamteam/template/i18n/ru/CLAUDE.md` (source of
+    truth) — добавить аналогичный пункт в секцию о BOARD /
+    Acceptance / WIP-limit (примерно строки 160-170).
+  - Re-bootstrap `i18n/{en,fr,de,zh}/CLAUDE.md` через Claude
+    Code session (паттерн T013 multilang), `source_hash`
+    обновить, прогнать `translate_check.py`.
+  - Memory entry в репо memory (`feedback_*`) — для
+    немедленного поведенческого эффекта в текущих сессиях,
+    до propagation в template.
+  - Catch-up по самой методике: в текущей сессии серия PR
+    T020-T022 + release-1.5.2 закрыта без переноса записей
+    в BOARD (BOARD сейчас пустой, формально OK по букве,
+    но не идеально). При следующей задаче (T023) — закрытие
+    через BOARD/Doing → BOARD/Done в task PR.
+
+  **Acceptance:**
+  - Template-CLAUDE (ru source + 4 переведённых) содержит
+    правило «Closing-правка BOARD в task PR».
+  - `translate_check.py` проходит.
+  - Memory entry актуальна.
+  - В следующем задачном PR (T023+) BOARD.md обновлён
+    `Doing → Done` в составе того же squash-коммита.
+
+  **Тип:** методическая правка (template + i18n + memory),
+  через PR в dreamteam-репо. Версионирование — MINOR (1.6.0),
+  логично объединить с T023 + T024 в один release cut.
 
