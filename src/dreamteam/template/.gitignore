@@ -28,8 +28,7 @@ log/
 
 # Secrets / config
 .env
-.secrets.*
-.secrets.toml
+.secrets*
 secrets.env
 
 # Local utilities

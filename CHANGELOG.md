@@ -26,6 +26,23 @@
 
 ### Fixed
 
+- **`template/.gitignore` теперь покрывает плоский `.secrets`**
+  (T022). В секции «Secrets / config» три строки `.env` /
+  `.secrets.*` / `.secrets.toml` / `secrets.env` оставляли gap:
+  файл с именем `.secrets` без расширения (sourceable shell
+  secrets — ровно тот формат, что использует
+  `scripts/publish.sh` шаблона для PyPI токенов) не попадал ни
+  под один паттерн. На свежем `dt init` это значило риск
+  закоммитить токены в первый же commit, если разработчик
+  кладёт их по той же конвенции, что и сам шаблон. Сконсолидировано
+  в `.secrets*` (покрывает плоский `.secrets`, `.secrets.toml`,
+  `.secrets.env`, `.secrets.local` и т.п.); `.env` оставлен
+  отдельно как другой класс файла; `secrets.env` (без leading
+  dot) оставлен — отдельная sh-export конвенция. Fast unit-тест
+  `tests/test_gitignore_secrets.py` (6 кейсов: plain `.secrets`,
+  dotted variants, `.env`, `secrets.env`, sanity check на
+  не-секрет).
+
 - **`template/hooks/pre-push` теперь пропускает initial push**
   (T021). Hook отклонял любой push в `refs/heads/main` /
   `refs/heads/master`, не различая bootstrap-сценарий (когда
