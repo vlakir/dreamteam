@@ -28,7 +28,6 @@ def test_init_creates_project(tmp_path: Path) -> None:
     expected_files = [
         'README.md',
         'CLAUDE.md',
-        'PROJECT.md',
         'CONCEPT.md',
         'DECISIONS.md',
         'CHANGELOG.md',
