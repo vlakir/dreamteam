@@ -7,6 +7,21 @@ _templates_suffix: ""
 # Persist answers so `dreamteam update` can re-apply the template later.
 _answers_file: .copier-answers.yml
 
+# Language prompt — first, before project_name. Narrative files
+# (CLAUDE.md, README.md, CONCEPT.md, kanban files) live under
+# `i18n/<lang>/` in the template; `_tasks_post_render.py` (below)
+# moves the chosen language to project root and removes `i18n/`.
+language:
+  type: str
+  help: "Language for methodology docs (en (English) / ru (Русский) / fr (Français) / de (Deutsch) / zh (中文))"
+  choices:
+    "en (English)": en
+    "ru (Русский)": ru
+    "fr (Français)": fr
+    "de (Deutsch)": de
+    "zh (中文)": zh
+  default: "en"
+
 project_name:
   type: str
   help: "Project name (lowercase, alphanumeric, dashes/underscores)"
@@ -26,3 +41,10 @@ author_email:
   type: str
   help: "Author email"
   default: "you@example.com"
+
+# Post-render: move i18n/<language>/* → project root, drop i18n/,
+# strip translation frontmatter from non-ru languages. The script
+# is part of the rendered tree (so it works without src_path
+# resolution), then deletes itself at the end.
+_tasks:
+  - "{{ _copier_python }} _tasks_post_render.py {{ language }}"
