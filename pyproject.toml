@@ -90,6 +90,13 @@ ignore = [
     "RUF003", "G004", "PLR0912",
     "PLR0913", "D401", "PLR0915",
     "C901", "D205", "N802",
+    # S603 — bandit overly-conservative on `subprocess.run` even when
+    # called with `shell=False` and a `list[str]` argv (the safe form).
+    # dreamteam-cli legitimately shells out to `git` (T009 update flow,
+    # bundle introspection). Args are either hardcoded or resolved via
+    # `shutil.which`; user-controllable `tag`/`path` values are passed
+    # as separate list elements, not shell-interpolated.
+    "S603",
 ]
 fixable = ["ALL"]
 unfixable = []

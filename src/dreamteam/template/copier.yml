@@ -7,6 +7,16 @@ _templates_suffix: ""
 # Persist answers so `dreamteam update` can re-apply the template later.
 _answers_file: .copier-answers.yml
 
+# `.bundle/` is the bare-git snapshot used by `dreamteam update` for
+# three-way merge (T009). It lives inside the wheel — never copied
+# into derived projects. The first two entries are copier's defaults
+# (re-stated because providing `_exclude` overrides them entirely).
+_exclude:
+  - "copier.yml"
+  - "copier.yaml"
+  - ".bundle"
+  - ".bundle/**"
+
 # Language prompt — first, before project_name. Narrative files
 # (CLAUDE.md, README.md, CONCEPT.md, kanban files) live under
 # `i18n/<lang>/` in the template; `_tasks_post_render.py` (below)
