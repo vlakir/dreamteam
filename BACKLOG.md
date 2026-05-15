@@ -66,19 +66,10 @@
   **Приоритет:** после T001 (Branch Protection).
 -->
 
-<!-- T013 (multilang) переехала в BOARD.md → Doing 2026-05-15.
-     Spec phase активен: specs/T013-multilang/spec.md. -->
-
-- **T009** — [2026-05-14] Полноценный `dreamteam update` (diff/merge).
-
-  Текущий MVP update делает `run_copy(..., overwrite=True)` —
-  re-applies template, теряет user-edits в template-managed
-  файлах. Полноценный `copier.run_update` требует git-tracked
-  template, чего нет у PyPI-distributed package.
-
-  Подходы: (1) bundle bare git repo внутри `src/dreamteam/template/`,
-  (2) temp-clone-with-git перед update, (3) другая стратегия.
-  Требует spec.
+<!-- T013 (multilang) уехала в CHANGELOG → [1.3.0] 2026-05-15.
+     T009 (full update diff/merge) переехала в BOARD.md → Doing
+     2026-05-15. Spec phase активен:
+     specs/T009-full-update/spec.md. -->
 
 - **T007** — [2026-05-14] Найти замену для qodo-code-review.
 
