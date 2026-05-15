@@ -1,6 +1,6 @@
 # Spec: T009 — Full `dreamteam update` (diff/merge)
 
-**Статус:** Draft
+**Статус:** Analyzed (Clarify resolved 2026-05-15, Analyze pass 2026-05-15)
 **Дата создания:** 2026-05-15
 **Связанные документы:**
 - `BACKLOG.md` (entry T009, оригинальная формулировка от 2026-05-14)
@@ -59,23 +59,57 @@ ADR T006.
   новый template version.
 - **ДОЛЖНА**: сохранять user-edited файлы без конфликтов —
   оставлять как есть, не клобберить.
-- **ДОЛЖНА**: для конфликтных случаев — записывать конфликт-блоки
-  в файл (формат — Clarify Q1).
+- **ДОЛЖНА**: для конфликтных случаев — записывать **git-style
+  in-file конфликт-маркеры** (`<<<<<<<` / `=======` / `>>>>>>>`)
+  внутри файла (Q1 resolved).
+- **ДОЛЖНА**: bundled bare git repo внутри wheel
+  (`src/dreamteam/template/.bundle/`) использоваться как base
+  storage для `copier.run_update --vcs-ref=<base_version>`
+  (Q2 resolved). Версии в bundle помечаются tag-ами
+  `v<MAJOR.MINOR.PATCH>` соответствующих template-snapshot-ов.
+- **ДОЛЖНА**: при отсутствии `git` бинарника в `PATH` — fall back
+  к текущему MVP-поведению (`copier.run_copy(..., overwrite=True)`)
+  с явным `WARNING` в stderr: «git not found in PATH, falling
+  back to overwrite update; install git for full diff/merge
+  support» (Q3 resolved).
+- **ДОЛЖНА**: предоставлять `--force` flag — alias к
+  MVP-поведению (`overwrite=True`), для случая «throw away local
+  edits and re-apply template clean» (Q4 resolved).
+- **ДОЛЖНА**: предоставлять `--dry-run` flag, который выводит
+  (a) top-line summary («N updated, M unchanged, K conflicts»)
+  и (b) per-file unified diff, без записи на диск
+  (Q8 resolved).
+- **ДОЛЖНА**: возвращать exit codes — `0` = clean update,
+  `1` = hard errors (broken template, IO failures, etc.),
+  `2` = conflicts present (mergeable with manual intervention)
+  — для CI integration в derived проектах.
 - **ДОЛЖНА**: работать с PyPI-distributed package (template
-  поставляется как package-data в wheel, без git history).
+  поставляется как package-data в wheel, без runtime network
+  access).
 - **ДОЛЖНА**: сохранять идентичное поведение для multilang (T013)
-  — три состояния (base/theirs/ours) рендерятся на сохранённом
-  языке из `.copier-answers.yml`, before merge.
-- **МОЖЕТ**: предоставлять `--dry-run` для preview без записи.
-- **МОЖЕТ**: предоставлять `--force` flag — alias текущего
-  MVP-поведения (overwrite without merge), на случай когда
-  пользователь хочет «throw away local edits».
-- **МОЖЕТ**: возвращать non-zero exit code при наличии
-  конфликтов (для CI integration в derived проектах).
+  — three-way merge выполняется в **render-формате derived**:
+  base/theirs рендерятся (Jinja + post-render task) на языке из
+  `.copier-answers.yml`, потом mergeable с ours (Q7 resolved).
+- **ДОЛЖНА**: best-effort применение результатов — успешно
+  смерженные файлы записываются, конфликтные — оставляются с
+  маркерами, hard-errored — оставляются нетронутыми. Итоговое
+  сообщение: «N/M succeeded, K conflicts, L errors» (Q9
+  resolved).
+- **ДОЛЖНА**: при добавлении нового prompt в template (например,
+  T013 `language`) и отсутствии соответствующего ответа в
+  существующем `.copier-answers.yml` — silent default (без
+  interactive prompt). User может override через `dreamteam
+  update --data language=ru` (Q6 resolved).
+- **НЕ ДОЛЖНА**: переименовать или удалять файлы в derived
+  проекте, если они rename-нуты / delete-нуты в новой версии
+  template — это **out of scope** для T009 MVP. Выдаём явный
+  WARNING в стиле «file `X` was renamed/deleted in new template;
+  not auto-handled in this update, see follow-up task» (Q5
+  resolved).
 - **НЕ ДОЛЖНА**: rewriting git history derived проекта (никаких
   rebase / commit).
-- **НЕ ДОЛЖНА**: требовать сетевого доступа в runtime (template
-  в wheel, не из remote git).
+- **НЕ ДОЛЖНА**: требовать сетевого доступа в runtime (всё
+  локально в bundled wheel).
 - **НЕ ДОЛЖНА**: трогать файлы за пределами template-managed
   множества (user code в `src/`, тесты в `tests/`, и т.д., если
   не были template-rendered).
@@ -103,38 +137,63 @@ ADR T006.
 
 ## 5. Key Entities
 
-### Template state at init time (base)
+### Bundled bare git repo (Q2 resolved → option (a))
 
-Чтобы three-way merge работал, нужен snapshot template **на
-момент init**. Текущий `.copier-answers.yml` содержит `_commit:
-dreamteam-1.2.0` — это referenced commit/version, но не сами
-файлы.
+`src/dreamteam/template/.bundle/` содержит **bare git repo** со
+всеми template-snapshot-ами в виде tags
+(`v1.0.0`, `v1.1.0`, …, `v1.3.0`, …). Создаётся build-time:
+после Phase 3 каждого нового релиза dreamteam-cli, hatchling
+запускает hook, который:
 
-Опции хранения base — см. Clarify Q2:
-- (a) bundle bare git repo внутри `dreamteam` wheel,
-- (b) temp-extract from versioned package on update,
-- (c) hash-based check + on-demand pip-download предыдущей
-  версии,
-- (d) другое.
+1. Берёт current `src/dreamteam/template/` контент (исключая
+   сам `.bundle/`).
+2. `git init --bare` в `.bundle/` (если не существует) → клонирует
+   рабочий tree, commit-ит контент как `v<version>` tag.
+3. `uv build` упаковывает `.bundle/` в wheel (через
+   `[tool.hatch.build.targets.wheel] artifacts` или explicit
+   pattern).
 
-### Three-way merge engine
+Wheel size estimate: текущий ~50KB → ~250-350KB после bundle
+(rough — зависит от компрессии git и количества версий, но
+linear-ish с числом версий: каждая снапшот добавляет diff,
+не полный recopy).
 
-Опции:
-- `copier.run_update` (требует git-tracked template,
-  необходимо обеспечить условие через одну из стратегий из
-  Key Entities выше).
-- `git merge-file` subprocess (POSIX-стандарт, требует git
-  installed).
-- Pure Python merge (e.g. `diff_match_patch`, `merge3` PyPI) —
-  без git dependency, но менее обкатано.
+### Three-way merge engine (Q2 / Q3 resolved)
+
+**Primary path** (если `git` installed): `copier.run_update(
+src_path=tempdir/clone-from-bundle, dst_path=derived,
+vcs_ref=<base_version_tag>, defaults=True, overwrite=False)`.
+Сам copier использует `git merge-file` под капотом для конфликт-
+маркеров.
+
+**Fallback path** (если `git` not in PATH): warning + текущий MVP
+`run_copy(..., overwrite=True)`. Без diff/merge.
 
 ### `.copier-answers.yml` extensions
 
-Возможные новые поля:
-- `_template_hash` — sha256 от template directory tree (для
-  быстрой проверки «нужен ли update»).
-- `_base_state_pointer` — путь / hash к base snapshot для
-  three-way merge.
+Существующие поля сохраняются как есть. Новых полей **не
+добавляем** в MVP:
+
+- `_commit: dreamteam-<version>` уже есть в существующих
+  answers files — это становится `vcs_ref` для `run_update`
+  (`v<version>` tag в bundle).
+- `_template_hash` / `_base_state_pointer` — **отвергнуто** в
+  пользу `_commit` reuse. Меньше migration пайна для derived
+  проектов на v1.3.0.
+
+### CLI surface
+
+```text
+dreamteam update <path>                  # default — three-way merge
+dreamteam update <path> --force          # MVP overwrite (no merge)
+dreamteam update <path> --dry-run        # preview, no writes
+dreamteam update <path> --data key=value # override answers (rare)
+```
+
+Exit codes:
+- `0` — clean update (no conflicts).
+- `1` — hard error (broken template, IO, missing answers file).
+- `2` — conflicts present (merge attempted, manual fixup needed).
 
 ## 6. Assumptions & Constraints
 
@@ -152,177 +211,213 @@ dreamteam-1.2.0` — это referenced commit/version, но не сами
 ## 7. Out of Scope
 
 - **Interactive merge UI** — никакого TUI / step-through prompt
-  per conflict. File-level конфликт-маркеры (или reject-файлы) —
-  достаточно.
+  per conflict. File-level git-style маркеры — достаточно.
 - **Selective update** — `dreamteam update --only CLAUDE.md` или
-  файл-by-файл выбор не делаем. Update — all-or-nothing.
+  файл-by-файл выбор не делаем. Update — all-or-nothing на
+  уровне entry point; внутри best-effort per-file (Q9).
+- **Renames / deletions в новой версии template** (Q5 resolved):
+  не auto-handled в T009 MVP. WARNING + manual fixup. Отдельная
+  follow-up задача (новый T-ID при необходимости).
 - **History rewriting** в derived проекте (`dreamteam update
   --rebase`) — не трогаем git history.
-- **Auto-resolve `.copier-answers.yml`** — этот файл всегда
-  template-managed и обновляется самим dreamteam при update.
-  Не считаем его «user-editable» для merge целей.
+- **Auto-resolve `.copier-answers.yml`** — файл template-managed,
+  обновляется самим dreamteam при update. Не считаем его
+  «user-editable» для merge целей.
 - **Migration helpers для breaking changes** — если новая версия
-  template сломала совместимость (например, удалила файл, который
-  user активно использовал), это — задача отдельной spec / ADR
-  (`MAJOR` bump dreamteam-cli). Текущий T009 покрывает только
-  backward-compatible updates.
+  template сломала совместимость, это — задача отдельной spec /
+  ADR (`MAJOR` bump dreamteam-cli). Текущий T009 покрывает
+  только backward-compatible updates (MINOR/PATCH bumps).
 - **Downgrade** — `dreamteam update --to-version 1.2.0` (откат на
   прошлую версию) — не делаем.
-- **`dreamteam diff`** — отдельная команда для preview изменений
-  без apply. `--dry-run` flag покрывает базовый use-case.
+- **`dreamteam diff`** — отдельная команда. `--dry-run` flag
+  покрывает базовый use-case (Q8).
+- **All-or-nothing atomicity** (Q9 resolved → best-effort):
+  partial success разрешён; failure на одном файле не откатывает
+  успешные мержи.
+- **Interactive prompt при new template prompts** (Q6 resolved →
+  silent default): не спрашиваем user-а при `dreamteam update`,
+  если template добавил новый prompt с default-значением.
 
 ---
 
-## Clarify (заполняется Разработчиком, потом Claude → Analyze)
+## Clarify
 
-### Open questions
+### Resolved (2026-05-15)
 
-- **Q1 (формат конфликт-маркеров)** — что предпочтительнее в
-  случае непримиримого diff?
-  - (a) **Git-style in-file**: `<<<<<<< theirs ... ======= ... >>>>>>> ours`
-    прямо в `BACKLOG.md` / `CLAUDE.md`. Привычно для разработчиков,
-    стандартный merge tooling (IDE, vimdiff) понимает. Минус:
-    файл временно «сломан» как markdown — `<<<<<<<` будет
-    отображаться буквально, пока конфликт не разрешён.
-  - (b) **`.rej` files**: при конфликте оригинал остаётся как был
-    (theirs или ours — на выбор), рядом создаётся `<file>.rej`
-    с unified diff неприменённых hunks. Стандарт `patch -R`,
-    `git apply --reject`. Чистый markdown в основном файле.
-  - (c) **Дублирующие `.theirs.<lang>` файлы**: оригинал ours
-    остаётся, рядом создаётся `<file>.theirs` с template-
-    версией; user сам делает 3-way merge через IDE. Менее
-    интрузивно, но больше работы.
-  - (d) другое.
+- **Q1 (формат конфликт-маркеров) → (a) Git-style in-file**
+  (`<<<<<<<` / `=======` / `>>>>>>>`). Стандарт, IDE/vimdiff
+  понимают, copier-default. Markdown временно «сломан» в
+  конфликтной зоне — acceptable, конфликт виден сразу.
 
-- **Q2 (хранение base state — template snapshot на момент last
-  init/update)** — где?
-  - (a) **Bundle bare git repo** в `src/dreamteam/template/.bundle/`
-    при каждом build. Wheel становится ~150–300KB больше; update
-    — `git clone --local .bundle /tmp/x && copier.run_update
-    --vcs-ref=<commit>`. Все три состояния доступны.
-  - (b) **Pip-download previous version**: `pip download
-    dreamteam-cli==<base_version> -d /tmp/base; extract; use as
-    template base`. Требует сетевого доступа и `pip`-availability
-    на update.
-  - (c) **Hash-based + bundled prior templates**: в wheel хранить
-    отдельный `dreamteam/_history/` с каждой versioned template
-    snapshot (1.0.0/, 1.1.0/, 1.2.0/, ...). Wheel разрастается
-    линейно с числом releases (на 1.5x уже за 4 версии).
-  - (d) **Не хранить base вообще** — делать **two-way merge** (theirs vs
-    ours) без base. Менее точный, но проще: совпадающие куски
-    — keep ours, расходящиеся — конфликт. Подходит если
-    предположить, что user-edits локальны и не overlap-ят с
-    template-changes.
-  - (e) другое.
+- **Q2 (хранение base state) → (a) Bundled bare git repo**
+  в `src/dreamteam/template/.bundle/`. Wheel вырастет ~50KB →
+  ~250KB, без runtime network. Альтернативы (pip-download /
+  versioned history / two-way merge без base) отвергнуты:
+  network dependency / линейный wheel growth / unacceptable
+  accuracy loss на overlapping kanban-edits.
 
-- **Q3 (git dependency)** — что делать, если `git` не установлен
-  на user machine?
-  - (a) **Fall back to current MVP** (`overwrite=True`) с явным
-    warning «git not found, falling back to overwrite update;
-    install git for full diff/merge support».
-  - (b) **Hard error** + instruct install. Принудительно требуем
-    git как dependency методики.
-  - (c) **Pure-Python merge fallback** (e.g. `merge3` PyPI
-    package). Зависимость +1 в `[dependencies]`, но без external
-    binary.
-  - (d) другое.
+- **Q3 (git absent) → (a) Fall back to MVP `overwrite=True`**
+  с явным WARNING в stderr. Min friction; dev environments без
+  git — редкость; pure-Python merge (`merge3` PyPI) отвергнут —
+  лишняя dependency для редкого fallback case.
 
-- **Q4 (`--force` flag)** — нужен ли явный flag для current
-  MVP-behavior (overwrite without merge)?
-  - (a) Да, `dreamteam update --force` = current MVP. Useful for
-    «сбросить локальные правки шаблонной части».
-  - (b) Нет — если user хочет overwrite, может вручную удалить
-    template-managed файлы и запустить `dreamteam init` снова
-    в ту же папку.
-  - (c) другое.
+- **Q4 (`--force` flag) → (a) Yes, alias к MVP-поведению**.
+  Escape hatch «throw away local edits» полезен.
 
-- **Q5 (renamed / deleted в новой версии template)** — что
-  делать с файлами, переименованными или удалёнными в новой
-  версии?
-  - (a) **Auto-follow**: rename ours, или delete если template
-    delete-ит.
-  - (b) **Preserve old + add new**: ours остаётся, дополнительно
-    создаётся новый файл с новым именем. User мерджит вручную.
-  - (c) **Conflict signal**: считается за «major change»,
-    выводится в conflict report без auto-action.
-  - (d) Не покрываем в этой spec — Out of Scope для MVP T009,
-    отдельная задача.
+- **Q5 (renames / deletions) → (d) Out of scope для T009 MVP**.
+  WARNING + manual fixup. Отдельная follow-up задача при
+  возникновении реального случая.
 
-- **Q6 (`.copier-answers.yml` upgrade при добавлении нового
-  prompt)** — текущая ситуация: T013 добавил `language` prompt.
-  Existing derived проекты на v1.2.0 не имеют `language` в
-  answers file.
-  - При `dreamteam update` сейчас (MVP overwrite) — copier добавит
-    `language: en` (default).
-  - При full update — что? (a) добавить default tихо, (b) prompt
-    user даже в non-interactive update, (c) require explicit
-    `--data language=...` при update если есть новые prompts,
-    (d) другое.
+- **Q6 (`.copier-answers.yml` upgrade с новыми prompts) → (a)
+  silent default**. Update не должен быть interactive
+  (cron-friendly, scripted-use-case). Override через
+  `--data key=value`.
 
-- **Q7 (interaction с multilang T013)** — derived проект на ru.
-  Template обновился в `i18n/ru/BACKLOG.md` (новый bullet) **и**
-  user добавил свой bullet в derived `BACKLOG.md`. Three-way
-  merge должен:
-  - (a) merger ru → ru, both bullets present.
-  - (b) merger всё в render-формате derived (after post-render
-    task), на ru.
-  - (c) что-то более сложное.
+- **Q7 (multilang interaction) → (b) merge в render-формате
+  derived** на сохранённом языке. Engine рендерит base/theirs
+  через template machinery (Jinja + `_tasks_post_render.py`) до
+  three-way merge с ours; ours остаётся as-is. Mapping
+  template-tree ↔ derived-tree уже handled post-render task,
+  не нужен reverse mapping — мы просто render new state и
+  делаем merge на rendered files.
 
-  Также: post-render task (`_tasks_post_render.py`) удаляет
-  `i18n/` и strip frontmatter. Это means rendered tree в derived
-  ≠ raw template tree в wheel. Нужно ли реверс-mapping для
-  merge?
+- **Q8 (`--dry-run` UX) → (c) both** — top-line summary
+  («N updated, M unchanged, K conflicts») + per-file unified
+  diff. Cheap to implement, polished UX.
 
-- **Q8 (`--dry-run` UX)** — что show при `--dry-run`?
-  - (a) `git diff`-like unified diff на каждый файл.
-  - (b) Сводка «N files would be updated, M unchanged, K
-    conflicts».
-  - (c) Both.
+- **Q9 (atomicity) → (b) best-effort**. Success per-file,
+  conflicts оставляем с маркерами, hard errors остаются
+  нетронутыми. Итоговый report: «N/M succeeded, K conflicts,
+  L errors». All-or-nothing откатывает успешные мержи из-за
+  одного конфликта — плохой UX.
 
-- **Q9 (Atomicity)** — что если update упал на третьем файле из
-  10 (например, конфликт обнаружен в середине процесса)?
-  - (a) **All-or-nothing** — atomic apply через tempdir + swap.
-    Either все файлы обновлены, либо ничего.
-  - (b) **Best-effort** — обновляем что можем, конфликтные
-    оставляем с маркерами. User видит «3/10 success, 4
-    conflicts, 3 untouched». Менее строго, проще.
-  - (c) другое.
-
-- **Q10 (Forward-compat с copier API)** — copier 9.x `run_update`
-  явно требует git-tracked template. Если выберем Q2 → (a)
-  bundle bare git repo — соответствуем. Если copier 10.x
-  добавит native bundled-template support — нам мигрировать или
-  держать свою реализацию? Это не блокер для spec, но влияет
-  на implementation choice.
-
-### Resolved (заполняется по мере ответов)
-
-- ...
+- **Q10 (forward-compat copier 10.x) → не блокер**. Q2 (a) →
+  bundled bare git repo совместим с copier 9.x `run_update`.
+  Если copier 10 добавит native bundled-template — мигрируем
+  отдельной задачей (новый T-ID), без breaking changes для
+  derived проектов.
 
 ---
 
-## Analyze (заполняется Claude после Clarify Resolved)
+## Analyze (2026-05-15)
 
-<!-- Issues с пометками 🔴 / 🟡 / 🟢. После прохождения Analyze
-     спека переводится в статус Analyzed и идёт в implementation
-     phases. -->
+### Issues
 
-- ...
+- 🟡 **Warning — Wheel size growth.** Bundled bare git repo
+  добавит ~200KB к wheel (rough estimate; depends on number of
+  template snapshots и git compression). Это 4-5× от текущего
+  размера. **Mitigation:** (1) shallow snapshots если git tooling
+  позволяет; (2) `git gc --aggressive` в bundle при build;
+  (3) принять как стоимость full-update feature и документировать
+  в DECISIONS ADR.
+
+- 🟡 **Warning — Bundle creation at build time.** Hatchling
+  hook должен создавать `.bundle/` *детерминированно* (одинаковый
+  hash при повторном build). Git timestamps могут вносить noise.
+  **Mitigation:** использовать `git commit-tree` с fixed
+  `GIT_AUTHOR_DATE` / `GIT_COMMITTER_DATE` (e.g., release date в
+  CHANGELOG) и `core.compression=0` для reproducible builds. См.
+  reproducible-builds.org для precedent.
+
+- 🟡 **Warning — `.copier-answers.yml` без `_commit` поля.**
+  Derived проекты, созданные через `dreamteam init` на v1.0.0–
+  v1.2.0, могут иметь `_commit: dreamteam-1.0.0` (текущий
+  pattern), но **строка-формат**, не git ref. Bundle expects
+  git tag (`v1.0.0`). **Mitigation:** mapping logic в update
+  command — strip `dreamteam-` prefix, prepend `v`. Document
+  как migration note.
+
+- 🟡 **Warning — Multilang interaction subtlety.**
+  При `dreamteam update` для derived с `language: ru`:
+  base рендерится из `v<old>` tag (i18n/ru/), theirs — из
+  current template (i18n/ru/). Both pass through
+  `_tasks_post_render.py` to produce rendered tree. Но ru-source
+  файлов в `i18n/ru/` мог измениться структурно (например,
+  переставлены секции) — git merge на rendered output может
+  показывать spurious conflicts там, где semantically всё OK.
+  **Mitigation:** smoke test после Phase 2 на realistic scenario
+  (user edits CLAUDE.md ru-перевод + template обновился);
+  document типичные false positives.
+
+- 🟢 **Note — Conflict markers visibility for non-Git users.**
+  Derived проекты могут принадлежать пользователям без git
+  background. `<<<<<<<` markers могут запутать. **Mitigation:**
+  в exit message `dreamteam update` (exit code 2) включить
+  пример «conflicts in files X, Y, Z; resolve markers
+  `<<<<<<<` / `=======` / `>>>>>>>` — see <link to docs>».
+
+- 🟢 **Note — Test matrix combinatorics.** 4 scenarios (A/B/C/D)
+  × 5 languages = 20 integration cases. Слишком много. **Plan:**
+  4 scenarios × en (full coverage) + 1 scenario × 4 other
+  languages (sanity) = 8 cases total. Multilang correctness
+  доказывается отдельно (от T013), здесь — sanity.
+
+- 🟢 **Note — Bundle git binary at build time.** Hatchling
+  build host должен иметь `git` installed для создания bundle.
+  Это OK на dev-машинах и в CI (GitHub Actions runners имеют
+  git pre-installed), но `pip install --no-build-isolation` на
+  host без git может упасть. **Mitigation:** wheel поставляется
+  с готовым bundle (no build на user side); sdist install
+  documented как требующий git.
+
+- 🟢 **Note — Per-file rendering cost.** Three-way merge для
+  каждого файла = (render base) + (render theirs) + (read ours)
+  + (git merge-file). Для 8 narrative files в template = ~8×
+  rendering. Acceptable performance-wise для interactive
+  command (~1-2 sec total), не для batch use.
+
+### Verdict
+
+Все Clarify questions Q1–Q10 resolved. Critical блокеров нет
+(0 🔴). Четыре 🟡 warnings с mitigation в Implementation Plan.
+Три 🟢 notes для memory. Spec → **Analyzed**, готов к
+implementation phases.
 
 ---
 
-## Implementation Plan (черновой — финализируется после Analyze)
+## Implementation Plan
 
-**Phase 1** — выбор и обкатка merge backend (`copier.run_update`
-+ bundled git repo / `merge3` PyPI / `git merge-file`). На простом
-2-файловом test case без T013 multilang.
+**Phase 1 — Bundled bare git repo + merge backend.**
+- Hatchling build hook создаёт `src/dreamteam/template/.bundle/`
+  с tag-ом `v<current_version>` (reproducible через fixed dates).
+- `cli.py update` flow:
+  1. Read `.copier-answers.yml`, extract `_commit` → derive
+     `base_version_tag` (strip `dreamteam-`, prepend `v`).
+  2. `shutil.which('git')` — если absent, warn + fall back to
+     MVP `run_copy(..., overwrite=True)`. Done.
+  3. tempdir → `git clone --local .bundle/ /tmp/<unique>`.
+  4. `copier.run_update(src=tempdir, dst=derived,
+     vcs_ref=base_version_tag, defaults=True, overwrite=False)`.
+  5. Cleanup tempdir.
+- Unit tests на mapping `_commit` → tag, на git fallback path.
+- Smoke test на artifical 2-file template без multilang.
 
-**Phase 2** — full integration с multilang T013 (rendered-tree
-mapping, language preservation, frontmatter handling).
+**Phase 2 — Multilang integration + full file matrix.**
+- Render-tree mapping: убедиться, что `_tasks_post_render.py`
+  применяется при `run_update` на base/theirs. Render output
+  должен быть консистентен между runs (тот же `language` из
+  answers).
+- 8 narrative-файлов в template × 5 languages — sanity matrix
+  (см. Analyze Note).
+- Scenario tests A-D (см. Success Criteria).
 
-**Phase 3** — conflict UX (формат маркеров из Q1, exit codes,
-сообщения), `--dry-run`, `--force` (опционально из Q4).
+**Phase 3 — Conflict UX + flags + exit codes.**
+- `dreamteam update --dry-run`: top-line summary + per-file
+  unified diff (через `difflib.unified_diff` или git
+  diff-tree).
+- `dreamteam update --force`: alias к текущему MVP
+  `run_copy(..., overwrite=True)`.
+- Exit codes: 0 / 1 / 2 (clean / error / conflicts).
+- Conflict message с hint про markers + link to docs.
+- Renames/deletions WARNING (out of scope, just notify).
 
-**Phase 4** — docs / CHANGELOG / DECISIONS / version bump
-(1.3.0 → 1.4.0 если backward-compatible, 1.3.0 → 2.0.0 если
-breaking change в `update` semantics).
+**Phase 4 — Docs / CHANGELOG / DECISIONS / version bump.**
+- ADR T009 в `DECISIONS.md` (выбор bundled git vs alternatives,
+  best-effort vs atomic, git fallback policy).
+- CHANGELOG `[Unreleased]` → Added.
+- Version bump: 1.3.0 → 1.4.0 (MINOR — backward-compatible;
+  default `dreamteam update` теперь three-way merge, но old
+  behavior доступен через `--force`).
+- README update: new merge semantics, `--dry-run` / `--force`
+  flags, behavior на git absent, expected conflict-marker format.
+- Final integration suite green.
