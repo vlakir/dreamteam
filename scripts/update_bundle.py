@@ -172,9 +172,17 @@ def _commit_snapshot(
         # Push both the main branch (so the bundle has a valid HEAD
         # after clone) and the version tag (for `copier.run_update`
         # to find the base state).
+        #
+        # `main` always advances to the new snapshot; --force-with-lease
+        # is required because the bundle is single-writer (this script
+        # is the only producer) and the previous main commit is a
+        # different snapshot, not an ancestor. Tag push is non-fast-
+        # forward only when --force is set (overwriting an existing
+        # tag), so we gate tag forcing separately.
         push_args = [
             GIT,
             'push',
+            '--force-with-lease=refs/heads/main',
             str(bundle),
             'refs/heads/main',
             f'refs/tags/{version_tag}',

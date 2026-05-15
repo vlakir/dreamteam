@@ -97,18 +97,45 @@ maintainer judgment per change.
 
 ## Updating an existing project
 
-When the methodology evolves, propagate changes:
+When the methodology evolves, propagate the changes into your derived
+project with a three-way merge:
 
 ```bash
 cd my-project
-dreamteam update
+dreamteam update                   # default: three-way merge
+dreamteam update --dry-run         # preview: per-file diff + summary, no writes
+dreamteam update --force           # MVP overwrite: re-apply, lose local edits
 ```
 
-> **MVP limitation.** Current `dreamteam update` re-applies the
-> template with stored answers (`overwrite=True`). Local edits to
-> template-managed files will be overwritten. Full diff/merge update
-> requires a git-tracked template, which is non-trivial for
-> PyPI-distributed packages — planned as a follow-up task.
+`dreamteam update` merges three states:
+
+- **base** — the template snapshot at the moment of `dreamteam init`
+  (or the previous successful update), pulled from a bare git repo
+  shipped inside the wheel (`src/dreamteam/template/.bundle/`).
+- **theirs** — the current template state from the installed
+  `dreamteam-cli` package.
+- **ours** — the current state of your derived project on disk.
+
+Files you have not edited are updated to **theirs**. Files where
+only you changed something are kept as-is. Files where both you and
+the template changed the same region produce git-style markers
+(`<<<<<<<` / `=======` / `>>>>>>>`) and the command exits with code
+`2`, listing the conflicted files in stderr. Clean merges exit `0`;
+hard errors exit `1`.
+
+> **Requirements.** Your derived project must be a git repository
+> (`git init && git add -A && git commit -m 'initial'` once after
+> `dreamteam init`). The git binary must be on `PATH`. If either is
+> missing, `dreamteam update` falls back to MVP overwrite behavior
+> with a warning. The `--force` flag explicitly opts into MVP
+> overwrite (escape hatch for "throw away my local edits and start
+> fresh").
+
+> **Preview before applying.** `dreamteam update --dry-run` shows
+> exactly what would change without touching the target: per-file
+> unified diff to stdout plus a one-line summary
+> (`N would change, M unchanged, K added, L removed, X conflicts`).
+> Exit code matches what an actual update would emit.
 
 ## How it works
 
