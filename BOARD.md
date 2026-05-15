@@ -18,6 +18,14 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 <!-- Максимум 1-2 задачи. -->
 
+- **T017** — Параметризовать выбор package manager в derived
+  template (uv / poetry / pip), вместо текущего hardcoded `uv`.
+  Закрывает cross-pollination concern: pip-user-у в derived
+  проекте не должен видеть `uv sync` в инструкциях для Claude.
+  Phase 0 активен: spec в
+  `specs/T017-package-manager/spec.md` (Draft, 10 Open Questions
+  ждут Clarify).
+
 ## Done
 
 <!-- Закрытые задачи, ждущие переноса в CHANGELOG.md при следующем
