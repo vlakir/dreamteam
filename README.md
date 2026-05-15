@@ -25,9 +25,14 @@ immediately — verified by the integration test in this repo.
 
 Every project scaffolded by `dreamteam init` includes:
 
-- **Python stack** — `uv` for deps, `ruff` (`select = ["ALL"]` with
-  a curated `ignore`), `mypy` (`mypy_path = "src"`), `pytest +
-  pytest-cov + pytest-asyncio` with a `--cov-fail-under=80` gate.
+- **Python stack with your chosen package manager** — `dreamteam
+  init` asks for `package_manager` (`uv` default, or `poetry` /
+  `pdm` / `hatch` / `pip`); the rendered `pyproject.toml`,
+  `CLAUDE.md`, and `README.md` use the right build-backend and
+  command prefix for the chosen manager. `ruff` (`select = ["ALL"]`
+  with a curated `ignore`), `mypy` (`mypy_path = "src"`), `pytest +
+  pytest-cov + pytest-asyncio` with a `--cov-fail-under=80` gate
+  are universal regardless of manager.
 - **`src/`-layout** with a working `main.py` (CLI-style logging:
   DEBUG/INFO → stdout, WARNING+ → stderr) and a coverage-100%
   `tests/test_main.py`.

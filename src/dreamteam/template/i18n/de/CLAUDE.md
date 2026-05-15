@@ -1,9 +1,12 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 5b86cdd58929d29c1432f734d68d9afec73e4b4c17937907c769d6453624ed1d
+source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # Projektregeln für Claude
 
 Diese Datei enthält die projektspezifischen Regeln für Claude
@@ -58,7 +61,9 @@ Hand ausgefüllt.
 
 **Basisstack der Vorlage (für Python-Projekte):**
 - Python 3.14+ (`requires-python` in `pyproject.toml`).
-- Dependency- und Environment-Manager: `uv` (schnell, von Astral).
+- Dependency- und Environment-Manager: **`{{ pm_name }}`** (bei
+  `dreamteam init` über das `package_manager`-Prompt gewählt;
+  Alternativen: `uv` / `poetry` / `pdm` / `hatch` / `pip`).
 - Linter: `ruff` (Regel `select = ["ALL"]` mit festgelegtem
   `ignore`).
 - Type-Checker: `mypy` mit `mypy_path = "src"`.
@@ -69,7 +74,8 @@ Hand ausgefüllt.
 - Tests — in `tests/` im Wurzelverzeichnis (`ruff` schließt es
   aus, aber `pytest` findet sie über `testpaths = ["tests"]`).
 
-**Typische Kommandos:**
+**Typische Kommandos (für das gewählte `{{ pm_name }}`):**
+{%- if package_manager == 'uv' %}
 - `uv sync` — Dependencies installieren (legt `.venv` beim ersten
   Lauf an).
 - `uv add <pkg>` / `uv add --dev <pkg>` — Runtime- / Dev-
@@ -77,21 +83,54 @@ Hand ausgefüllt.
 - `uv run python ...` — innerhalb von `.venv` ausführen, ohne es
   zu aktivieren.
 - `uvx <tool>` — CLI-Tool ohne lokale Installation ausführen.
+{%- elif package_manager == 'poetry' %}
+- `poetry install` — Dependencies installieren (legt venv beim
+  ersten Lauf an).
+- `poetry add <pkg>` / `poetry add --group dev <pkg>` — Runtime- /
+  Dev-Dependency hinzufügen.
+- `poetry run python ...` — im poetry venv ausführen, ohne es zu
+  aktivieren.
+- `poetry env activate` — Sub-Shell mit aktivem venv öffnen.
+{%- elif package_manager == 'pdm' %}
+- `pdm install` — Dependencies installieren (legt `.venv` beim
+  ersten Lauf an).
+- `pdm add <pkg>` / `pdm add -dG dev <pkg>` — Runtime- / Dev-
+  Dependency hinzufügen.
+- `pdm run python ...` — im `.venv` ausführen, ohne es zu
+  aktivieren.
+{%- elif package_manager == 'hatch' %}
+- `hatch env create` — Environment `default` mit Dev-Deps
+  erzeugen.
+- Dependencies werden in `[tool.hatch.envs.default.dependencies]`
+  in `pyproject.toml` gepflegt.
+- `hatch run <cmd>` — Befehl im `default`-Env ohne Aktivierung
+  ausführen.
+- Scripts werden in `[tool.hatch.envs.default.scripts]` definiert
+  und über `hatch run <script>` aufgerufen.
+{%- else %}
+- `python -m venv .venv && .venv/bin/pip install -e .[dev]` —
+  ein venv anlegen und Dev-Deps installieren.
+- `.venv/bin/pip install <pkg>` — Paket installieren (dann selbst
+  in `pyproject.toml` eintragen; pip aktualisiert das Manifest
+  nicht automatisch).
+- `.venv/bin/python ...` oder das venv aktivieren
+  (`source .venv/bin/activate`) und `python ...` starten.
+{%- endif %}
 
 Vor jedem `git push` **vier** Prüfungen mit 0 Fehlern:
-1. `uv run ruff check .`
-2. `uv run ruff format --check .`
-3. `uv run mypy <code>`
-4. `uv run pytest` (inkl. Coverage-Schwelle ≥ 80 %).
+1. `{{ pm_run }}ruff check .`
+2. `{{ pm_run }}ruff format --check .`
+3. `{{ pm_run }}mypy <code>`
+4. `{{ pm_run }}pytest` (inkl. Coverage-Schwelle ≥ 80 %).
 
 **Als eine Kette ausführen**, damit ein Fail in irgendeinem
 Schritt den Commit abbricht:
 
 ```bash
-uv run ruff check . && \
-uv run ruff format --check . && \
-uv run mypy <code> && \
-uv run pytest && \
+{{ pm_run }}ruff check . && \
+{{ pm_run }}ruff format --check . && \
+{{ pm_run }}mypy <code> && \
+{{ pm_run }}pytest && \
 git add -A && git commit -m "..." && git push
 ```
 

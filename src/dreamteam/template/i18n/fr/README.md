@@ -1,9 +1,12 @@
 ---
 translated_from: i18n/ru/README.md
-source_hash: 6cbcb2749f1ac3d91c54f37a9d58d667a6b46afb505129c142e310d7e61b76b1
+source_hash: f96c2ff264d28425416521155c98b10324520cd825e9ded1c0cbe5f3a8289568
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # {{ project_name }}
 
 {{ project_description }}
@@ -15,24 +18,47 @@ translation_date: 2026-05-15
 
 ## Quick start
 
+Gestionnaire de dépendances et d'environnement : **`{{ pm_name }}`**
+(choisi lors de `dreamteam init`).
+
 ```bash
-uv sync                       # créer .venv et installer les dépendances
-uv run python src/main.py     # lancer
+{{ pm_install }}                       # installer les dépendances
+{{ pm_run }}python src/main.py     # lancer
 ```
 
 ## Dépendances
-
+{% if package_manager == 'uv' %}
 ```bash
 uv add <pkg>                  # runtime
 uv add --dev <pkg>            # dev
 ```
+{%- elif package_manager == 'poetry' %}
+```bash
+poetry add <pkg>              # runtime
+poetry add --group dev <pkg>  # dev
+```
+{%- elif package_manager == 'pdm' %}
+```bash
+pdm add <pkg>                 # runtime
+pdm add -dG dev <pkg>         # dev
+```
+{%- elif package_manager == 'hatch' %}
+Hatch gère les dépendances via `pyproject.toml`. Runtime — à
+ajouter dans `[project.dependencies]`. Dev — à ajouter dans
+`[tool.hatch.envs.default.dependencies]`. Après modifications :
+`hatch env prune && hatch env create`.
+{%- else %}
+```bash
+.venv/bin/pip install <pkg>   # puis ajoute le paquet à pyproject.toml [project.dependencies] toi-même
+```
+{%- endif %}
 
 ## Vérifications avant push
 
 ```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy <chemin du code>
+{{ pm_run }}ruff check .
+{{ pm_run }}ruff format --check .
+{{ pm_run }}mypy <chemin du code>
 ```
 
 Les trois doivent passer avec 0 erreur. Les contournements

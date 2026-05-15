@@ -32,6 +32,17 @@ language:
     "zh (中文)": zh
   default: "en"
 
+package_manager:
+  type: str
+  help: "Package manager for the generated project — uv (Astral, fast default), poetry (traditional), pdm (PEP 621-native modern alt), hatch (PyPA, integrates with hatchling build), pip (bare, no extra tooling)"
+  choices:
+    "uv (Astral)": uv
+    "poetry": poetry
+    "pdm": pdm
+    "hatch (PyPA)": hatch
+    "pip (vanilla)": pip
+  default: "uv"
+
 project_name:
   type: str
   help: "Project name (lowercase, alphanumeric, dashes/underscores)"

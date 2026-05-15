@@ -1,9 +1,12 @@
 ---
 translated_from: i18n/ru/README.md
-source_hash: 6cbcb2749f1ac3d91c54f37a9d58d667a6b46afb505129c142e310d7e61b76b1
+source_hash: f96c2ff264d28425416521155c98b10324520cd825e9ded1c0cbe5f3a8289568
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # {{ project_name }}
 
 {{ project_description }}
@@ -13,24 +16,46 @@ translation_date: 2026-05-15
 
 ## Quick start
 
+依赖与环境管理器：**`{{ pm_name }}`**（在 `dreamteam init` 时选择）。
+
 ```bash
-uv sync                       # 创建 .venv 并安装依赖
-uv run python src/main.py     # 运行
+{{ pm_install }}                       # 安装依赖
+{{ pm_run }}python src/main.py     # 运行
 ```
 
 ## 依赖
-
+{% if package_manager == 'uv' %}
 ```bash
 uv add <pkg>                  # runtime
 uv add --dev <pkg>            # dev
 ```
+{%- elif package_manager == 'poetry' %}
+```bash
+poetry add <pkg>              # runtime
+poetry add --group dev <pkg>  # dev
+```
+{%- elif package_manager == 'pdm' %}
+```bash
+pdm add <pkg>                 # runtime
+pdm add -dG dev <pkg>         # dev
+```
+{%- elif package_manager == 'hatch' %}
+Hatch 通过 `pyproject.toml` 管理依赖。Runtime —— 添加到
+`[project.dependencies]`。Dev —— 添加到
+`[tool.hatch.envs.default.dependencies]`。修改后：
+`hatch env prune && hatch env create`。
+{%- else %}
+```bash
+.venv/bin/pip install <pkg>   # 之后将该包手动加入 pyproject.toml 的 [project.dependencies]
+```
+{%- endif %}
 
 ## Push 前检查
 
 ```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy <代码路径>
+{{ pm_run }}ruff check .
+{{ pm_run }}ruff format --check .
+{{ pm_run }}mypy <代码路径>
 ```
 
 三项都必须以 0 错误通过。绕过手段（`# noqa`、`# type: ignore`、

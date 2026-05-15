@@ -1,3 +1,6 @@
+{%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
+{%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
+{%- set pm_name = package_manager -%}
 # {{ project_name }}
 
 {{ project_description }}
@@ -8,24 +11,47 @@
 
 ## Быстрый старт
 
+Менеджер зависимостей и окружения: **`{{ pm_name }}`** (выбран при
+`dreamteam init`).
+
 ```bash
-uv sync                       # создать .venv и поставить зависимости
-uv run python src/main.py     # запустить
+{{ pm_install }}                       # поставить зависимости
+{{ pm_run }}python src/main.py     # запустить
 ```
 
 ## Зависимости
-
+{% if package_manager == 'uv' %}
 ```bash
 uv add <pkg>                  # runtime
 uv add --dev <pkg>            # dev
 ```
+{%- elif package_manager == 'poetry' %}
+```bash
+poetry add <pkg>              # runtime
+poetry add --group dev <pkg>  # dev
+```
+{%- elif package_manager == 'pdm' %}
+```bash
+pdm add <pkg>                 # runtime
+pdm add -dG dev <pkg>         # dev
+```
+{%- elif package_manager == 'hatch' %}
+Hatch управляет зависимостями через `pyproject.toml`. Runtime —
+добавить в `[project.dependencies]`. Dev — добавить в
+`[tool.hatch.envs.default.dependencies]`. После правок:
+`hatch env prune && hatch env create`.
+{%- else %}
+```bash
+.venv/bin/pip install <pkg>   # затем впиши пакет в pyproject.toml [project.dependencies] сам
+```
+{%- endif %}
 
 ## Проверки перед push
 
 ```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy <путь к коду>
+{{ pm_run }}ruff check .
+{{ pm_run }}ruff format --check .
+{{ pm_run }}mypy <путь к коду>
 ```
 
 Все три должны проходить с 0 ошибок. Обходные манёвры (`# noqa`,
