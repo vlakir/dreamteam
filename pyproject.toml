@@ -37,6 +37,7 @@ Changelog = "https://github.com/vlakir/dreamteam/blob/main/CHANGELOG.md"
 
 [project.scripts]
 dreamteam = "dreamteam.cli:app"
+dt = "dreamteam.cli:app"
 
 
 [build-system]

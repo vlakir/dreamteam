@@ -192,6 +192,24 @@ def test_no_unused_pytest_import() -> None:
     assert pytest.__version__
 
 
+def test_console_script_aliases_registered() -> None:
+    """
+    `pip install dreamteam-cli` must register both `dreamteam` and `dt`
+    console scripts pointing at the same Typer app (T016 alias).
+    """
+    from importlib.metadata import entry_points
+
+    scripts = {
+        ep.name: ep.value
+        for ep in entry_points(group='console_scripts')
+        if ep.name in {'dreamteam', 'dt'}
+    }
+    assert scripts.get('dreamteam') == 'dreamteam.cli:app'
+    assert scripts.get('dt') == 'dreamteam.cli:app', (
+        '`dt` alias missing or wired to wrong callable'
+    )
+
+
 def test_update_preserves_user_edit(tmp_path: Path) -> None:
     """
     Scenario B (light): user adds a bullet to BACKLOG.md, then runs
