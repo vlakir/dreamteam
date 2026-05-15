@@ -24,6 +24,32 @@
 
 <!-- Что накопилось с момента последнего релиза/значимой точки. -->
 
+### Notes
+
+- **2026-05-15 — Out-of-band методическая cleanup: stale упоминания
+  `PROJECT.md` (T020).** После T014 (v1.1.0, удаление `PROJECT.md`
+  из template) три durable-источника, которые Claude загружает в
+  начале каждой сессии, продолжали описывать `PROJECT.md` как
+  живой элемент методики. Это всплыло при обкатке методики на
+  первом derived-проекте (`efactory`): Claude предложил создать
+  `PROJECT.md`, прочитав устаревшие инструкции. Правки **вне репо
+  dreamteam** (не влияют на wheel / package-data):
+  - `~/.claude/CLAUDE.md` — 3 места в разделах «Признак нового
+    проекта», «Работа в проекте с шаблонной структурой», «Ритуал
+    составления `CONCEPT.md`». Заменены на актуальный набор файлов
+    (проектный `CLAUDE.md` как главный признак, `README.md` как
+    current state — см. ADR T014).
+  - `~/.claude/projects/-home-vlakir-programming-dreamteam/memory/project_template_dreamteam.md`
+    — обновлён список файлов template и порядок чтения в начале
+    сессии.
+  - `~/.claude/projects/-home-vlakir-programming-dreamteam/memory/project_src_layout.md`
+    — список файлов в корне.
+  Иммутабельные упоминания (в `CHANGELOG`, `DECISIONS`,
+  `specs/T006-*`, `memory/feedback_validation_blocks_chain.md`)
+  оставлены как исторический контекст. T020 не требует version
+  bump и публикации — правки чисто в личной configuration
+  Разработчика.
+
 ---
 
 ## [1.5.1] — 2026-05-15 — Apply template to an existing project
