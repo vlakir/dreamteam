@@ -1,6 +1,6 @@
 # Spec: T018 — Apply dreamteam template to an existing project
 
-**Статус:** Draft
+**Статус:** Analyzed (Q1–Q10 resolved 2026-05-15)
 **Дата создания:** 2026-05-15
 **Связанные документы:**
 - T009 (`dreamteam update`, full three-way merge): этот flow
@@ -195,108 +195,164 @@ Final step — write `.copier-answers.yml` с full answers
 
 ---
 
-## Clarify (для Vladimir-а)
+## Clarify
 
-### Open questions
+### Resolved (2026-05-15)
 
-- **Q1 (CLI surface):**
-  - (a) **`dt apply <path>`** — new top-level command. Голос
-    автора.
-  - (b) **`dt init <path> --existing`** — flag-extension.
-  - (c) **Auto-detect в `dt init`** (empty → init, non-empty
-    без answers → apply, with answers → error «use update»).
-    Менее explicit, но «just works» UX.
+- **Q1 (CLI surface) → (a) `dt apply <path>`** — new top-level
+  command. Explicit, third verb рядом с init / update —
+  acceptable burden для clarity.
 
-- **Q2 (conflict resolution UX):**
-  - (a) **Per-file 4-way interactive prompt** — keep / overwrite
-    / diff / save-as-new.
-  - (b) **Copier's native Y/N prompt** через `overwrite=False,
-    defaults=False`. Минимальная новая логика.
-  - (c) **Auto save-as `.dt-new` + warning at end** —
-    non-interactive friendly.
+- **Q2 (conflict resolution UX) → (a) per-file 4-way interactive
+  prompt** — `[k]eep / [o]verwrite / [d]iff / [s]ave-as-`.dt-new``.
+  Полный контроль для user, симметрично git merge UX.
+  Non-interactive use case (через `--data`) разрешается отдельно
+  через флаг `--on-conflict <keep|overwrite|save-as-new>` (Q2
+  stretch, можно отложить).
 
-- **Q3 (Scenario C — already dreamteam project):**
-  - (a) **Error + suggest `dt update`** — minimum surprise.
-    Голос автора.
-  - (b) **Auto-redirect to `dt update`** — convenience.
-  - (c) **Force re-init** — overwrite all answers (опасно).
+- **Q3 (already dreamteam project) → (a) error + suggest
+  `dt update`** — minimum surprise. Exit code 1 с понятным
+  hint-сообщением.
 
-- **Q4 (`--dry-run` support):**
-  - (a) Да — выводить per-file decision plan (create / conflict
-    / unchanged) без записи. Симметрично `dt update --dry-run`.
-  - (b) Нет — MVP scope. Добавить отдельной задачей если нужно.
+- **Q4 (`--dry-run` support) → (a) да**, симметрично
+  `dt update --dry-run`. Output: per-file decision plan
+  (create / conflict / unchanged), ничего не пишется.
 
-- **Q5 (`--data` для apply):**
-  - (a) Да, как у init — `dt apply <path> --data key=value`.
-    Голос автора.
-  - (b) Нет — apply всегда interactive, prompts только для
-    отсутствующих answers.
+- **Q5 (`--data` для apply) → (a) да**, identical signature к
+  `dt init` — `dt apply <path> --data key=value` (repeatable).
+  Заглушает соответствующие prompts.
 
-- **Q6 (`.copier-answers.yml` после apply):**
-  - (a) **Always write** в конце — даже если у user уже был
-    `.copier-answers.yml` (предположим стейл). Голос автора.
-  - (b) **Skip если exists** — preserve user's state.
+- **Q6 (`.copier-answers.yml` after apply) → (a) always write**
+  в конце. Если у target был стейл answers — overwrite (predict-
+  able state; subsequent `dt update` будет работать).
 
-- **Q7 (`package_manager` detection):**
-  - Если target имеет `pyproject.toml` с `[tool.poetry]` —
-    auto-suggest `package_manager=poetry`? Или всегда prompt?
-  - (a) **Всегда prompt** (default uv) — predictable.
-  - (b) **Auto-detect и предложить default** — friendlier.
-  - (c) **Прочитать существующий `pyproject.toml`, выставить
-    `[tool.poetry]`/`[tool.hatch.*]`/etc. detection** —
-    intelligent но complex.
+- **Q7 (`package_manager` detection) → (a) всегда prompt**
+  (default `uv`). Predictable, no magic. Auto-detection из
+  существующего `[tool.poetry]` / `[tool.hatch.*]` — stretch
+  goal, можно добавить отдельной задачей если pattern окажется
+  частым.
 
-- **Q8 (test matrix):**
-  - 5 managers × empty / pycharm-scaffold / poetry-scaffold
-    cases = 15+ test cases.
-  - (a) **Full matrix** в integration suite.
-  - (b) **Cut**: 1 manager × 3 source-states + 5 managers × empty
-    = 8 cases. Голос автора.
+- **Q8 (test matrix) → (b) cut**: 1 manager (uv) × 3 source-
+  states (empty / PyCharm scaffold / poetry scaffold) +
+  5 managers × empty = 8 integration cases. Защита от drift
+  основных путей при appropriate budget (~20s в integration
+  suite).
 
-- **Q9 (preserve user `pyproject.toml`?):**
-  - Default conflict-handling для pyproject.toml — особый
-    случай? Или просто rule «per-file prompt» works одинаково?
-  - (a) **Универсальное правило**, no special-case. Голос
-    автора.
-  - (b) **Special-case `pyproject.toml`** — auto-merge user's
-    `[project.dependencies]` + template's `[tool.ruff]` /
-    `[tool.mypy]` / etc. Сложно, отложить (см. Out of Scope).
+- **Q9 (preserve user `pyproject.toml`) → (a) универсальное
+  правило, no special-case**. `pyproject.toml` обрабатывается
+  как любой другой template-managed файл через per-file
+  conflict prompt. Semantic merge (TOML-level union) явно
+  откладывается (см. Out of Scope).
 
-- **Q10 (version bump):**
-  - Apply — backward-compatible additive feature. Version bump
-    1.5.0 → 1.6.0 (MINOR)? Голос автора.
-
-### Resolved (заполняется по мере ответов)
-
-- ...
+- **Q10 (version bump) → 1.5.0 → 1.5.1 (PATCH)**. Vladimir's
+  call (отступление от strict semver, который бы предписал
+  MINOR для new command): T018 воспринимается как
+  «доработка / закрытие usability gap», а не «принципиально
+  новая фича на уровне T009/T017». PATCH bump signals
+  incremental refinement.
 
 ---
 
-## Analyze (заполняется Claude после Clarify Resolved)
+## Analyze (2026-05-15)
 
-<!-- Issues с пометками 🔴 / 🟡 / 🟢. -->
+### Issues
 
-- ...
+- 🟡 **Warning — interactive prompt UX в CI / non-TTY**.
+  `[k]/[o]/[d]/[s]` prompt требует terminal с stdin. В CI или
+  при piping stdin отсутствует → команда должна detect
+  non-interactive context и fail loudly (или fall back на
+  default «keep existing»). **Mitigation**: добавить flag
+  `--on-conflict <keep|overwrite|save-as-new>` (mentioned
+  под Q2) — full non-interactive mode. Auto-detect через
+  `sys.stdin.isatty()`: если false и flag не указан → exit 1
+  с сообщением «non-interactive run requires --on-conflict».
+
+- 🟡 **Warning — diff output volume для multi-MB файлов**.
+  Опция `[d]iff` теоретически показывает unified diff
+  существующего vs rendered. Для большого `pyproject.toml`
+  с длинными dependency lists или для будущих случаев multi-KB
+  файлов — терминал затопит output. **Mitigation**: paging
+  через `less` (если в TTY) или ограничение длины diff
+  (truncate с hint «pipe to less for full»).
+
+- 🟡 **Warning — copier поведение при non-empty target**.
+  Copier's `run_copy` с `overwrite=False, defaults=False` уже
+  делает per-file prompt при коллизии. Это работает «из
+  коробки» — но prompt — Y/N (overwrite или нет), не 4-way.
+  Для 4-way UX (Q2 (a)) надо либо: (i) свой conflict handler
+  поверх copier; (ii) использовать copier's `--conflict
+  rej` mode и потом обрабатывать `.rej` файлы; (iii) принять
+  copier's 2-way и dropped «diff»/«save-as-new» к stretch
+  goals MVP. **Decision in Phase 1 design**: попробовать (i)
+  через `Worker` hook (если copier exposes file-level
+  interception) или fallback к (iii) с обоснованием в ADR.
+
+- 🟡 **Warning — `dt apply` не должен трогать `.git/`**.
+  Copier'ed `_exclude` патчинг применяется к template, не к
+  user's project. Если template содержит `.gitignore`-like
+  file для `.git/`, мы должны убедиться copier не пытается
+  записать поверх target's `.git/`. Тривиально решается
+  exclude pattern в command-level (preserve-set из spec) и
+  явной проверкой в pre-write hook.
+
+- 🟢 **Note — naming consistency**.
+  Команда `apply` рядом с `init` / `update` — естественное
+  Английское трио. Альтернативы `adopt` / `attach` хуже
+  читаются. Apply — winner.
+
+- 🟢 **Note — `dt apply --dry-run` уже не должен спрашивать
+  ничего interactive**. Dry-run = pure report. Если user
+  заберёт `--dry-run` — это автоматически означает «не
+  спрашивать».
+
+- 🟢 **Note — PATCH bump 1.5.0 → 1.5.1 vs strict semver**.
+  Новая CLI команда technically значит MINOR bump (new public
+  API surface). Vladimir's call to call it PATCH — acceptable
+  if framed как «refinement of init use case». Document
+  rationale в ADR. Не блокер.
+
+### Verdict
+
+Все 10 Clarify questions resolved (Q10 — отступление от
+strict semver, документировано). 0 🔴 critical блокеров, 4
+🟡 warnings (все с mitigation в Phase 1 design), 3 🟢 notes
+к памяти. Spec **moves to Analyzed**, готов к implementation.
 
 ---
 
-## Implementation Plan (черновой)
+## Implementation Plan
 
-**Phase 0** — этот PR: spec drafting + Clarify + Analyze.
+**Phase 0** — этот PR: spec drafting + Clarify + Analyze
+(complete на merge).
 
-**Phase 1** — implementation: new CLI command или extension
-(Q1), conflict resolution flow (Q2), `.copier-answers.yml`
-write, T017 `package_manager` integration. Unit tests + small
-integration test (1-2 cases).
-
-**Phase 2** — full integration matrix (Q8). 4 pre-push checks
-green на applied проекте для каждого manager.
-
-**Phase 3** — Docs / ADR / CHANGELOG / version bump
-1.5.0 → 1.6.0 / README «Quick start: applying to an existing
-project» / bundle re-tag.
-
-Trade-off: при relatively-простом implementation (один new
-command + conflict prompts) Phase 1+2+3 могут схлопнуться в
-один combined PR (как T017), сэкономив CodeRabbit's rate limit.
-Решение — после Analyze.
+**Phase 1+2+3 — combined PR** (T017 pattern для economy на
+CodeRabbit rate limit):
+- `cli.py`: new `apply` command. Internal flow:
+  1. Validate target exists, не имеет `.copier-answers.yml`
+     (если имеет — error «use `dt update`»).
+  2. Detect TTY; если non-interactive и нет `--on-conflict` →
+     exit 1.
+  3. Build full answers через `--data` + interactive prompts
+     для missing.
+  4. Run copier `Worker.run_copy` с custom conflict handler
+     (per-file 4-way prompt в TTY mode, `--on-conflict` value
+     в non-interactive).
+  5. Write `.copier-answers.yml` (full answers + `_commit =
+     __version__` + `_src_path = <bundle>`).
+  6. Print summary «N created, K conflicts resolved (kept/
+     overwrote/saved-as-new), unchanged M».
+- `--dry-run` flag: same flow, без writes; print decision
+  plan.
+- `--on-conflict <keep|overwrite|save-as-new>` flag.
+- Tests:
+  - 8 integration cases (Q8 cut matrix).
+  - Unit: TTY detection, conflict handler decisions.
+- `pyproject.toml`/`uv.lock`: version 1.5.0 → 1.5.1 (Q10
+  PATCH per Vladimir's call).
+- `CHANGELOG.md` `[Unreleased]` → Added.
+- `DECISIONS.md`: ADR T018 — covers Q1-Q10 resolutions +
+  rejected alternatives + 🟡 mitigation choices + PATCH
+  vs MINOR rationale.
+- `README.md`: new «Apply to existing project» section.
+- `BOARD.md`: T018 → Doing → cleared on close.
+- Bundle re-tag через `scripts/update_bundle.py`.
