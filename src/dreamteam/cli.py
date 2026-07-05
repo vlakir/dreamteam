@@ -34,6 +34,10 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_CONFLICTS = 2
 
+# `git merge-file` exits with the number of conflict hunks (0..N) on success
+# and a value above this threshold (255 in practice) on internal failure.
+MERGE_FILE_ERROR_RC = 127
+
 app = typer.Typer(
     name='dreamteam',
     help='Project scaffolding CLI with built-in methodology.',
@@ -319,123 +323,204 @@ def _overwrite_update(
     _ensure_team_roles_import(target)
 
 
-def _copier_merge_inplace(
-    repo: Path,
+def _copier_render_at(
+    dst: Path,
     user_answers: dict[str, Any],
+    *,
+    clone: Path,
+    ref: str,
 ) -> None:
     """
-    Run copier's three-way merge directly on `repo`.
+    Render the template at git tag `ref` into throwaway dir `dst`.
 
-    ⚠ DESTRUCTIVE to `repo`'s git. Copier renders the bundle clone as a
-    *local git-repo template* and, in doing so, performs git operations on
-    the subproject repo itself — repointing `origin` at the (temporary,
-    later-deleted) clone, moving the branch onto the template snapshot, and
-    leaving a detached HEAD. So this MUST only be called on a throwaway repo,
-    never the user's real project (see `_three_way_update` for the safe
-    wrapper).
+    `clone` is a normal (non-bare) clone of the bundle carrying every
+    version tag; copier checks out `ref` from it and renders with the
+    user's saved answers, reproducing the project exactly as that release
+    would have generated it. Only `run_copy` is used — the same safe render
+    `init` performs — never copier's destructive `run_update` path. Nothing
+    here touches the user's project or its git.
+    """
+    run_copy(
+        src_path=str(clone),
+        dst_path=str(dst),
+        data=user_answers,
+        defaults=True,
+        overwrite=True,
+        quiet=True,
+        unsafe=True,
+        vcs_ref=ref,
+    )
 
-    Copier's `Subproject.template` reads `_src_path` from the answers file.
-    A bare bundle is not a usable template URL (no working tree), so we
-    clone it into a tempdir and pre-populate the subproject's cached
-    `last_answers` to point at the clone — without touching the on-disk
-    answers file (writing would make the repo dirty and copier refuses to
-    update dirty repos).
+
+def _is_binary(path: Path) -> bool:
+    """Heuristic: treat a file as binary if it is not valid UTF-8."""
+    try:
+        path.read_text(encoding='utf-8')
+    except UnicodeDecodeError:
+        return True
+    return False
+
+
+def _merge_file(
+    rel: Path,
+    ours: Path,
+    base: Path,
+    theirs: Path,
+) -> tuple[bytes, int]:
+    """
+    Three-way merge one file with `git merge-file`; never touches any `.git`.
+
+    `git merge-file -p` writes the merged result to stdout — the user's
+    edits and the template's edits combined, with git-style
+    `<<<<<<< / ======= / >>>>>>>` markers on overlapping hunks — and exits
+    with the number of conflicts (or a value > 127 on internal failure,
+    which we surface as RuntimeError rather than silently corrupt the file).
+
+    Binary inputs are not line-mergeable: if any side is non-text we take
+    the template's new version when it changed, else keep the user's file.
+    """
+    if _is_binary(ours) or _is_binary(base) or _is_binary(theirs):
+        base_bytes = base.read_bytes()
+        theirs_bytes = theirs.read_bytes()
+        if theirs_bytes == base_bytes:
+            return ours.read_bytes(), 0
+        return theirs_bytes, 0
+    result = subprocess.run(
+        [
+            _git_binary(),
+            'merge-file',
+            '-p',
+            '-L',
+            f'{rel} (your version)',
+            '-L',
+            f'{rel} (dreamteam base)',
+            '-L',
+            f'{rel} (dreamteam template)',
+            str(ours),
+            str(base),
+            str(theirs),
+        ],
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode > MERGE_FILE_ERROR_RC:
+        stderr_text = result.stderr.decode('utf-8', 'replace').strip()
+        detail = stderr_text or 'unknown git failure'
+        message = f'git merge-file failed on {rel}: {detail}'
+        raise RuntimeError(message)
+    return result.stdout, result.returncode
+
+
+def _plan_merge(
+    target: Path,
+    base_dir: Path,
+    new_dir: Path,
+    empty_base: Path,
+) -> tuple[dict[Path, bytes], set[Path], int]:
+    """
+    Compute the three-way merge plan without writing to `target`.
+
+    For every template-managed file (present in the base or new render) we
+    decide the merged content from three sides: OURS (the user's working-
+    tree file), BASE (the old render) and THEIRS (the new render). Files the
+    user owns but the template does not manage are absent from both renders,
+    so they never enter the plan and are left untouched.
+
+    `.copier-answers.yml` is skipped — `_write_answers_file` regenerates it
+    wholesale, so merging it would only risk a spurious conflict on the
+    `_commit` line.
+
+    Returns (writes, deletes, conflicts): `writes` maps a relative path to
+    the merged bytes to write, `deletes` are template-removed paths the user
+    had not edited, `conflicts` is the total conflict-hunk count.
+    """
+    base_files = _relfiles(base_dir)
+    new_files = _relfiles(new_dir)
+    writes: dict[Path, bytes] = {}
+    deletes: set[Path] = set()
+    conflicts = 0
+    for rel in sorted(base_files | new_files, key=str):
+        if str(rel) == ANSWERS_FILE:
+            continue
+        in_base = rel in base_files
+        in_new = rel in new_files
+        ours = target / rel
+        if in_base and not in_new:
+            # Template dropped the file: honor the removal only if the user
+            # left it untouched; a user-edited file is kept as-is.
+            if ours.is_file() and ours.read_bytes() == (base_dir / rel).read_bytes():
+                deletes.add(rel)
+            continue
+        new_bytes = (new_dir / rel).read_bytes()
+        if not ours.is_file():
+            # Brand-new template file, or one the user deleted: (re)create it.
+            writes[rel] = new_bytes
+            continue
+        base = base_dir / rel if in_base else empty_base
+        content, count = _merge_file(rel, ours, base, new_dir / rel)
+        writes[rel] = content
+        conflicts += count
+    return writes, deletes, conflicts
+
+
+def _apply_plan(root: Path, writes: dict[Path, bytes], deletes: set[Path]) -> None:
+    """Write merged files and remove template-deleted ones under `root`."""
+    for rel, content in writes.items():
+        dst = root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(content)
+    for rel in deletes:
+        (root / rel).unlink(missing_ok=True)
+
+
+def _compute_update_plan(
+    target: Path,
+    user_answers: dict[str, Any],
+    base_tag: str,
+) -> tuple[dict[Path, bytes], set[Path], int]:
+    """
+    Render base + new template snapshots and diff-merge them against `target`.
+
+    Everything happens in a throwaway tempdir; the returned plan holds the
+    merged bytes in memory, so the caller can apply it atomically only after
+    the crash-prone render+merge step has fully succeeded.
     """
     with tempfile.TemporaryDirectory(prefix='dreamteam-update-') as tmp:
-        clone_dir = Path(tmp) / 'template'
-        _clone_bundle(_bundle_path(), clone_dir)
-        with Worker(
-            src_path=str(clone_dir),
-            dst_path=repo,
-            data=user_answers,
-            defaults=True,
-            overwrite=True,
-            vcs_ref=__version__,
-            quiet=False,
-            unsafe=True,
-        ) as worker:
-            answers_file = repo / ANSWERS_FILE
-            raw = yaml.safe_load(answers_file.read_text(encoding='utf-8')) or {}
-            raw['_src_path'] = str(clone_dir)
-            worker.subproject.__dict__['last_answers'] = {
-                key: value
-                for key, value in raw.items()
-                if key in {'_src_path', '_commit'} or not key.startswith('_')
-            }
-            worker.run_update()
-
-
-def _merge_inplace_full(
-    repo: Path,
-    user_answers: dict[str, Any],
-) -> None:
-    """Copier merge + answers file + team-roles import, in place on a throwaway repo."""
-    _copier_merge_inplace(repo, user_answers)
-    _write_answers_file(repo, user_answers)
-    _ensure_team_roles_import(repo)
+        tmp_path = Path(tmp)
+        clone = tmp_path / 'bundle'
+        _clone_bundle(_bundle_path(), clone)
+        base_dir = tmp_path / 'base'
+        new_dir = tmp_path / 'new'
+        _copier_render_at(base_dir, user_answers, clone=clone, ref=base_tag)
+        _copier_render_at(new_dir, user_answers, clone=clone, ref=__version__)
+        empty_base = tmp_path / '.empty-base'
+        empty_base.write_bytes(b'')
+        return _plan_merge(target, base_dir, new_dir, empty_base)
 
 
 def _three_way_update(
     target: Path,
     user_answers: dict[str, Any],
-) -> None:
+    base_tag: str,
+) -> int:
     """
-    Three-way merge that leaves the target's git untouched.
+    Three-way merge that never reads or writes the target's `.git`.
 
-    Copier's `run_update` performs destructive git operations on the
-    subproject repo itself (see `_copier_merge_inplace`): it repoints
-    `origin` at the temporary bundle clone (deleted right after), moves the
-    branch onto the template snapshot, detaches HEAD, and converts the repo
-    to a partial clone — silently losing the user's real remote URL and
-    branch pointer (a data-loss class bug). Those operations only rewrite
-    refs/config, though: the user's git objects survive, and so do the
-    merged working-tree files copier writes. So we snapshot the whole `.git`
-    before the merge and restore it afterward — leaving the working tree
-    with the updated template files (an uncommitted diff to review) while
-    HEAD, the current branch, remotes, and config are exactly as they were.
-
-    We run copier on the real repo (not an isolated copy) deliberately:
-    copier's diff-application needs the subproject's real git history — a
-    throwaway single-commit copy breaks it on full-file conflicts with
-    `git checkout` pathspec errors.
+    Renders the template at `base_tag` (the version recorded in the
+    project's answers) and at the current version into throwaway temp dirs,
+    then merges each template-managed file against the user's working-tree
+    copy with `git merge-file`. The whole merge is computed in temp first
+    and applied only once it fully succeeds, so a failure mid-render or
+    mid-merge leaves the working tree untouched. Because `.git` is never
+    touched, the target's history, branch, remotes and config are inherently
+    preserved and git's read-only `commit-graph` can never be hit. Returns
+    the total conflict count.
     """
-    git_dir = target / '.git'
-    # Pristine copy of `.git` on the same filesystem (so the restore is a
-    # rename, not a second full copy). Persistent, NOT an auto-cleaned
-    # tempdir: it is removed only after a successful restore, so any failure
-    # leaves it on disk for manual recovery instead of vanishing.
-    backup_root = Path(tempfile.mkdtemp(prefix='.dreamteam-git-', dir=target.parent))
-    backup = backup_root / 'git'
-    shutil.copytree(git_dir, backup, symlinks=True)
-    try:
-        _copier_merge_inplace(target, user_answers)
-    finally:
-        _restore_git(git_dir, backup, backup_root)
+    writes, deletes, conflicts = _compute_update_plan(target, user_answers, base_tag)
+    _apply_plan(target, writes, deletes)
     _write_answers_file(target, user_answers)
     _ensure_team_roles_import(target)
-
-
-def _restore_git(git_dir: Path, backup: Path, backup_root: Path) -> None:
-    """
-    Replace copier's mutated `.git` with the pristine backup, then drop it.
-
-    Same-filesystem renames only: move the mutated `.git` aside, then the
-    backup into place. If the mutated dir cannot be cleared, refuse to move
-    the backup on top of it — that would nest it and leave the repo mutated
-    — and raise, keeping the backup on disk at a reported path for manual
-    recovery. The backup is deleted only once the restore fully succeeds, so
-    a failure never loses the user's original git.
-    """
-    if git_dir.exists():
-        shutil.move(str(git_dir), str(backup_root / 'git-mutated'))
-    if git_dir.exists():
-        message = (
-            f'could not restore original git state at {git_dir}; '
-            f'a pristine backup is preserved at {backup} — restore it manually.'
-        )
-        raise RuntimeError(message)
-    shutil.move(str(backup), str(git_dir))
-    shutil.rmtree(backup_root, ignore_errors=True)
+    return conflicts
 
 
 def _relfiles(root: Path) -> set[Path]:
@@ -519,70 +604,43 @@ def _dry_run(
     """
     Render what `dreamteam update` would produce, without writing to target.
 
-    Copies the derived (minus `.git`) into a tempdir, re-inits the copy
-    as a git repo so copier accepts it as a tracked subproject, runs
-    the same update flow as production (three-way merge or overwrite
-    fallback per the same chain), then diffs the preview against the
-    original target. The target itself is never touched.
+    Builds a preview copy of the project (minus `.git`), applies the same
+    merge plan the real update would (or the overwrite fallback when the
+    merge preconditions are not met), then diffs the preview against the
+    original. The target itself is never touched — the merge plan is
+    computed from the target's files but applied only to `preview`.
 
-    Returns the number of would-be conflict files (drives the exit
-    code in `update --dry-run`).
+    Returns the number of would-be conflict files (drives the exit code
+    in `update --dry-run`).
     """
+    full = _read_full_answers(target / ANSWERS_FILE)
+    base_tag = _resolve_base_version_tag(full)
+    bundle = _bundle_path()
+    can_merge = (
+        _has_git()
+        and bundle.is_dir()
+        and base_tag is not None
+        and _bundle_has_tag(bundle, base_tag)
+        and _bundle_has_tag(bundle, __version__)
+    )
     with tempfile.TemporaryDirectory(prefix='dreamteam-dryrun-') as tmp:
         preview = Path(tmp) / 'preview'
         shutil.copytree(target, preview, ignore=shutil.ignore_patterns('.git'))
-
-        # Re-init preview as git so the three-way merge path is
-        # usable. If git is absent we degrade to overwrite preview.
-        git_ok = _has_git()
-        if git_ok:
-            git = _git_binary()
+        if can_merge and base_tag is not None:
             try:
-                subprocess.run(
-                    [git, 'init', '--initial-branch=main', '--quiet'],
-                    cwd=preview,
-                    check=True,
+                writes, deletes, _count = _compute_update_plan(
+                    target,
+                    user_answers,
+                    base_tag,
                 )
-                subprocess.run([git, 'add', '-A'], cwd=preview, check=True)
-                subprocess.run(
-                    [
-                        git,
-                        '-c',
-                        'user.email=dryrun@dreamteam',
-                        '-c',
-                        'user.name=dryrun',
-                        'commit',
-                        '-q',
-                        '-m',
-                        'dryrun base',
-                    ],
-                    cwd=preview,
-                    check=True,
-                )
-            except subprocess.CalledProcessError:
-                git_ok = False
-
-        bundle = _bundle_path()
-        full = _read_full_answers(target / ANSWERS_FILE)
-        base_tag = _resolve_base_version_tag(full)
-        can_merge = (
-            git_ok
-            and bundle.is_dir()
-            and base_tag is not None
-            and _bundle_has_tag(bundle, base_tag)
-        )
-
-        if can_merge:
-            try:
-                # `preview` is already an isolated throwaway copy, so run the
-                # copier merge directly in place (the destructive git ops
-                # only hit the preview's throwaway git, never the target).
-                _merge_inplace_full(preview, user_answers)
+                _apply_plan(preview, writes, deletes)
+                _write_answers_file(preview, user_answers)
+                _ensure_team_roles_import(preview)
             except Exception:
-                # Three-way merge failed mid-flight in preview; rebuild
-                # the preview as an overwrite-only snapshot so the user
-                # still gets a sensible diff. Production update has its
-                # own fallback chain; here we just want the report.
+                # Merge failed mid-flight; rebuild the preview as an
+                # overwrite-only snapshot so the user still gets a sensible
+                # diff. Production update has its own fallback chain; here we
+                # just want the report.
                 shutil.rmtree(preview)
                 shutil.copytree(target, preview, ignore=shutil.ignore_patterns('.git'))
                 _overwrite_update(preview, user_answers)
@@ -710,11 +768,15 @@ def update(
 
     base_tag = _resolve_base_version_tag(full)
     try:
-        has_base_tag = base_tag is not None and _bundle_has_tag(bundle, base_tag)
+        has_tags = (
+            base_tag is not None
+            and _bundle_has_tag(bundle, base_tag)
+            and _bundle_has_tag(bundle, __version__)
+        )
     except RuntimeError as exc:
         typer.echo(f'ERROR: cannot inspect bundled history: {exc}', err=True)
         raise typer.Exit(code=EXIT_ERROR) from exc
-    if not has_base_tag:
+    if not has_tags or base_tag is None:
         typer.echo(
             f'WARNING: base version tag {base_tag!r} absent in bundle '
             '(derived project predates the bundled-history feature); '
@@ -729,15 +791,15 @@ def update(
     if not (target / '.git').is_dir():
         typer.echo(
             f'ERROR: {target} is not a git repository. Three-way merge '
-            'requires the derived project to be git-tracked. Initialize it '
-            "first (e.g. `git init && git add -A && git commit -m 'initial'`) "
+            'writes changes directly to the working tree; git-tracking the '
+            'project first gives you a recovery net (`git restore`). '
+            "Initialize it (e.g. `git init && git add -A && git commit -m 'initial'`) "
             'or pass --force to fall back to overwrite update.',
             err=True,
         )
         raise typer.Exit(code=EXIT_ERROR)
 
-    _three_way_update(target, user_answers)
-    conflicts = _conflict_count(target)
+    conflicts = _three_way_update(target, user_answers, base_tag)
     if conflicts:
         typer.echo(
             f'Project updated at {target} with {conflicts} conflict(s). '
