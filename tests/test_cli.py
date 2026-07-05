@@ -21,7 +21,6 @@ from dreamteam.cli import (
     _has_git,
     _relfiles,
     _resolve_base_version_tag,
-    _restore_git,
     app,
 )
 
@@ -260,6 +259,39 @@ def test_update_language_preserved(tmp_path: Path) -> None:
     assert 'проектные правила для Claude' in claude_text
 
 
+def test_update_preserves_user_source_and_readonly_commit_graph(tmp_path: Path) -> None:
+    """
+    Regression (T029) for the 1.6.1 data-loss + commit-graph crash:
+    `dreamteam update` must (a) never write into `.git` — so git's
+    read-only `commit-graph` (mode 0444, written by default maintenance)
+    can't trigger a PermissionError — and (b) preserve the user's own
+    source, never replacing it with the template stub.
+    """
+    target = tmp_path / 'realapp'
+    init_result = runner.invoke(app, ['init', str(target), '--defaults'])
+    assert init_result.exit_code == 0, init_result.output
+
+    # Simulate a real application: the user replaced the template stub.
+    main_py = target / 'src' / 'main.py'
+    user_source = '\n'.join(f'x{i} = {i}' for i in range(200)) + '\n'
+    main_py.write_text(user_source, encoding='utf-8')
+    _git_init(target)
+
+    # Reproduce the crash trigger: a read-only commit-graph under .git.
+    info = target / '.git' / 'objects' / 'info'
+    info.mkdir(parents=True, exist_ok=True)
+    commit_graph = info / 'commit-graph'
+    commit_graph.write_bytes(b'CGPH-readonly')
+    commit_graph.chmod(0o444)
+
+    result = runner.invoke(app, ['update', str(target)])
+    assert result.exit_code == EXIT_OK, result.output + (result.stderr or '')
+    # User's source survived verbatim — not clobbered by the template stub.
+    assert main_py.read_text(encoding='utf-8') == user_source
+    # `.git` was never touched: the read-only commit-graph is intact.
+    assert commit_graph.read_bytes() == b'CGPH-readonly'
+
+
 def test_dry_run_leaves_target_untouched(tmp_path: Path) -> None:
     """
     `dreamteam update --dry-run` must not modify the target: file
@@ -487,41 +519,3 @@ def test_ensure_team_roles_import_appends_newline_when_missing(tmp_path: Path) -
     assert '# Rules (no trailing newline)\n' in text
     assert text.endswith(f'{TEAM_ROLES_IMPORT}\n')
     assert TEAM_ROLES_IMPORT in text
-
-
-# ---------------------------------------------------------------------------
-# T028 — `_restore_git` (git snapshot/restore for `dreamteam update`)
-# ---------------------------------------------------------------------------
-
-
-def test_restore_git_swaps_mutated_for_backup_and_cleans(tmp_path: Path) -> None:
-    """Mutated `.git` is replaced by the backup, and the backup dir is removed."""
-    git_dir = tmp_path / '.git'
-    git_dir.mkdir()
-    (git_dir / 'MUTATED').write_text('copier state', encoding='utf-8')
-    backup_root = tmp_path / 'bk'
-    backup_root.mkdir()
-    backup = backup_root / 'git'
-    backup.mkdir()
-    (backup / 'ORIGINAL').write_text('user history', encoding='utf-8')
-
-    _restore_git(git_dir, backup, backup_root)
-
-    assert (git_dir / 'ORIGINAL').read_text(encoding='utf-8') == 'user history'
-    assert not (git_dir / 'MUTATED').exists(), 'backup was nested, not swapped'
-    assert not backup_root.exists(), 'backup dir not cleaned after success'
-
-
-def test_restore_git_when_git_dir_already_gone(tmp_path: Path) -> None:
-    """If copier removed `.git`, the backup is moved into place cleanly."""
-    git_dir = tmp_path / '.git'  # intentionally absent
-    backup_root = tmp_path / 'bk'
-    backup_root.mkdir()
-    backup = backup_root / 'git'
-    backup.mkdir()
-    (backup / 'ORIGINAL').write_text('user history', encoding='utf-8')
-
-    _restore_git(git_dir, backup, backup_root)
-
-    assert (git_dir / 'ORIGINAL').read_text(encoding='utf-8') == 'user history'
-    assert not backup_root.exists()

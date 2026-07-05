@@ -22,7 +22,34 @@
 
 ## [Unreleased]
 
-<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+### Fixed
+
+- **`dreamteam update` больше не портит целевой проект** (T029, severity
+  High, класс потери данных — второй багрепорт подряд по update-пути).
+  1.6.1 (T028) чинил потерю git-конфига, но оставлял два фатальных
+  дефекта, пока update вообще прогонял copier `run_update` на живом
+  репо: (1) copier писал в read-only `.git/objects/info/commit-graph`
+  (git создаёт его `0444` при штатном maintenance) и падал с
+  `PermissionError`; (2) крэш случался после того, как copier уже
+  переписал файлы рабочего дерева шаблонными заглушками, а откатывался
+  только `.git` — дерево оставалось разгромленным без предупреждения.
+  Фикс: `run_update` убран из update-пути целиком. Трёхсторонний merge
+  теперь делает `git merge-file` — рендерим шаблон на базовой и текущей
+  версии в temp (только безопасный `run_copy`), мержим по файлам с
+  git-style конфликт-маркерами, считаем всё в temp и применяем к дереву
+  только после полного успеха. `.git` пользователя не читается и не
+  пишется вообще, поэтому read-only `commit-graph` физически
+  недостижим, а история/ветка/remotes сохраняются by construction.
+  Регресс `test_update_preserves_user_source_and_readonly_commit_graph`.
+  ADR в `DECISIONS.md` (ревизирует T028/T009).
+
+### Removed
+
+- **Snapshot/restore `.git` из T028 и `run_update`-путь из T009** — вся
+  деструктивная copier-update-машинерия (`_copier_merge_inplace`,
+  `_merge_inplace_full`, `_restore_git`, monkeypatch
+  `worker.subproject.last_answers`) удалена; заменена компактным
+  `git merge-file`-движком (T029).
 
 ---
 
