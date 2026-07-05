@@ -21,6 +21,7 @@ from dreamteam.cli import (
     _has_git,
     _relfiles,
     _resolve_base_version_tag,
+    _restore_git,
     app,
 )
 
@@ -486,3 +487,41 @@ def test_ensure_team_roles_import_appends_newline_when_missing(tmp_path: Path) -
     assert '# Rules (no trailing newline)\n' in text
     assert text.endswith(f'{TEAM_ROLES_IMPORT}\n')
     assert TEAM_ROLES_IMPORT in text
+
+
+# ---------------------------------------------------------------------------
+# T028 — `_restore_git` (git snapshot/restore for `dreamteam update`)
+# ---------------------------------------------------------------------------
+
+
+def test_restore_git_swaps_mutated_for_backup_and_cleans(tmp_path: Path) -> None:
+    """Mutated `.git` is replaced by the backup, and the backup dir is removed."""
+    git_dir = tmp_path / '.git'
+    git_dir.mkdir()
+    (git_dir / 'MUTATED').write_text('copier state', encoding='utf-8')
+    backup_root = tmp_path / 'bk'
+    backup_root.mkdir()
+    backup = backup_root / 'git'
+    backup.mkdir()
+    (backup / 'ORIGINAL').write_text('user history', encoding='utf-8')
+
+    _restore_git(git_dir, backup, backup_root)
+
+    assert (git_dir / 'ORIGINAL').read_text(encoding='utf-8') == 'user history'
+    assert not (git_dir / 'MUTATED').exists(), 'backup was nested, not swapped'
+    assert not backup_root.exists(), 'backup dir not cleaned after success'
+
+
+def test_restore_git_when_git_dir_already_gone(tmp_path: Path) -> None:
+    """If copier removed `.git`, the backup is moved into place cleanly."""
+    git_dir = tmp_path / '.git'  # intentionally absent
+    backup_root = tmp_path / 'bk'
+    backup_root.mkdir()
+    backup = backup_root / 'git'
+    backup.mkdir()
+    (backup / 'ORIGINAL').write_text('user history', encoding='utf-8')
+
+    _restore_git(git_dir, backup, backup_root)
+
+    assert (git_dir / 'ORIGINAL').read_text(encoding='utf-8') == 'user history'
+    assert not backup_root.exists()
