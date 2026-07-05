@@ -84,21 +84,41 @@ existing projects.
 > Code session; if you ran the update from inside an active session,
 > restart it.
 
-### Enabling the Designer (one-time, account-level)
+### Enabling the Designer (one-time, per account)
 
-The Architect needs no setup — Claude Code discovers the subagent
-automatically. The Designer needs the Claude Design MCP server
-connected once per account:
+The **Architect** needs no setup — Claude Code discovers the subagent
+automatically from `.claude/agents/`. The **Designer** is an external
+[Claude Design](https://claude.ai/design) MCP server; connect it once
+per account with these three steps:
 
-```bash
-claude mcp add --scope user --transport http claude-design https://api.anthropic.com/v1/design/mcp
-/design-login          # OAuth — this is the step that actually connects
-claude mcp list        # optional: confirm the server is registered
-```
+1. **Register the MCP server** at user scope, so every project sees it:
 
-Claude Design is available on Pro / Max / Team / Enterprise plans
-(beta). If it is not connected, that is not an error — the lead simply
-works without the Designer until it is set up.
+   ```bash
+   claude mcp add --scope user --transport http claude-design https://api.anthropic.com/v1/design/mcp
+   ```
+
+2. **Authenticate** — this is the step that actually connects it (not
+   `add`). Run it inside a Claude Code session; it opens the OAuth flow:
+
+   ```text
+   /design-login
+   ```
+
+3. **Verify** the server is registered (optional):
+
+   ```bash
+   claude mcp list        # `claude-design` should be listed / connected
+   ```
+
+That is all — the lead can now hand the Designer a brief from
+`specs/design-brief-template.md`, iterate, and pull the web prototype
+into the project.
+
+**Requirements & fallback.** Claude Design is available on the Pro /
+Max / Team / Enterprise plans (beta; not on Free). If the MCP is not
+connected — or your plan lacks access — that is **not an error**: the
+lead simply works without the Designer until it is set up. To remove it
+later: `claude mcp remove claude-design`.
 
 ## Multilingual methodology
 

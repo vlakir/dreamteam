@@ -319,31 +319,34 @@ def _overwrite_update(
     _ensure_team_roles_import(target)
 
 
-def _three_way_update(
-    target: Path,
+def _copier_merge_inplace(
+    repo: Path,
     user_answers: dict[str, Any],
 ) -> None:
     """
-    Three-way merge against the version tag recorded in `.copier-answers.yml`.
+    Run copier's three-way merge directly on `repo`.
 
-    Copier's `Subproject.template` reads `_src_path` from the answers
-    file and constructs a `Template` from it. A bare bundle is not a
-    usable template URL (no working tree, no commit checkout), so we
-    clone the bundle into a tempdir and pre-populate the subproject's
-    cached `last_answers` view to point at the clone — without
-    touching the on-disk answers file (writing would make the derived
-    project dirty and copier refuses to update dirty repos).
+    ⚠ DESTRUCTIVE to `repo`'s git. Copier renders the bundle clone as a
+    *local git-repo template* and, in doing so, performs git operations on
+    the subproject repo itself — repointing `origin` at the (temporary,
+    later-deleted) clone, moving the branch onto the template snapshot, and
+    leaving a detached HEAD. So this MUST only be called on a throwaway repo,
+    never the user's real project (see `_three_way_update` for the safe
+    wrapper).
 
-    The persistent answers on disk keep pointing at the bundle path,
-    rewritten via `_write_answers_file` after a successful update so
-    `_commit` reflects the new dreamteam version.
+    Copier's `Subproject.template` reads `_src_path` from the answers file.
+    A bare bundle is not a usable template URL (no working tree), so we
+    clone it into a tempdir and pre-populate the subproject's cached
+    `last_answers` to point at the clone — without touching the on-disk
+    answers file (writing would make the repo dirty and copier refuses to
+    update dirty repos).
     """
     with tempfile.TemporaryDirectory(prefix='dreamteam-update-') as tmp:
         clone_dir = Path(tmp) / 'template'
         _clone_bundle(_bundle_path(), clone_dir)
         with Worker(
             src_path=str(clone_dir),
-            dst_path=target,
+            dst_path=repo,
             data=user_answers,
             defaults=True,
             overwrite=True,
@@ -351,11 +354,7 @@ def _three_way_update(
             quiet=False,
             unsafe=True,
         ) as worker:
-            # Pre-cache the subproject's view of last_answers so its
-            # Template points at the on-disk clone (which has a real
-            # working tree) instead of the bare bundle. This bypasses
-            # the file-write that would make the derived project dirty.
-            answers_file = target / ANSWERS_FILE
+            answers_file = repo / ANSWERS_FILE
             raw = yaml.safe_load(answers_file.read_text(encoding='utf-8')) or {}
             raw['_src_path'] = str(clone_dir)
             worker.subproject.__dict__['last_answers'] = {
@@ -364,6 +363,63 @@ def _three_way_update(
                 if key in {'_src_path', '_commit'} or not key.startswith('_')
             }
             worker.run_update()
+
+
+def _merge_inplace_full(
+    repo: Path,
+    user_answers: dict[str, Any],
+) -> None:
+    """Copier merge + answers file + team-roles import, in place on a throwaway repo."""
+    _copier_merge_inplace(repo, user_answers)
+    _write_answers_file(repo, user_answers)
+    _ensure_team_roles_import(repo)
+
+
+def _three_way_update(
+    target: Path,
+    user_answers: dict[str, Any],
+) -> None:
+    """
+    Three-way merge that leaves the target's git untouched.
+
+    Copier's `run_update` performs destructive git operations on the
+    subproject repo itself (see `_copier_merge_inplace`): it repoints
+    `origin` at the temporary bundle clone (deleted right after), moves the
+    branch onto the template snapshot, detaches HEAD, and converts the repo
+    to a partial clone — silently losing the user's real remote URL and
+    branch pointer (a data-loss class bug). Those operations only rewrite
+    refs/config, though: the user's git objects survive, and so do the
+    merged working-tree files copier writes. So we snapshot the whole `.git`
+    before the merge and restore it afterward — leaving the working tree
+    with the updated template files (an uncommitted diff to review) while
+    HEAD, the current branch, remotes, and config are exactly as they were.
+
+    We run copier on the real repo (not an isolated copy) deliberately:
+    copier's diff-application needs the subproject's real git history — a
+    throwaway single-commit copy breaks it on full-file conflicts with
+    `git checkout` pathspec errors.
+    """
+    git_dir = target / '.git'
+    # Backup lives on the same filesystem as the repo so the restore is a
+    # rename, not a second full copy of `.git`.
+    with tempfile.TemporaryDirectory(
+        prefix='.dreamteam-git-', dir=target.parent
+    ) as tmp:
+        backup = Path(tmp) / 'git'
+        shutil.copytree(git_dir, backup, symlinks=True)
+        try:
+            _copier_merge_inplace(target, user_answers)
+        finally:
+            # Restore the user's git regardless of the merge outcome (copier
+            # only mutated refs/config; the merged files live in the working
+            # tree, so restoring `.git` loses nothing). Use same-filesystem
+            # renames only — move the mutated `.git` aside, then the pristine
+            # backup into place. A plain `rmtree(ignore_errors=True)` + move
+            # would, if the removal silently failed, nest the backup *inside*
+            # the leftover dir and leave the git half-mutated.
+            if git_dir.exists():
+                shutil.move(str(git_dir), str(Path(tmp) / 'git-mutated'))
+            shutil.move(str(backup), str(git_dir))
     _write_answers_file(target, user_answers)
     _ensure_team_roles_import(target)
 
@@ -504,7 +560,10 @@ def _dry_run(
 
         if can_merge:
             try:
-                _three_way_update(preview, user_answers)
+                # `preview` is already an isolated throwaway copy, so run the
+                # copier merge directly in place (the destructive git ops
+                # only hit the preview's throwaway git, never the target).
+                _merge_inplace_full(preview, user_answers)
             except Exception:
                 # Three-way merge failed mid-flight in preview; rebuild
                 # the preview as an overwrite-only snapshot so the user
