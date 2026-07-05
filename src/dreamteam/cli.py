@@ -18,6 +18,13 @@ from dreamteam import __version__
 
 ANSWERS_FILE = '.copier-answers.yml'
 BUNDLE_SUBPATH = '.bundle'
+# T026 §6.3: the roles methodology is delivered as a separate file
+# (.claude/team-roles.md) that CLAUDE.md must import. `_ensure_team_roles_import`
+# guarantees this line on `dreamteam update` even when the user rewrote
+# their CLAUDE.md — see the function docstring.
+CLAUDE_MD = 'CLAUDE.md'
+TEAM_ROLES_FILE = '.claude/team-roles.md'
+TEAM_ROLES_IMPORT = f'@{TEAM_ROLES_FILE}'
 # Legacy `_commit` prefix used by derived projects created on
 # dreamteam-cli 1.0.0–1.2.0 (before T009 Phase 1). Kept for backward-
 # compatible mapping in `_resolve_base_version_tag`.
@@ -165,6 +172,47 @@ def _write_answers_file(target: Path, user_answers: dict[str, Any]) -> None:
     )
 
 
+def _ensure_team_roles_import(target: Path) -> None:
+    """
+    Guarantee CLAUDE.md imports the roles methodology (T026 §6.3).
+
+    `dreamteam update` re-applies the template via run_copy / run_update.
+    The template's CLAUDE.md carries an `@.claude/team-roles.md` import
+    line, but a user who rewrote their own CLAUDE.md may not receive it
+    through the three-way merge. Copier's `_migrations` would be the
+    usual delivery hook, but they only fire on `run_update` — not the
+    run_copy-based overwrite path this CLI also uses — so the guarantee
+    lives here instead.
+
+    Idempotent: the import block is appended only when the line is
+    absent, so a fresh render that already carries it, or a second
+    `update`, never produces a duplicate. If CLAUDE.md is missing
+    (nothing to import into) it is a no-op — the template render, not
+    this hook, is what creates CLAUDE.md.
+
+    Guarded on the roles file's presence: the import is added only when
+    `.claude/team-roles.md` actually exists in the project. Otherwise —
+    e.g. a dreamteam-cli whose bundle predates T026 and did not deliver
+    team-roles.md — we would write a dangling `@import` to a missing
+    file. In the real §6.3 case team-roles.md always arrives as a new
+    file, so the import is still added.
+    """
+    if not (target / TEAM_ROLES_FILE).is_file():
+        return
+    claude_md = target / CLAUDE_MD
+    if not claude_md.is_file():
+        return
+    text = claude_md.read_text(encoding='utf-8')
+    if TEAM_ROLES_IMPORT in text:
+        return
+    separator = '' if text.endswith('\n') else '\n'
+    block = (
+        f'{separator}\n## Team roles (Architect + Designer) — dreamteam\n\n'
+        f'{TEAM_ROLES_IMPORT}\n'
+    )
+    claude_md.write_text(text + block, encoding='utf-8')
+
+
 def _read_full_answers(answers_file: Path) -> dict[str, Any]:
     """Read every key in the answers file (including `_commit`, `_src_path`)."""
     return yaml.safe_load(answers_file.read_text(encoding='utf-8'))
@@ -268,6 +316,7 @@ def _overwrite_update(
         unsafe=True,
     )
     _write_answers_file(target, user_answers)
+    _ensure_team_roles_import(target)
 
 
 def _three_way_update(
@@ -316,6 +365,7 @@ def _three_way_update(
             }
             worker.run_update()
     _write_answers_file(target, user_answers)
+    _ensure_team_roles_import(target)
 
 
 def _relfiles(root: Path) -> set[Path]:

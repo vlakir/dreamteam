@@ -1,7 +1,9 @@
 """
 CI guard: verify multilang translation `source_hash` against ru source.
 
-For every `src/dreamteam/template/i18n/{en,fr,de,zh}/*.md` (recursive)
+For every translated file — `src/dreamteam/template/i18n/{en,fr,de,zh}/
+*.md` (recursive) and the Architect body partials
+`src/dreamteam/template/partials/*.{en,fr,de,zh}.md` (T026 §5.6) —
 that carries a YAML frontmatter, recompute the SHA-256 of the
 referenced ru source file (`translated_from`) and compare it to
 `source_hash` in the frontmatter:
@@ -29,6 +31,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_ROOT = REPO_ROOT / 'src' / 'dreamteam' / 'template'
 I18N_ROOT = TEMPLATE_ROOT / 'i18n'
+PARTIALS_SUBDIR = 'partials'
 NON_RU_LANGUAGES = ('en', 'fr', 'de', 'zh')
 FRONTMATTER_DELIM = '---'
 
@@ -101,12 +104,32 @@ def iter_translation_files(i18n_root: Path) -> list[Path]:
     return files
 
 
+def iter_partial_files(partials_root: Path) -> list[Path]:
+    """
+    Collect translated Architect body partials `*.{non-ru-lang}.md` (sorted).
+
+    Bodies live outside `i18n/` — they are spliced into the Architect
+    subagent at render time, not materialized as standalone files
+    (T026 §5.6) — so they need their own scan to bring their
+    `source_hash` under the same guard. The ru source (`*.ru.md`)
+    carries no frontmatter and is not a translation, so it is excluded.
+    """
+    if not partials_root.is_dir():
+        return []
+    files: list[Path] = []
+    for lang in NON_RU_LANGUAGES:
+        files.extend(sorted(partials_root.glob(f'*.{lang}.md')))
+    return files
+
+
 def run(
     i18n_root: Path = I18N_ROOT,
     template_root: Path = TEMPLATE_ROOT,
 ) -> int:
     """Run the check across all translation files. Returns exit code."""
-    files = iter_translation_files(i18n_root)
+    files = iter_translation_files(i18n_root) + iter_partial_files(
+        template_root / PARTIALS_SUBDIR,
+    )
     failures: list[CheckResult] = []
     warnings: list[CheckResult] = []
     ok_count = 0

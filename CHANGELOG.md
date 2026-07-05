@@ -24,6 +24,29 @@
 
 <!-- Что накопилось с момента последнего релиза/значимой точки. -->
 
+### Added
+
+- **Роли команды: Архитектор + Дизайнер** (T026). Каждый derived-проект
+  получает read-only субагент-Архитектор (`.claude/agents/architect.md`,
+  авто-дискавери Claude Code) и методику ролей (`.claude/team-roles.md`,
+  импортируется из `CLAUDE.md`), подключающую внешнего Дизайнера (Claude
+  Design MCP), плюс бриф `specs/design-brief-template.md`. Функциональная
+  шапка субагента собирается Jinja-сборщиком из данных, переводимое тело —
+  partial под `_exclude` со `strip_frontmatter` (`src/dreamteam/_jinja_ext/`).
+  Обе роли ставятся по умолчанию; авто-пикап на `dreamteam update` (новые
+  файлы + идемпотентный пост-апдейт-хук строки `@import` в `cli.py`).
+  Переводы тел и методики под `source_hash`-гардом (`translate_check.py`
+  сканирует `partials/`). Спека: `specs/T026-team-roles/spec.md`,
+  ADR в `DECISIONS.md`.
+
+### Changed
+
+- **README актуализирован под текущее состояние** (T027). Секция
+  «Status» переписана (было «v0.x (pre-1.0)» → факт: `1.5.2`,
+  опубликован на PyPI, история релизов 1.0.0→1.5.2); сверены команды,
+  скрипты (`sandbox.sh` / `publish.sh`), ссылка на CI и версия Python —
+  расхождений не найдено. Свёрстано в PR T026 по просьбе Разработчика.
+
 ---
 
 ## [1.5.2] — 2026-05-15 — Bootstrap fixes after efactory shakedown

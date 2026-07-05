@@ -15,7 +15,9 @@ from dreamteam.cli import (
     EXIT_ERROR,
     EXIT_OK,
     LEGACY_COMMIT_PREFIX,
+    TEAM_ROLES_IMPORT,
     _emit_dryrun_diff,
+    _ensure_team_roles_import,
     _has_git,
     _relfiles,
     _resolve_base_version_tag,
@@ -408,3 +410,79 @@ def test_update_legacy_commit_falls_back_to_overwrite(tmp_path: Path) -> None:
     output = update_result.output + update_result.stderr
     assert 'overwrite' in output.lower()
     assert '1.0.0' in output
+
+
+# ---------------------------------------------------------------------------
+# T026 §6.3 — `_ensure_team_roles_import` post-update hook
+# ---------------------------------------------------------------------------
+
+
+def _make_team_roles(target: Path) -> None:
+    """Place `.claude/team-roles.md` — the hook only wires the import if present."""
+    roles = target / '.claude' / 'team-roles.md'
+    roles.parent.mkdir(parents=True, exist_ok=True)
+    roles.write_text('# Team roles\n', encoding='utf-8')
+
+
+def test_ensure_team_roles_import_appends_when_absent(tmp_path: Path) -> None:
+    """A CLAUDE.md lacking the import line gets the block appended once."""
+    _make_team_roles(tmp_path)
+    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md.write_text('# My rules\n\nHand-written.\n', encoding='utf-8')
+    _ensure_team_roles_import(tmp_path)
+    text = claude_md.read_text(encoding='utf-8')
+    assert TEAM_ROLES_IMPORT in text
+    assert text.count(TEAM_ROLES_IMPORT) == 1
+    # Original content is preserved.
+    assert text.startswith('# My rules\n\nHand-written.\n')
+
+
+def test_ensure_team_roles_import_idempotent(tmp_path: Path) -> None:
+    """Running the hook twice does not duplicate the import line."""
+    _make_team_roles(tmp_path)
+    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md.write_text('# Rules\n', encoding='utf-8')
+    _ensure_team_roles_import(tmp_path)
+    once = claude_md.read_text(encoding='utf-8')
+    _ensure_team_roles_import(tmp_path)
+    twice = claude_md.read_text(encoding='utf-8')
+    assert once == twice
+    assert twice.count(TEAM_ROLES_IMPORT) == 1
+
+
+def test_ensure_team_roles_import_noop_when_present(tmp_path: Path) -> None:
+    """A CLAUDE.md that already imports the file is left untouched."""
+    _make_team_roles(tmp_path)
+    claude_md = tmp_path / 'CLAUDE.md'
+    original = f'# Rules\n\n## Team roles\n\n{TEAM_ROLES_IMPORT}\n'
+    claude_md.write_text(original, encoding='utf-8')
+    _ensure_team_roles_import(tmp_path)
+    assert claude_md.read_text(encoding='utf-8') == original
+
+
+def test_ensure_team_roles_import_noop_when_no_claude_md(tmp_path: Path) -> None:
+    """No CLAUDE.md → no-op; the hook never creates one itself."""
+    _make_team_roles(tmp_path)
+    _ensure_team_roles_import(tmp_path)
+    assert not (tmp_path / 'CLAUDE.md').exists()
+
+
+def test_ensure_team_roles_import_noop_without_roles_file(tmp_path: Path) -> None:
+    """No `.claude/team-roles.md` → no dangling import is written (hardening)."""
+    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md.write_text('# My rules\n\nHand-written.\n', encoding='utf-8')
+    _ensure_team_roles_import(tmp_path)
+    # The roles file is absent, so the import must NOT be added.
+    assert TEAM_ROLES_IMPORT not in claude_md.read_text(encoding='utf-8')
+
+
+def test_ensure_team_roles_import_appends_newline_when_missing(tmp_path: Path) -> None:
+    """A CLAUDE.md without a trailing newline still yields a clean append."""
+    _make_team_roles(tmp_path)
+    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md.write_text('# Rules (no trailing newline)', encoding='utf-8')
+    _ensure_team_roles_import(tmp_path)
+    text = claude_md.read_text(encoding='utf-8')
+    assert '# Rules (no trailing newline)\n' in text
+    assert text.endswith(f'{TEAM_ROLES_IMPORT}\n')
+    assert TEAM_ROLES_IMPORT in text

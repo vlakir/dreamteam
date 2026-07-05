@@ -51,6 +51,54 @@ Every project scaffolded by `dreamteam init` includes:
   to `main` / `master`.
 - **`specs/spec-template.md`** — template for major-feature specs
   with `clarify` / `analyze` sections.
+- **Team roles — Architect + Designer** — a read-only Architect
+  subagent (`.claude/agents/architect.md`, auto-discovered by Claude
+  Code) plus a roles methodology (`.claude/team-roles.md`) that wires
+  in an external Designer. See [Team roles](#team-roles-architect--designer).
+
+## Team roles (Architect + Designer)
+
+Beyond the **lead** (the Claude Code session driving the project),
+every scaffolded project ships a reusable collaboration loop:
+
+- **Architect** — a read-only subagent (`.claude/agents/architect.md`,
+  auto-discovered by Claude Code) that consults on logic and
+  architecture: context → options with trade-offs → recommendation →
+  open fork, and proposes ADR-Lite entries for `DECISIONS.md`. Its
+  source of truth is the project's own methodology files; it never
+  commits.
+- **Designer** — the external [Claude Design](https://claude.ai/design)
+  agent for visual work, called directly as an MCP. The lead hands it a
+  brief from `specs/design-brief-template.md`, iterates, and ports the
+  web prototype into the project's target stack.
+
+When to call each role and the "proposed → human decided → ADR" loop
+live in `.claude/team-roles.md`, which `CLAUDE.md` imports. Both roles
+are installed by default and picked up automatically on `dreamteam
+update` (new files plus a guaranteed import line) — no manual wiring in
+existing projects.
+
+> **Pickup timing.** Claude Code loads `CLAUDE.md` (and its imports) and
+> discovers subagents at **session start** — not mid-session. So after
+> `dreamteam update`, the lead sees the new roles in the next Claude
+> Code session; if you ran the update from inside an active session,
+> restart it.
+
+### Enabling the Designer (one-time, account-level)
+
+The Architect needs no setup — Claude Code discovers the subagent
+automatically. The Designer needs the Claude Design MCP server
+connected once per account:
+
+```bash
+claude mcp add --scope user --transport http claude-design https://api.anthropic.com/v1/design/mcp
+/design-login          # OAuth — this is the step that actually connects
+claude mcp list        # optional: confirm the server is registered
+```
+
+Claude Design is available on Pro / Max / Team / Enterprise plans
+(beta). If it is not connected, that is not an error — the lead simply
+works without the Designer until it is set up.
 
 ## Multilingual methodology
 
@@ -273,9 +321,14 @@ catch metadata / README rendering issues.
 
 ## Status
 
-Currently `v0.x` (pre-1.0). Stable feature set since `v0.2.0`
-methodology consolidation; `v1.0.0` will be the first release with
-this Copier/CLI architecture (T006). Roadmap in `BACKLOG.md`.
+Released and published on PyPI as **`dreamteam-cli`** — current version
+**1.5.2**. The Copier/CLI architecture shipped in `1.0.0`; since then:
+multilingual methodology (`1.3.0`), full three-way `update` +
+package-manager choice + CLI ergonomics (`1.5.0`), `dt apply` for
+existing projects (`1.5.1`), and bootstrap fixes from the first real
+derived project (`1.5.2`). The Architect + Designer team roles sit in
+`[Unreleased]`, landing in the next MINOR. Full history in
+`CHANGELOG.md`; roadmap in `BACKLOG.md`.
 
 ## License
 

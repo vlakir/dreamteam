@@ -154,6 +154,59 @@ def test_iter_translation_files_skips_missing_dirs(tmp_path: Path) -> None:
     assert rels == ['i18n/en/CLAUDE.md']
 
 
+PARTIAL_RU_BODY = '<!-- description: X -->\nProse line.\n'
+PARTIAL_RU_HASH = hashlib.sha256(PARTIAL_RU_BODY.encode('utf-8')).hexdigest()
+
+
+def _make_partials(template_root: Path, *, en_hash: str) -> None:
+    """Add partials/architect.body.{ru,en}.md under an existing template."""
+    pdir = template_root / 'partials'
+    pdir.mkdir(parents=True, exist_ok=True)
+    (pdir / 'architect.body.ru.md').write_text(PARTIAL_RU_BODY, encoding='utf-8')
+    (pdir / 'architect.body.en.md').write_text(
+        '---\n'
+        'translated_from: partials/architect.body.ru.md\n'
+        f'source_hash: {en_hash}\n'
+        '---\n'
+        '<!-- description: X -->\nProse line.\n',
+        encoding='utf-8',
+    )
+
+
+def test_partials_matching_hash_passes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A partial translation with a matching source_hash is checked and ok."""
+    template_root = _make_template(tmp_path)
+    _make_partials(template_root, en_hash=PARTIAL_RU_HASH)
+    code, out, err = _run(template_root, capsys)
+    assert code == 0, out + err
+    # 1 partial checked; the ru source is not flagged (no WARN).
+    assert '1 ok' in out
+    assert 'WARN' not in out
+    assert err == ''
+
+
+def test_partials_mismatch_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A stale partial source_hash fails with the partials path on stderr."""
+    template_root = _make_template(tmp_path)
+    _make_partials(template_root, en_hash='deadbeef' * 8)
+    code, _out, err = _run(template_root, capsys)
+    assert code == 1
+    assert 'partials/architect.body.en.md' in err
+
+
+def test_iter_partial_files_excludes_ru(tmp_path: Path) -> None:
+    """The ru source partial is never collected as a translation."""
+    template_root = _make_template(tmp_path)
+    _make_partials(template_root, en_hash=PARTIAL_RU_HASH)
+    files = translate_check.iter_partial_files(template_root / 'partials')
+    rels = [str(p.relative_to(template_root)) for p in files]
+    assert rels == ['partials/architect.body.en.md']
+
+
 def test_repo_state_passes(capsys: pytest.CaptureFixture[str]) -> None:
     """Live repo state must currently pass the guard (Phase 1 invariant)."""
     code = translate_check.run()

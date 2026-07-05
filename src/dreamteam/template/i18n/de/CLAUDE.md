@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
+source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -214,3 +214,13 @@ eigenständige Quelle.
 
 ## Was in diesem Projekt üblicherweise in BACKLOG.md geht, nicht in den aktuellen Edit
 
+
+## Team-Rollen (Architekt + Designer)
+
+Dieses Projekt bringt einen wiederverwendbaren Kollaborationskreis mit:
+den Lead (diese Session), einen schreibgeschützten Architekt-Subagenten
+und einen externen Designer (Claude Design). Wie man sie ruft, das
+Beratungsritual und die Schleife „vorgeschlagen → Mensch entscheidet
+→ ADR“ liegen in einer eigenen Datei:
+
+@.claude/team-roles.md

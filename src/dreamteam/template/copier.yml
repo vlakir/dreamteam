@@ -16,6 +16,21 @@ _exclude:
   - "copier.yaml"
   - ".bundle"
   - ".bundle/**"
+  # T026: `partials/` holds the translatable Architect prompt bodies.
+  # They stay visible to the Jinja loader (for `{% include %}`) but are
+  # never emitted into derived projects — same "visible, not copied"
+  # trick as `.bundle`.
+  - "partials"
+  - "partials/**"
+
+# T026: Jinja filters used by `.claude/agents/architect.md` to assemble
+# the Architect subagent (strip translation frontmatter, lift the
+# `description` comment, YAML-quote it). The extension ships inside the
+# installed `dreamteam` package (not template data), so copier imports
+# it identically on `init` (wheel) and `update` (bundle clone) without
+# needing the template root on `sys.path`.
+_jinja_extensions:
+  - dreamteam._jinja_ext.frontmatter.FrontmatterExtension
 
 # Language prompt — first, before project_name. Narrative files
 # (CLAUDE.md, README.md, CONCEPT.md, kanban files) live under
@@ -62,6 +77,22 @@ author_email:
   type: str
   help: "Author email"
   default: "you@example.com"
+
+# T026: Architect subagent (`.claude/agents/architect.md`). The model
+# the read-only Architect runs on. `inherit` = same model as the lead
+# session; override with opus / sonnet / haiku. Has a default so
+# `dreamteam update` on old projects never blocks on an interactive
+# prompt (§6.4).
+architect_model:
+  type: str
+  help: "Model for the Architect subagent (inherit / opus / sonnet / haiku)"
+  default: "inherit"
+
+# The subagent `name` (architect) and `tools` (Read, Glob, Grep) are
+# immutable constants — hardcoded in `.claude/agents/architect.md`
+# rather than carried as copier variables. (Leading-underscore keys are
+# reserved by copier for its own settings, so they cannot be template
+# vars; and only `architect_model` is meant to be user-overridable.)
 
 # Post-render: move i18n/<language>/* → project root, drop i18n/,
 # strip translation frontmatter from non-ru languages. The script
