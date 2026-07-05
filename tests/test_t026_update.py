@@ -298,3 +298,60 @@ def test_update_import_survives_rewritten_claude_md(
     # line's presence, delivered by the post-update hook regardless.
     runner.invoke(app, ['update', str(target)])
     assert TEAM_ROLES_IMPORT in (target / 'CLAUDE.md').read_text(encoding='utf-8')
+
+
+def _git_out(target: Path, *args: str) -> str:
+    """Return trimmed stdout of a git command in `target` (empty on failure)."""
+    return subprocess.run(
+        [GIT, *args],
+        cwd=target,
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+
+
+def test_update_preserves_target_git_state(
+    tmp_path: Path,
+    synthetic_bundle: Path,
+) -> None:
+    """
+    Regression (data-loss bug): `dreamteam update` must not touch the
+    target's git. copier's run_update, left to operate on the real repo,
+    repointed `origin`, moved the branch, detached HEAD and converted the
+    repo to a partial clone. The update must leave branch / HEAD / remotes
+    / config exactly as they were, delivering the changes only as an
+    uncommitted working-tree diff.
+    """
+    target = tmp_path / 'derived-gitsafe'
+    _render_derived_at_base(synthetic_bundle, target, language='en')
+    # Simulate a real user project: drop copier's render-`.git` and make a
+    # clean repo with the user's own remote + a hand-written file.
+    shutil.rmtree(target / '.git', ignore_errors=True)
+    env = _commit_env()
+    _git('init', '--initial-branch=main', '--quiet', cwd=target, env=env)
+    (target / 'MY_NOTES.md').write_text('hand-written, not from template\n', encoding='utf-8')
+    _git('add', '-A', cwd=target, env=env)
+    _git('commit', '-q', '-m', 'real project', cwd=target, env=env)
+    fake_origin = 'https://example.com/user/myproject.git'
+    _git('remote', 'add', 'origin', fake_origin, cwd=target, env=env)
+
+    before_branch = _git_out(target, 'rev-parse', '--abbrev-ref', 'HEAD')
+    before_head = _git_out(target, 'rev-parse', 'HEAD')
+    assert before_branch == 'main'
+
+    result = runner.invoke(app, ['update', str(target)])
+    assert result.exit_code == EXIT_OK, result.output + result.stderr
+
+    # Git state must be byte-for-byte what it was.
+    assert _git_out(target, 'symbolic-ref', '-q', 'HEAD') != '', 'HEAD is detached'
+    assert _git_out(target, 'rev-parse', '--abbrev-ref', 'HEAD') == before_branch
+    assert _git_out(target, 'rev-parse', 'HEAD') == before_head, 'branch tip moved'
+    assert _git_out(target, 'remote', 'get-url', 'origin') == fake_origin
+    assert _git_out(target, 'config', '--get', 'remote.origin.promisor') == ''
+    assert _git_out(target, 'config', '--get', 'remote.origin.partialclonefilter') == ''
+
+    # ...while the update still happened in the working tree.
+    assert (target / 'MY_NOTES.md').is_file(), 'user file lost'
+    assert (target / '.claude' / 'team-roles.md').is_file(), 'template file not delivered'
+    assert TEAM_ROLES_IMPORT in (target / 'CLAUDE.md').read_text(encoding='utf-8')
