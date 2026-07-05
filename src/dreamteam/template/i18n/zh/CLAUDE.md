@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
+source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -176,3 +176,11 @@ git add -A && git commit -m "..." && git push
 
 ## 在本项目中通常进入 BACKLOG.md 而非当前编辑的内容
 
+
+## 团队角色（架构师 + 设计师）
+
+本项目自带一套可复用的协作机制：主导会话（本会话）、只读的架构师子代理，以及
+外部的设计师（Claude Design）。如何调用它们、咨询的仪式，以及「提议 → 由人
+拍板 → ADR」的循环，都在一个单独的文件里：
+
+@.claude/team-roles.md

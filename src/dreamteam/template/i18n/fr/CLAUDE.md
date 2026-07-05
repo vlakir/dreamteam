@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
+source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -215,3 +215,13 @@ comme source autonome.
 
 ## Ce qui dans ce projet va habituellement dans BACKLOG.md, pas dans l'édition courante
 
+
+## Rôles de l'équipe (Architecte + Designer)
+
+Ce projet embarque un dispositif de collaboration réutilisable : le
+lead (cette session), un sous-agent Architecte en lecture seule et un
+Designer externe (Claude Design). Comment les appeler, le rituel de
+consultation et la boucle « proposé → l'humain a décidé → ADR »
+sont dans un fichier séparé :
+
+@.claude/team-roles.md

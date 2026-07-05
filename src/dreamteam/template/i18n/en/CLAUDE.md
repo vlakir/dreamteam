@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 53c67c8b3661fb18323fb23cd83584365dd00e0349ae1eec7e76a52d1291c3a2
+source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -183,3 +183,12 @@ on every PR"). The short version above is a self-contained source.
 
 ## What in this project usually goes to BACKLOG.md, not the current edit
 
+
+## Team roles (Architect + Designer)
+
+This project ships a reusable collaboration loop: the lead (this
+session), a read-only Architect subagent, and an external Designer
+(Claude Design). How to call them, the consultation ritual, and the
+"proposed → human decided → ADR" loop live in a separate file:
+
+@.claude/team-roles.md
