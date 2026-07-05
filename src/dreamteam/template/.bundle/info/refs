@@ -1,4 +1,4 @@
-63790d7f9e856eac9f78c9c5af886e16ddcecaf0	refs/heads/main
+8e8345bac5dfef23ffd65caffc7f8aebfc0232e5	refs/heads/main
 d18ed2df5dff4e1dbc805e9f142abbe6bff05bd1	refs/tags/1.3.0
 e4aeeab44dc52c113f7c884f2a80e5c385eab679	refs/tags/1.3.0^{}
 e7642e7bbfb2d92134b747de654d753637c8b419	refs/tags/1.4.0
@@ -13,3 +13,5 @@ f217ea99c2baa282aeb8289dce2da368b23fa642	refs/tags/1.5.1
 eeddd137377787d9e00dd65901eb295944c66cf1	refs/tags/1.6.0^{}
 8e7dc6af7153b229e8f5bba525e2158bd50feb4c	refs/tags/1.6.1
 63790d7f9e856eac9f78c9c5af886e16ddcecaf0	refs/tags/1.6.1^{}
+973a16756decb53b0742415b77794036d79f5b8c	refs/tags/1.6.2
+8e8345bac5dfef23ffd65caffc7f8aebfc0232e5	refs/tags/1.6.2^{}
