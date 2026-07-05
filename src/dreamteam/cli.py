@@ -400,28 +400,42 @@ def _three_way_update(
     `git checkout` pathspec errors.
     """
     git_dir = target / '.git'
-    # Backup lives on the same filesystem as the repo so the restore is a
-    # rename, not a second full copy of `.git`.
-    with tempfile.TemporaryDirectory(
-        prefix='.dreamteam-git-', dir=target.parent
-    ) as tmp:
-        backup = Path(tmp) / 'git'
-        shutil.copytree(git_dir, backup, symlinks=True)
-        try:
-            _copier_merge_inplace(target, user_answers)
-        finally:
-            # Restore the user's git regardless of the merge outcome (copier
-            # only mutated refs/config; the merged files live in the working
-            # tree, so restoring `.git` loses nothing). Use same-filesystem
-            # renames only — move the mutated `.git` aside, then the pristine
-            # backup into place. A plain `rmtree(ignore_errors=True)` + move
-            # would, if the removal silently failed, nest the backup *inside*
-            # the leftover dir and leave the git half-mutated.
-            if git_dir.exists():
-                shutil.move(str(git_dir), str(Path(tmp) / 'git-mutated'))
-            shutil.move(str(backup), str(git_dir))
+    # Pristine copy of `.git` on the same filesystem (so the restore is a
+    # rename, not a second full copy). Persistent, NOT an auto-cleaned
+    # tempdir: it is removed only after a successful restore, so any failure
+    # leaves it on disk for manual recovery instead of vanishing.
+    backup_root = Path(tempfile.mkdtemp(prefix='.dreamteam-git-', dir=target.parent))
+    backup = backup_root / 'git'
+    shutil.copytree(git_dir, backup, symlinks=True)
+    try:
+        _copier_merge_inplace(target, user_answers)
+    finally:
+        _restore_git(git_dir, backup, backup_root)
     _write_answers_file(target, user_answers)
     _ensure_team_roles_import(target)
+
+
+def _restore_git(git_dir: Path, backup: Path, backup_root: Path) -> None:
+    """
+    Replace copier's mutated `.git` with the pristine backup, then drop it.
+
+    Same-filesystem renames only: move the mutated `.git` aside, then the
+    backup into place. If the mutated dir cannot be cleared, refuse to move
+    the backup on top of it — that would nest it and leave the repo mutated
+    — and raise, keeping the backup on disk at a reported path for manual
+    recovery. The backup is deleted only once the restore fully succeeds, so
+    a failure never loses the user's original git.
+    """
+    if git_dir.exists():
+        shutil.move(str(git_dir), str(backup_root / 'git-mutated'))
+    if git_dir.exists():
+        message = (
+            f'could not restore original git state at {git_dir}; '
+            f'a pristine backup is preserved at {backup} — restore it manually.'
+        )
+        raise RuntimeError(message)
+    shutil.move(str(backup), str(git_dir))
+    shutil.rmtree(backup_root, ignore_errors=True)
 
 
 def _relfiles(root: Path) -> set[Path]:
