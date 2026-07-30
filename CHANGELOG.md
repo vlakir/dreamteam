@@ -22,7 +22,16 @@
 
 ## [Unreleased]
 
-<!-- Что накопилось с момента последнего релиза/значимой точки. -->
+### Fixed
+
+- **Сгенерённые проекты снова проходят свой pre-push `ruff check`**
+  (T032). Свежий `ruff` вывел `CPY001` (flake8-copyright) из preview в
+  стабильный набор; при `select = ["ALL"]` это ломало **каждый**
+  `dreamteam init` проект (`CPY001 Missing copyright notice` на
+  `src/main.py`) и красило integration-тесты `test_template` /
+  `test_multilang` (×5). Фикс: `CPY001` добавлен в `ignore`-лист шаблона
+  (`src/dreamteam/template/pyproject.toml`) — личные проекты не ведут
+  per-file copyright-заголовки. ADR в `DECISIONS.md`.
 
 ---
 

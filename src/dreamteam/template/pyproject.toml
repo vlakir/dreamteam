@@ -84,6 +84,7 @@ ignore = [
     "RUF003", "G004", "PLR0912",
     "PLR0913", "D401", "PLR0915",
     "C901", "D205", "N802",
+    "CPY001",
 ]
 fixable = ["ALL"]
 unfixable = []
