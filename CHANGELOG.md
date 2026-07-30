@@ -24,6 +24,27 @@
 
 <!-- Накопление следующего цикла. -->
 
+### Added
+
+- **T033 — каркас хранилища и модель задачи** (фундамент E1, оперативный
+  слой состояния). Новый подпакет `src/dreamteam/dt/`:
+  - `dt/paths.py` — резолв `$DT_HOME` = `${DT_HOME:-<main-worktree>.dt}`
+    от git-common-dir (одинаков из любого worktree; override `DT_HOME`;
+    краевой случай bare-репозитория); `<slug>` рабочей копии (8 hex sha1
+    абсолютного пути); ленивое идемпотентное создание дерева `store/`
+    (`tasks/`, `sessions/`, `by-worktree/`) и `worktrees/` с одной
+    строкой в stderr при самом первом создании; внятная `DtHomeError`
+    с подсказкой про `DT_HOME` при недоступном каталоге / отсутствии git.
+  - `dt/model.py` — pydantic-модель `Task` (`extra='allow'` сохраняет
+    неизвестные поля frontmatter при round-trip; валидация `status`);
+    `parse_task`/`dump_task`/`load_task`/`save_task` с детерминированной
+    сериализацией (канон-порядок ключей, минимальный frontmatter).
+  - Новая зависимость `pydantic>=2.9`; ruff-конфиг
+    `runtime-evaluated-base-classes = ["pydantic.BaseModel"]`.
+  - 24 юнит-теста (реальные git-репо + linked-worktree). ADR — `DECISIONS.md`
+    (2026-07-30); спека — `specs/T033-store-core/spec.md`.
+  - Пользовательских команд `dt task/…` пока нет — приезжают в T034.
+
 ### Changed
 
 - **Приземлена дорожная карта v0.3 → v1.0** (методический PR, без T-ID).
