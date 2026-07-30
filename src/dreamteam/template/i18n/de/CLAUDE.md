@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
+source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -82,8 +82,11 @@ Hand ausgefüllt.
   `ignore`).
 - Type-Checker: `mypy` mit `mypy_path = "src"`.
 - Test-Stack: `pytest` + `pytest-cov` + `pytest-asyncio`. Coverage-
-  Schwelle ≥ 80 % Line-Coverage auf `src/`
-  (`--cov-fail-under=80` in `[tool.pytest.ini_options]`).
+  Schwelle ≥ 80 % Line-Coverage auf `src/` (`--cov-fail-under=80`). Die
+  Schwelle wird durch ein **explizites Kommando** im Pre-Push-Gate und
+  in der CI erzwungen, nicht durch das Default-`addopts` — das
+  Default-`pytest` bleibt bewusst leicht (siehe „Schwere Testläufe —
+  über den Mutex-Wrapper" unten).
 - **Source-Wurzel — `src/`** (immer, in allen Projekten).
 - Tests — in `tests/` im Wurzelverzeichnis (`ruff` schließt es
   aus, aber `pytest` findet sie über `testpaths = ["tests"]`).
@@ -135,7 +138,10 @@ Vor jedem `git push` **vier** Prüfungen mit 0 Fehlern:
 1. `{{ pm_run }}ruff check .`
 2. `{{ pm_run }}ruff format --check .`
 3. `{{ pm_run }}mypy <code>`
-4. `{{ pm_run }}pytest` (inkl. Coverage-Schwelle ≥ 80 %).
+4. `scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80`
+   — der volle Lauf mit der Coverage-Schwelle ≥ 80 % **über den
+   Mutex-Wrapper** (siehe „Schwere Testläufe — über den Mutex-Wrapper"
+   unten).
 
 **Als eine Kette ausführen**, damit ein Fail in irgendeinem
 Schritt den Commit abbricht:
@@ -144,7 +150,7 @@ Schritt den Commit abbricht:
 {{ pm_run }}ruff check . && \
 {{ pm_run }}ruff format --check . && \
 {{ pm_run }}mypy <code> && \
-{{ pm_run }}pytest && \
+scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80 && \
 git add -A && git commit -m "..." && git push
 ```
 
@@ -159,6 +165,48 @@ Keine `# noqa` / `# type: ignore` / Erweiterungen der
 `ignore`-Sektion ohne explizite Absprache mit dem Entwickler.
 Details — in der globalen `~/.claude/CLAUDE.md`, Abschnitte
 „Linter" und „Testing".
+
+## Schwere Testläufe — über den Mutex-Wrapper
+
+Wenn mehrere `git worktree` eine Maschine teilen (siehe „Paralleles
+Arbeiten in mehreren git worktree" unten), ist die geteilte Ressource
+der **Arbeitsspeicher**. Ein voller / Coverage-Lauf hält einen
+merklichen RSS; zwei oder drei gleichzeitig (neben einer schweren IDE)
+stapeln sich zu **OOM oder Einfrieren**. Der Wrapper
+`scripts/pytest-guard.sh` serialisiert schwere Läufe über ALLE worktree
+hinweg über einen geteilten Per-User-Lock (Concurrency 1, blockierendes
+Warten: der zweite Lauf wartet auf seinen Platz und startet von selbst).
+Nur der **Start** wird serialisiert — Code und uncommitteter
+Session-Zustand werden nie angetastet.
+
+**Regel — was über den Wrapper geht, was direkt:**
+
+- **Voller / Coverage-Lauf und das Pre-Push-Test-Gate — über den
+  Wrapper** (`scripts/pytest-guard.sh …`), nicht über den nackten
+  Runner; besonders bei lebenden parallelen Sessions.
+- **Ein Lauf über eine einzelne Datei** (leicht, einmalig) — kann direkt
+  gehen (`{{ pm_run }}pytest tests/test_x.py`); der Mutex ist optional.
+- **CI — direkt** (isolierter Runner, nichts zu teilen).
+
+**Leichter Default-Lauf.** Coverage wird aus dem Default-`addopts`
+herausgehalten (der Coverage-Tracer bläht RSS/CPU auf): das
+Default-`{{ pm_run }}pytest` bleibt leicht für wiederholte lokale
+Iteration. Die ≥ 80 %-Schwelle bleibt erzwungen — nur durch ein
+**explizites Kommando** (Gate 4 oben und CI), nicht durch den Default.
+
+**Optionale Speichergrenze pro Lauf.** Die Variable
+`PYTEST_GUARD_MEM_MAX` (z. B. `4G`; `0` oder nicht gesetzt — aus): unter
+Linux mit einer systemd-Session wird der Lauf in einer transienten
+cgroup mit RSS-Limit gestartet, damit ein außer Kontrolle geratener Test
+vom OOM-Killer **innerhalb seiner eigenen cgroup** getötet wird (der
+Lauf schlägt fehl, aber Maschine und IDE überleben), statt das System
+lahmzulegen. Außerhalb von Linux/systemd (macOS, Windows, Container) ist
+es ein No-op — der Lauf geht trotzdem durch den Mutex.
+
+**Plattformübergreifend.** `flock` ist util-linux (Linux / macOS-artig).
+Wo es fehlt (Windows), **degradiert der Wrapper sauber**: er gibt eine
+Hinweiszeile aus und startet die Tests direkt (ohne Serialisierung),
+ohne je fehlzuschlagen.
 
 ## Git-Workflow
 

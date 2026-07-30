@@ -18,8 +18,8 @@ uv sync
 > **Note:** the PyPI package name is `dreamteam-cli` (the bare `dreamteam` slot on PyPI is held by an unrelated 2019 package). The **command** stays `dreamteam` regardless — `pip install dreamteam-cli` exposes the `dreamteam` console script, and that's what you use in everyday work. The package also installs **`dt`** as a short alias pointing at the same callable, so `dt init my-project`, `dt update --dry-run`, `dt --version` all work equivalently.
 
 That's it. The generated project passes its own pre-push check suite
-(ruff / ruff format / mypy / pytest with 80% coverage threshold)
-immediately — verified by the integration test in this repo.
+(ruff / ruff format / mypy / pytest with an explicit ≥80% coverage
+gate) immediately — verified by the integration test in this repo.
 
 ## What you get
 
@@ -32,10 +32,18 @@ Every project scaffolded by `dreamteam init` includes:
   command prefix for the chosen manager. `ruff` (`select = ["ALL"]`
   with a curated `ignore`), `mypy` (`mypy_path = "src"`), `pytest +
   pytest-cov + pytest-asyncio` with a `--cov-fail-under=80` gate
-  are universal regardless of manager.
+  are universal regardless of manager. Coverage is kept **out** of the
+  default `addopts` (a light default `pytest` for repeated local
+  iteration); the ≥80% threshold runs as an explicit command in the
+  pre-push gate and CI.
 - **`src/`-layout** with a working `main.py` (CLI-style logging:
   DEBUG/INFO → stdout, WARNING+ → stderr) and a coverage-100%
   `tests/test_main.py`.
+- **`scripts/pytest-guard.sh`** — a heavy-run mutex wrapper that
+  serialises full / coverage test runs across all git worktrees sharing
+  one machine (a per-user `flock`, blocking wait), so parallel runs
+  don't stack into OOM. Degrades to a direct run where `flock` is absent
+  (e.g. Windows); optional per-run memory cap via `PYTEST_GUARD_MEM_MAX`.
 - **Methodology files** that are not just placeholders but
   ready-to-fill documents:
   - `CONCEPT.md` — immutable initial draft of the project vision.

@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
+source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -84,8 +84,11 @@ manuellement plus tard.
 - Linter : `ruff` (règle `select = ["ALL"]` avec un `ignore` fixe).
 - Type-checker : `mypy` avec `mypy_path = "src"`.
 - Stack de tests : `pytest` + `pytest-cov` + `pytest-asyncio`. Seuil
-  de coverage ≥ 80 % line coverage sur `src/`
-  (`--cov-fail-under=80` dans `[tool.pytest.ini_options]`).
+  de coverage ≥ 80 % line coverage sur `src/` (`--cov-fail-under=80`).
+  Le seuil est appliqué par une **commande explicite** dans le gate
+  pre-push et la CI, non par le `addopts` par défaut — le `pytest` par
+  défaut reste volontairement léger (voir « Prises de tests lourdes —
+  via le wrapper mutex » ci-dessous).
 - **Racine des sources — `src/`** (toujours, dans tous les projets).
 - Tests — dans `tests/` à la racine (`ruff` l'exclut, mais `pytest`
   les trouve via `testpaths = ["tests"]`).
@@ -137,7 +140,10 @@ avec 0 erreur :
 1. `{{ pm_run }}ruff check .`
 2. `{{ pm_run }}ruff format --check .`
 3. `{{ pm_run }}mypy <code>`
-4. `{{ pm_run }}pytest` (inclut le seuil de coverage ≥ 80 %).
+4. `scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80`
+   — la prise complète avec le seuil de coverage ≥ 80 % **via le wrapper
+   mutex** (voir « Prises de tests lourdes — via le wrapper mutex »
+   ci-dessous).
 
 **À lancer en une chaîne unique**, pour qu'un échec à n'importe
 quelle étape interrompe le commit :
@@ -146,7 +152,7 @@ quelle étape interrompe le commit :
 {{ pm_run }}ruff check . && \
 {{ pm_run }}ruff format --check . && \
 {{ pm_run }}mypy <code> && \
-{{ pm_run }}pytest && \
+scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80 && \
 git add -A && git commit -m "..." && git push
 ```
 
@@ -161,6 +167,47 @@ Pas de `# noqa` / `# type: ignore` / extensions de la section
 `ignore` sans discussion explicite avec le Développeur. Détails —
 dans `~/.claude/CLAUDE.md` global, sections « Linters » et
 « Tests ».
+
+## Prises de tests lourdes — via le wrapper mutex
+
+Quand plusieurs `git worktree` partagent une machine (voir « Travail
+parallèle sur plusieurs git worktree » ci-dessous), la ressource
+partagée est la **RAM**. Une prise complète / coverage retient un RSS
+notable ; deux ou trois à la fois (à côté d'un IDE lourd) s'empilent en
+**OOM ou blocage**. Le wrapper `scripts/pytest-guard.sh` sérialise les
+prises lourdes entre TOUS les worktree via un verrou partagé par
+utilisateur (concurrence 1, attente bloquante : la deuxième prise attend
+son tour et démarre d'elle-même). Seul le **lancement** est sérialisé —
+le code et l'état non commité des sessions ne sont jamais touchés.
+
+**Règle — ce qui passe par le wrapper, ce qui va en direct :**
+
+- **Prise complète / coverage et gate de tests pre-push — via le
+  wrapper** (`scripts/pytest-guard.sh …`), pas le runner nu ; surtout
+  avec des sessions parallèles vivantes.
+- **Une prise sur un seul fichier** (légère, ponctuelle) — peut aller en
+  direct (`{{ pm_run }}pytest tests/test_x.py`) ; le mutex est optionnel.
+- **CI — en direct** (runner isolé, rien à partager).
+
+**Prise par défaut légère.** Le coverage est tenu hors du `addopts` par
+défaut (le traceur de coverage gonfle le RSS/CPU) : le `{{ pm_run }}pytest`
+par défaut reste léger pour l'itération locale répétée. Le seuil ≥ 80 %
+reste appliqué — juste par une **commande explicite** (gate 4 ci-dessus
+et CI), non par le défaut.
+
+**Plafond mémoire optionnel par prise.** La variable
+`PYTEST_GUARD_MEM_MAX` (par ex. `4G` ; `0` ou non définie — désactivé) :
+sous Linux avec une session systemd, la prise est lancée dans un cgroup
+transitoire avec une limite RSS, pour qu'un test emballé soit tué par
+l'OOM-killer **dans son propre cgroup** (la prise échoue, mais la
+machine et l'IDE survivent) au lieu de faire tomber le système. Hors
+Linux/systemd (macOS, Windows, conteneurs) c'est un no-op — la prise
+passe quand même par le mutex.
+
+**Multiplateforme.** `flock` est util-linux (Linux / assimilé macOS). Là
+où il est absent (Windows), le wrapper **dégrade proprement** : il
+imprime une ligne d'avertissement et lance les tests directement (sans
+sérialisation), sans jamais échouer.
 
 ## Workflow git
 
