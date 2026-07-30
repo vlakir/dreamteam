@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: 60e720f48e8bd8cb780369d800a7a7cd952a413c09bc2de9103e4c5152658273
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 # Konzept: {{ project_name }}
 
@@ -20,6 +20,16 @@ translation_date: 2026-05-15
 > Datei bereits vor; durchlaufe das Ritual der Gegenfragen mit
 > Claude (siehe unten), fülle die Abschnitte und friere sie als
 > unveränderlich ein.
+
+<!-- Die Struktur unten ist ein FRAGEBOGEN (leading questions) für ein
+     leeres Konzept, keine Pflichtform. Wenn du bereits ein
+     inhaltliches Konzept / Lastenheft / eine Vision hast — ersetze den
+     Inhalt dieser Datei vollständig durch deinen eigenen, ohne etwas
+     in diese Überschriften umzugießen. Wichtig ist nur, dass ein
+     Abschnitt „Out of scope" in irgendeiner Form vorhanden ist (Schutz
+     vor scope creep) und dass das Dokument nach dem Festschreiben
+     unveränderlich bleibt. Das clarify-Ritual (Claudes Gegenfragen zu
+     blinden Flecken) läuft über den tatsächlichen Inhalt. -->
 
 ## Ziel
 

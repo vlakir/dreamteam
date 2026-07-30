@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: 60e720f48e8bd8cb780369d800a7a7cd952a413c09bc2de9103e4c5152658273
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 # Concept: {{ project_name }}
 
@@ -19,6 +19,16 @@ translation_date: 2026-05-15
 > already in place; go through the counter-question ritual with
 > Claude (see below), fill in the sections and lock them as
 > immutable.
+
+<!-- The structure below is a QUESTIONNAIRE (leading questions) for an
+     empty concept, not a mandatory form. If you already have a
+     substantive concept / spec / vision — replace this file's content
+     wholesale with your own, without recasting anything into these
+     headings. What matters is that an "Out of scope" section is
+     present in some form (protection against scope creep) and that the
+     document stays immutable once locked. The clarify ritual (Claude's
+     counter-questions about blind spots) runs against the actual
+     content. -->
 
 ## Goal
 

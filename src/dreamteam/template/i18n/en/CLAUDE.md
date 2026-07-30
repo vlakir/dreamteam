@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -45,6 +45,18 @@ large-feature spec:
    in `README.md`. If the concept changes drastically (rare, pivot) —
    a new version is added: `concepts/v2-...md`, `v3-...md`
    (ADR-pattern, but for concepts).
+
+**The structure is a questionnaire, not a contract.** The sections
+above (Goal / User / Key functionality / Out of scope / Constraints)
+are **leading questions for an empty `CONCEPT.md`**, not a mandatory
+form for the final document. If the project already has a substantive
+`CONCEPT.md` / spec / vision in any form — Claude **accepts it as is**
+and runs `clarify` on the blind spots of its content, **without
+demanding** a recast into the template headings. The only mandatory
+element of the ritual is **clarify** (counter-questions). `Out of
+scope` remains the most valuable section (protection against scope
+creep), but may be expressed in any form inside the existing document.
+The immutable invariant (not edited once locked) holds in every case.
 
 `CONCEPT.md` is filled either at project creation via
 `dreamteam init` (Claude asks the counter-questions) or later, by
@@ -135,12 +147,29 @@ Baseline process rules (apply in this project always):
   through a feature branch and a PR/MR.
 - **One PR — one commit.** On a feature branch commit however you
   like for the workflow; squash before merging.
-- **Every PR goes through code review** before merge. By default —
-  Claude (self-review with a checklist: scope / architecture / code /
-  linters / docs / conventions / security). Sometimes — the Developer.
-- **Do not ignore third-party reviews.** Bots like `qodo-code-review`
-  must be read, analysed, discussed with the Developer; the decision
-  is recorded (accept / drop / defer).
+- **Closing a task — in its own PR.** Moving the entry from
+  `BOARD.md → Doing` to `Done` is done **in the same squash commit** of
+  the task PR, not in a separate chore-PR (after merge the task is Done
+  anyway — `BOARD.md` just reflects reality). PR boundaries follow the
+  task's logical cohesion; splitting related changes just to make "a
+  shorter PR" is an anti-pattern (extra review overhead, review-bot
+  quota burn).
+- **Every PR goes through code review** before merge. If the project
+  has a working automated review bot connected (CodeRabbit,
+  qodo-code-review or similar, reviewing every PR) — it is the
+  baseline, and **a separate self-review by Claude is not required by
+  default**. Claude's self-review is needed in three cases: (1) **docs
+  / methodology** — a PR changing only markdown / rules / specs (bots
+  review prose poorly) → self-review stays the default; (2)
+  **non-trivial code** — a targeted deep-review of the risk area
+  (architecture, security, complex scope), at the Developer's request
+  or Claude's initiative; (3) **fallback** — the bot is unavailable
+  (rate-limit, down, no report within a reasonable window). Self-review
+  checklist: scope / architecture / code / linters / docs / conventions
+  / security.
+- **Do not ignore third-party reviews.** Bots like CodeRabbit /
+  qodo-code-review must be read, analysed, discussed with the
+  Developer; the decision is recorded (accept / drop / defer).
 
 ## Planning discipline
 

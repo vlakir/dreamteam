@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: 60e720f48e8bd8cb780369d800a7a7cd952a413c09bc2de9103e4c5152658273
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 # Concept : {{ project_name }}
 
@@ -19,6 +19,16 @@ translation_date: 2026-05-15
 > est déjà en place ; passe le rituel de questions croisées avec
 > Claude (voir ci-dessous), remplis les sections et fige-les comme
 > immuables.
+
+<!-- La structure ci-dessous est un QUESTIONNAIRE (leading questions)
+     pour un concept vide, pas une forme obligatoire. Si tu as déjà un
+     concept / cahier des charges / vision substantiel — remplace
+     entièrement le contenu de ce fichier par le tien, sans rien
+     transposer dans ces rubriques. L'essentiel : qu'une section « Out
+     of scope » soit présente sous une forme quelconque (protection
+     contre le scope creep) et que le document reste immuable une fois
+     figé. Le rituel de clarify (questions croisées de Claude sur les
+     angles morts) se fait sur le contenu réel. -->
 
 ## Objectif
 
