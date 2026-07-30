@@ -40,3 +40,8 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   факт — из `git worktree list --porcelain`; `prune` консервативен
   (managed-only, слитую ветку удаляет, squash не детектит → пропуск).
   `[closed 2026-07-30, PR T036-worktrees]`
+- **T037** — Текстовое представление доски `dt board`: модель
+  (`board_model`/`board_columns`, git-free, переиспользуется E10) отделена
+  от рендера; секции столбиком `todo→doing→review→done`, `dropped` отсеян,
+  сортировка `updated` убыв.; `--json` = columns.
+  `[closed 2026-07-30, PR T037-board]`

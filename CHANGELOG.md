@@ -26,6 +26,17 @@
 
 ### Added
 
+- **T037 — текстовое представление доски** (`dt board`, точка входа E1).
+  Kanban-обзор задач в терминал:
+  - `dt/board.py` — чистая (git-free, typer-free) модель: `board_model(store)`
+    (загрузка всех записей, отсев `dropped`, сортировка по `updated` убыв.,
+    None — в конец, tiebreak по ID) + `board_columns(model)` (группировка по
+    статусу в порядке потока `todo→doing→review→done`). Модель отделена от
+    рендера — переиспользуется графической доской E10 (design §604).
+  - `dt board` — top-level команда (`board_cli.py`): секции столбиком
+    (заголовок статуса + `T<NNN> [status] title`), пустые колонки показаны.
+    `--json` = `{columns: {todo, doing, review, done}}` с полными записями.
+  - Спека — `specs/T037-board/spec.md`; ADR в `DECISIONS.md`.
 - **T036 — размещение и жизненный цикл worktree** (`dt worktree
   root/path/list/prune`, четвёртая задача E1). Даёт агенту источник пути до
   рабочей копии задачи (лечит подстановку основной копии) и безопасную уборку:

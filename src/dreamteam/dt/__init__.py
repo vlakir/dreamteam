@@ -12,6 +12,11 @@ See ``specs/T033-store-core/spec.md`` and ``specs/roadmap-v0.3-v1.0/design.md``.
 
 from __future__ import annotations
 
+from dreamteam.dt.board import (
+    BOARD_STATUSES,
+    board_columns,
+    board_model,
+)
 from dreamteam.dt.model import (
     TASK_STATUSES,
     Task,
@@ -63,6 +68,7 @@ from dreamteam.dt.worktrees import (
 )
 
 __all__ = [
+    'BOARD_STATUSES',
     'TASK_STATUSES',
     'DtHomeError',
     'PruneEntry',
@@ -73,6 +79,8 @@ __all__ = [
     'WorktreeInfo',
     'WorktreeMatch',
     'allocate_id',
+    'board_columns',
+    'board_model',
     'branch_merged',
     'by_worktree_dir',
     'classify_arg',

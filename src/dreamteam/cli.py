@@ -15,6 +15,7 @@ import yaml
 from copier import Worker, run_copy
 
 from dreamteam import __version__
+from dreamteam.board_cli import board
 from dreamteam.task_cli import task_app
 from dreamteam.worktree_cli import worktree_app
 
@@ -53,6 +54,9 @@ app.add_typer(task_app)
 # same pattern: git-free core in `dt/worktrees`, git helpers in `dt/paths`,
 # Typer wrappers in `worktree_cli`.
 app.add_typer(worktree_app)
+# Text kanban (`dt board`, T037) — top-level command (no subcommands yet;
+# `dt board serve` arrives in E10). Model lives in the git-free `dt/board`.
+app.command(name='board')(board)
 
 
 def _template_path() -> Path:
