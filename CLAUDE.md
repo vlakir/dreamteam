@@ -106,10 +106,19 @@ noqa собраны в `DECISIONS.md` и в `src/dreamteam/cli.py`-коммен�
 - **Никогда не пушить напрямую в `main`.** Branch Protection
   включена на `vlakir/dreamteam` (см. ADR T001), сервер блокирует.
 - **Один PR — один коммит** (squash при merge).
-- **Code review каждого PR** — self-review через
-  `gh pr review --comment` с чеклистом (scope / архитектура / код /
-  линтеры / документация / соглашения / безопасность). Сторонние
-  ревью (qodo и т.п.) не игнорировать.
+- **Закрытие задачи — в её же PR.** Перенос `BOARD.md → Doing` в
+  `Done` делается в том же squash-коммите задачного PR, не отдельным
+  chore-PR. Границы PR — по логической связности задачи; дробить
+  связное ради «PR покороче» — anti-pattern. Fallback chore-PR — если
+  перенос забыли и обнаружили после merge.
+- **Code review каждого PR.** На `vlakir/dreamteam` подключён
+  CodeRabbit — он baseline, отдельный self-review Claude'а на код-PR
+  по умолчанию не нужен. Self-review (`gh pr review --comment`,
+  чеклист scope / архитектура / код / линтеры / документация /
+  соглашения / безопасность) остаётся дефолтом для **docs / методика**
+  PR (боты слабо ревьюят прозу), а также как targeted deep-review
+  нетривиального кода и как fallback при недоступности бота. Сторонние
+  ревью (CodeRabbit / qodo и т.п.) не игнорировать.
 - **Импорты только в шапке модуля.** Никаких lazy / conditional
   imports в runtime коде. Исключение — `TYPE_CHECKING`-блоки для
   type hints.

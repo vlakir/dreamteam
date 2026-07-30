@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: 60e720f48e8bd8cb780369d800a7a7cd952a413c09bc2de9103e4c5152658273
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 # 概念：{{ project_name }}
 
@@ -15,6 +15,13 @@ translation_date: 2026-05-15
 >
 > 通过 `dreamteam init` 创建项目时，此文件已就位；与 Claude
 > 一起走反向提问的仪式（见下），填写各节并将其固化为不可变。
+
+<!-- 下面的结构是针对空白 concept 的问卷（leading questions），
+     并非必需的固定形式。如果你已经有一份成型的 concept / 需求文档 /
+     vision —— 直接用你自己的内容整体替换本文件，无需套进这些标题。
+     关键是以任意形式保留「Out of scope」章节（抵御 scope creep），
+     并在固化后保持文档不可变。clarify 仪式（Claude 针对盲点的反向
+     提问）针对实际内容进行。 -->
 
 ## 目标
 

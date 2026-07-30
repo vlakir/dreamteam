@@ -30,6 +30,21 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   `ignore`-лист шаблона (`src/dreamteam/template/pyproject.toml`). ADR +
   CHANGELOG `[Unreleased]` → Fixed. Проверено: `dreamteam init` → derived
   `ruff` зелёный; integration 52 passed; полный сьют 151 passed, cov 88%.
+- **T023** — [closed 2026-07-30, PR T023-methodology-shakedown] CONCEPT.md —
+  leading questions, не contract. Ритуал `CONCEPT.md` в шаблоне: структура =
+  опросник для пустого concept; содержательный существующий concept/ТЗ
+  принимается как есть, clarify по его содержимому; обязателен только clarify
+  + Out of scope в любой форме; immutable сохранён. Правки в
+  `template/i18n/ru/CLAUDE.md` + `CONCEPT.md` + re-bootstrap en/fr/de/zh.
+- **T024** — [closed 2026-07-30, PR T023-methodology-shakedown] Self-review
+  Claude'а опционален при рабочем ревью-боте. Условный flow (bot=baseline;
+  self-review дефолт для docs/методика-PR, targeted для нетривиального кода,
+  fallback при недоступности бота). Правки в `template/i18n/ru/CLAUDE.md` +
+  проектный `CLAUDE.md` + re-bootstrap en/fr/de/zh.
+- **T025** — [closed 2026-07-30, PR T023-methodology-shakedown] Closing-правка
+  `BOARD.md` (`Doing → Done`) в задачном PR, не парным chore-PR; границы PR по
+  логической связности. Правки в `template/i18n/ru/CLAUDE.md` + проектный
+  `CLAUDE.md` + re-bootstrap en/fr/de/zh. (Применено к самому этому PR.)
 - **T026** — [closed 2026-07-05, текущий PR] Роли команды: Архитектор
   (read-only субагент) + Дизайнер (Claude Design MCP) в шаблоне. Все 9
   фаз §8 + ADR §9 закрыты. Рендер шапка+тело (partials под `_exclude`

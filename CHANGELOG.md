@@ -22,6 +22,27 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Методика после первой обкатки — три правила доведены до шаблона**
+  (T023 + T024 + T025). Source-of-truth
+  `template/i18n/ru/CLAUDE.md` + `CONCEPT.md`, re-bootstrap переводов
+  `en/fr/de/zh` (обновлён `source_hash`) и проектный `CLAUDE.md`:
+  - **T023** — ритуал `CONCEPT.md`: структура разделов подана как
+    **leading questions для пустого concept**, не обязательная форма.
+    Содержательный существующий `CONCEPT.md` / ТЗ принимается как
+    есть, `clarify` идёт по его содержимому; обязателен только
+    `clarify` + `Out of scope` в любой форме; immutable-инвариант
+    сохранён.
+  - **T024** — code review: при подключённом рабочем ревью-боте
+    (CodeRabbit и аналоги) он baseline, self-review Claude'а по
+    умолчанию не требуется. Self-review остаётся дефолтом для
+    docs/методика-PR, как targeted deep-review нетривиального кода и
+    как fallback при недоступности бота.
+  - **T025** — закрытие задачи `Doing → Done` переносится в том же
+    squash-коммите задачного PR (не парным chore-PR); границы PR — по
+    логической связности, дробление ради «PR покороче» — anti-pattern.
+
 ### Fixed
 
 - **Сгенерённые проекты снова проходят свой pre-push `ruff check`**

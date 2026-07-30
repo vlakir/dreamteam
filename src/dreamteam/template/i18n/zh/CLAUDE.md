@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -38,6 +38,15 @@ translation_date: 2026-05-15
 4. **填写完成后 `CONCEPT.md` 不再修改。** 当前状态记录在
    `README.md`。如果概念发生根本变化（罕见，pivot）—— 新版本放入
    `concepts/v2-...md`、`v3-...md`（ADR-pattern，但用于概念）。
+
+**结构是问卷，而非 contract。** 上面的各节（目标 / 用户 / 核心功能 /
+Out of scope / 约束）是**针对空白 `CONCEPT.md` 的 leading questions**，
+而非最终文档的必需形式。如果项目已有任意形式的成型 `CONCEPT.md` /
+需求文档 / vision —— Claude **原样接受**，并针对其内容的盲点进行
+`clarify`，**不要求**将其套进模板标题。仪式唯一的必需环节是
+**clarify**（反向提问）。`Out of scope` 仍是最有价值的章节（抵御
+scope creep），但可以在既有文档中以任意形式表达。不可变性不变量
+（固化后不再编辑）在任何情况下都保持。
 
 `CONCEPT.md` 的填写在通过 `dreamteam init` 创建项目时（Claude 进行
 反向提问）或之后手动完成。
@@ -134,11 +143,24 @@ git add -A && git commit -m "..." && git push
   feature 分支和 PR/MR。
 - **一个 PR —— 一个 commit。** 在 feature 分支上可按工作需要随意
   commit，merge 前进行 squash。
-- **每个 PR 在 merge 前都要经过 code review。** 默认 —— Claude
-  （依据 checklist 进行 self-review：scope / 架构 / 代码 /
-  linter / 文档 / 约定 / 安全）。偶尔 —— 由开发者完成。
-- **不要忽视第三方 review。** 像 `qodo-code-review` 这样的 bot
-  必须阅读、分析、与开发者讨论；决定要记录（采纳 / 弃用 / 推迟）。
+- **关闭任务 —— 在其自身的 PR 中完成。** 将条目从 `BOARD.md →
+  Doing` 移到 `Done` 是在该任务 PR 的**同一个 squash commit** 中完成，
+  而非单独的 chore-PR（merge 后任务本就 Done —— `BOARD.md` 只是反映
+  现实）。PR 边界按任务的逻辑内聚划分；仅为「PR 更短」而拆分相关改动
+  是 anti-pattern（额外的 review overhead、消耗 review bot 配额）。
+- **每个 PR 在 merge 前都要经过 code review。** 如果项目接入了可用的
+  自动 review bot（CodeRabbit、qodo-code-review 或类似，逐一 review
+  每个 PR）—— 它即 baseline，**默认不需要 Claude 单独 self-review**。
+  Claude 的 self-review 在三种情况下需要：(1) **docs / 方法论** ——
+  仅改动 markdown / 规则 / spec 的 PR（bot 对散文 review 较弱）→
+  self-review 仍为默认；(2) **非平凡代码** —— 针对风险区（架构、安全、
+  复杂 scope）的 targeted deep-review，由开发者请求或 Claude 主动发起；
+  (3) **fallback** —— bot 不可用（rate-limit、宕机、合理时间窗内未反馈）。
+  self-review checklist：scope / 架构 / 代码 / linter / 文档 / 约定 /
+  安全。
+- **不要忽视第三方 review。** 像 CodeRabbit / `qodo-code-review`
+  这样的 bot 必须阅读、分析、与开发者讨论；决定要记录（采纳 / 弃用 /
+  推迟）。
 
 ## 规划纪律
 

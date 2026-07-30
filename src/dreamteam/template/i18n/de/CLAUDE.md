@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -48,6 +48,20 @@ analog zu `clarify` für die Spec eines großen Features:
    Konzept grundlegend (selten, Pivot) — wird eine neue Version
    angelegt: `concepts/v2-...md`, `v3-...md` (ADR-Pattern, aber
    für Konzepte).
+
+**Die Struktur ist ein Fragebogen, kein Contract.** Die Abschnitte
+oben (Ziel / Nutzer / Kernfunktionalität / Out of scope /
+Einschränkungen) sind **leading questions für ein leeres
+`CONCEPT.md`**, keine Pflichtform des finalen Dokuments. Hat das
+Projekt bereits ein inhaltliches `CONCEPT.md` / Lastenheft / eine
+Vision in irgendeiner Form — **akzeptiert Claude es, wie es ist**, und
+führt `clarify` zu den blinden Flecken seines Inhalts durch, **ohne**
+ein Umgießen in die Vorlagen-Überschriften **zu verlangen**. Das
+einzige Pflichtelement des Rituals ist **clarify** (Gegenfragen). `Out
+of scope` bleibt der wertvollste Abschnitt (Schutz vor scope creep),
+kann aber in beliebiger Form innerhalb des bestehenden Dokuments
+ausgedrückt werden. Die Unveränderlichkeits-Invariante (nach dem
+Festschreiben nicht mehr bearbeitet) gilt in jedem Fall.
 
 `CONCEPT.md` wird entweder bei der Projekterstellung über
 `dreamteam init` (Claude stellt die Gegenfragen) oder später per
@@ -159,11 +173,28 @@ Basisregeln des Prozesses (gelten in diesem Projekt immer):
 - **Eine PR — ein Commit.** Auf einem Feature-Branch kann man
   beliebig committen, wie es für die Arbeit bequem ist; vor dem
   Merge wird gesquashed.
-- **Jede PR durchläuft ein Code-Review** vor dem Merge.
-  Standardmäßig — Claude (Self-Review mit Checkliste: Scope /
-  Architektur / Code / Linter / Doku / Konventionen / Sicherheit).
-  Manchmal — der Entwickler.
-- **Drittanbieter-Reviews nicht ignorieren.** Bots wie
+- **Abschluss einer Aufgabe — in ihrer eigenen PR.** Das Verschieben
+  des Eintrags von `BOARD.md → Doing` nach `Done` geschieht **im selben
+  Squash-Commit** der Aufgaben-PR, nicht in einer separaten Chore-PR
+  (nach dem Merge ist die Aufgabe ohnehin Done — `BOARD.md` spiegelt
+  nur die Realität wider). PR-Grenzen folgen der logischen Kohärenz der
+  Aufgabe; zusammenhängende Änderungen nur für eine „kürzere PR" zu
+  zerteilen ist ein Anti-Pattern (zusätzlicher Review-Overhead, Verbrauch
+  des Review-Bot-Kontingents).
+- **Jede PR durchläuft ein Code-Review** vor dem Merge. Ist im Projekt
+  ein funktionierender automatischer Review-Bot angebunden (CodeRabbit,
+  qodo-code-review oder ähnlich, der jede PR reviewt) — ist er das
+  Baseline, und **eine separate Self-Review durch Claude ist
+  standardmäßig nicht erforderlich**. Claudes Self-Review ist in drei
+  Fällen nötig: (1) **Docs / Methodik** — eine PR, die nur Markdown /
+  Regeln / Specs ändert (Bots reviewen Prosa schlecht) → Self-Review
+  bleibt der Default; (2) **nicht-trivialer Code** — eine gezielte
+  Deep-Review der Risikozone (Architektur, Sicherheit, komplexer Scope),
+  auf Wunsch des Entwicklers oder auf Claudes Initiative; (3)
+  **Fallback** — der Bot ist nicht verfügbar (Rate-Limit, ausgefallen,
+  kein Bericht in einem angemessenen Zeitfenster). Self-Review-Checkliste:
+  Scope / Architektur / Code / Linter / Doku / Konventionen / Sicherheit.
+- **Drittanbieter-Reviews nicht ignorieren.** Bots wie CodeRabbit /
   `qodo-code-review` lesen, analysieren, mit dem Entwickler
   besprechen; die Entscheidung wird festgehalten (annehmen /
   verwerfen / verschieben).

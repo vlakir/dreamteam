@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: f6f6217ac9a2823eefa78eaf5f8f8614959af569f2163d945fb2db8b4c791b0f
-translation_engine: claude-opus-4-7
-translation_date: 2026-05-15
+source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+translation_engine: claude-opus-4-8
+translation_date: 2026-07-30
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -50,6 +50,20 @@ de grosse fonctionnalité :
    (rare, pivot) — on ajoute une nouvelle version :
    `concepts/v2-...md`, `v3-...md` (ADR-pattern, mais pour les
    concepts).
+
+**La structure est un questionnaire, pas un contrat.** Les rubriques
+ci-dessus (Objectif / Utilisateur / Fonctionnalité clé / Out of scope /
+Contraintes) sont des **leading questions pour un `CONCEPT.md` vide**,
+pas une forme obligatoire du document final. Si le projet possède déjà
+un `CONCEPT.md` / cahier des charges / vision substantiel sous une
+forme quelconque — Claude **l'accepte tel quel** et mène le `clarify`
+sur les angles morts de son contenu, **sans exiger** une transposition
+dans les rubriques du modèle. Le seul élément obligatoire du rituel est
+le **clarify** (questions croisées). `Out of scope` reste la rubrique
+la plus précieuse (protection contre le scope creep), mais peut
+s'exprimer sous une forme quelconque au sein du document existant.
+L'invariant d'immuabilité (plus édité une fois figé) tient dans tous
+les cas.
 
 `CONCEPT.md` est rempli soit lors de la création du projet via
 `dreamteam init` (Claude pose les questions croisées), soit
@@ -161,11 +175,29 @@ Règles de base du processus (s'appliquent toujours dans ce projet) :
   changement — via une branche feature et une PR/MR.
 - **Une PR — un commit.** Sur une branche feature on commit comme
   on veut pour le travail ; squash avant le merge.
-- **Chaque PR passe par une code review** avant le merge. Par
-  défaut — Claude (self-review avec checklist : scope / architecture
-  / code / linters / docs / conventions / sécurité). Parfois — le
-  Développeur.
-- **Ne pas ignorer les reviews tierces.** Les bots comme
+- **Clôturer une tâche — dans sa propre PR.** Le déplacement de
+  l'entrée de `BOARD.md → Doing` vers `Done` se fait **dans le même
+  commit squash** de la PR de la tâche, pas dans une chore-PR séparée
+  (après le merge la tâche est de toute façon Done — `BOARD.md` ne fait
+  que refléter la réalité). Les limites de la PR suivent la cohérence
+  logique de la tâche ; fractionner des changements liés juste pour
+  faire « une PR plus courte » est un anti-pattern (overhead de review
+  en plus, consommation du quota des bots de review).
+- **Chaque PR passe par une code review** avant le merge. Si le projet
+  dispose d'un bot de review automatique fonctionnel (CodeRabbit,
+  qodo-code-review ou similaire, qui review chaque PR) — c'est lui le
+  baseline, et **une self-review séparée de Claude n'est pas requise
+  par défaut**. La self-review de Claude est nécessaire dans trois cas :
+  (1) **docs / méthodologie** — une PR ne changeant que du markdown /
+  des règles / des specs (les bots reviewent mal la prose) → la
+  self-review reste le défaut ; (2) **code non trivial** — une
+  deep-review ciblée de la zone à risque (architecture, sécurité, scope
+  complexe), à la demande du Développeur ou à l'initiative de Claude ;
+  (3) **fallback** — le bot est indisponible (rate-limit, en panne,
+  aucun rapport dans un délai raisonnable). Checklist de self-review :
+  scope / architecture / code / linters / docs / conventions /
+  sécurité.
+- **Ne pas ignorer les reviews tierces.** Les bots comme CodeRabbit /
   `qodo-code-review` doivent être lus, analysés, discutés avec le
   Développeur ; la décision est consignée (accepter / écarter /
   reporter).
