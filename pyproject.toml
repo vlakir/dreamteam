@@ -11,6 +11,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "copier>=9.15.1",
+    "pydantic>=2.9",
     "pyyaml>=6.0.3",
     "typer>=0.25.1",
 ]
@@ -105,6 +106,13 @@ unfixable = []
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
+
+
+[tool.ruff.lint.flake8-type-checking]
+# pydantic resolves model field annotations at runtime, so imports referenced
+# by BaseModel subclasses (e.g. `datetime` in `dt/model.py`) must stay at
+# module level — not be moved into a `TYPE_CHECKING` block by TC00x autofixes.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 
 [tool.ruff.format]
