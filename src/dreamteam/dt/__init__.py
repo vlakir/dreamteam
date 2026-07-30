@@ -45,8 +45,10 @@ from dreamteam.dt.paths import (
     worktrees_dir,
 )
 from dreamteam.dt.tasks import (
+    ScoredTask,
     TaskError,
     allocate_id,
+    find_tasks,
     format_id,
     move_task,
     new_task,
@@ -73,6 +75,7 @@ __all__ = [
     'DtHomeError',
     'PruneEntry',
     'PruneSkip',
+    'ScoredTask',
     'Task',
     'TaskError',
     'TaskStatus',
@@ -89,6 +92,7 @@ __all__ = [
     'dt_home',
     'dump_task',
     'ensure_store',
+    'find_tasks',
     'format_id',
     'is_managed',
     'list_worktrees',

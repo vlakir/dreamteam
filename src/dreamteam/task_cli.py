@@ -20,6 +20,7 @@ from dreamteam.dt.paths import DtHomeError, ensure_store, git_context, store_dir
 from dreamteam.dt.tasks import (
     TaskError,
     check_tasks,
+    find_tasks,
     move_task,
     new_task,
     ready_tasks,
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from dreamteam.dt.model import Task
-    from dreamteam.dt.tasks import CheckIssue
+    from dreamteam.dt.tasks import CheckIssue, ScoredTask
 
 _EXIT_ERROR = 1
 
@@ -241,6 +242,33 @@ def _check(
         )
     )
     _emit_check(issues, json_out=json_out)
+
+
+def _emit_find(results: list[ScoredTask], *, json_out: bool) -> None:
+    if json_out:
+        payload = [{**_task_obj(item.task), 'score': item.score} for item in results]
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if not results:
+        typer.echo('no matches')
+        return
+    for item in results:
+        task = item.task
+        branch = f'  ({task.branch})' if task.branch else ''
+        typer.echo(f'{task.id}  [{task.status}]  {task.title}{branch}')
+
+
+@task_app.command('find')
+def _find(
+    query: Annotated[str, typer.Argument(help='Free-text phrase to search for.')],
+    *,
+    json_out: Annotated[
+        bool, typer.Option('--json', help='Emit ranked records (with score) as JSON.')
+    ] = False,
+) -> None:
+    """Rank tasks by relevance to a phrase (title/tags/branch/body, weighted)."""
+    results = _run(lambda store: find_tasks(store, query))
+    _emit_find(results, json_out=json_out)
 
 
 @task_app.command('ready')
