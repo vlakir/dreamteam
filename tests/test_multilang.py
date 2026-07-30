@@ -140,3 +140,8 @@ def test_derived_project_passes_pre_push_checks(
             f'{language}: {" ".join(cmd)} failed\n'
             f'stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}'
         )
+
+    # Heavy-run mutex wrapper (T031) ships in every language variant.
+    guard = target / 'scripts' / 'pytest-guard.sh'
+    assert guard.is_file(), f'{language}: pytest-guard.sh missing'
+    assert os.access(guard, os.X_OK), f'{language}: pytest-guard.sh not executable'

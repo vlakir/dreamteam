@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
+source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -65,8 +65,10 @@ scope creep），但可以在既有文档中以任意形式表达。不可变性
 - Linter：`ruff`（规则 `select = ["ALL"]`，搭配固定的 `ignore`）。
 - Type checker：`mypy`，`mypy_path = "src"`。
 - 测试栈：`pytest` + `pytest-cov` + `pytest-asyncio`。Coverage
-  阈值 ≥ 80% 行覆盖率（针对 `src/`，`--cov-fail-under=80`，在
-  `[tool.pytest.ini_options]`）。
+  阈值 ≥ 80% 行覆盖率（针对 `src/`，`--cov-fail-under=80`）。该阈值
+  由 pre-push gate 和 CI 里的**显式命令**强制执行，而不是放在默认
+  `addopts` 里 —— 默认的 `pytest` 刻意保持轻量（见下文「重量级测试运行
+  —— 通过互斥包装器」）。
 - **源码根目录 —— `src/`**（始终，所有项目都如此）。
 - 测试 —— 位于根目录下的 `tests/`（被 `ruff` 排除，但 `pytest`
   通过 `testpaths = ["tests"]` 找到它们）。
@@ -111,7 +113,9 @@ scope creep），但可以在既有文档中以任意形式表达。不可变性
 1. `{{ pm_run }}ruff check .`
 2. `{{ pm_run }}ruff format --check .`
 3. `{{ pm_run }}mypy <code>`
-4. `{{ pm_run }}pytest`（包含 coverage 阈值 ≥ 80%）。
+4. `scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80`
+   —— 带 ≥ 80% coverage 阈值的完整运行，**通过互斥包装器**（见下文
+   「重量级测试运行 —— 通过互斥包装器」）。
 
 **作为一条链一次运行**，任何一步失败都会中断 commit：
 
@@ -119,7 +123,7 @@ scope creep），但可以在既有文档中以任意形式表达。不可变性
 {{ pm_run }}ruff check . && \
 {{ pm_run }}ruff format --check . && \
 {{ pm_run }}mypy <code> && \
-{{ pm_run }}pytest && \
+scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80 && \
 git add -A && git commit -m "..." && git push
 ```
 
@@ -131,6 +135,39 @@ git add -A && git commit -m "..." && git push
 未经开发者明确讨论，不得使用 `# noqa` / `# type: ignore` /
 扩展 `ignore` 段。详见全局 `~/.claude/CLAUDE.md` 的「Linters」与
 「Testing」章节。
+
+## 重量级测试运行 —— 通过互斥包装器
+
+当多个 `git worktree` 共享一台机器时（见下文「在多个 git worktree 中并行
+工作」），共享资源是**内存**。完整 / coverage 运行会占用可观的 RSS；两三个
+同时跑（旁边还开着重量级 IDE）会叠加成 **OOM 或卡死**。包装器
+`scripts/pytest-guard.sh` 通过一个共享的 per-user 锁，把重量级运行在所有
+worktree 之间串行化（并发度 1，阻塞等待：第二个运行排队，等前一个释放锁后
+自行启动）。只有**启动**被串行化 —— 代码和未提交的会话状态从不被触碰。
+
+**规则 —— 什么走包装器，什么直接跑：**
+
+- **完整 / coverage 运行和 pre-push 测试 gate —— 走包装器**
+  （`scripts/pytest-guard.sh …`），而不是裸 runner；尤其是在有并行会话
+  存活时。
+- **单文件运行**（轻量、一次性）—— 可以直接跑
+  （`{{ pm_run }}pytest tests/test_x.py`）；互斥不是必须的。
+- **CI —— 直接跑**（隔离的 runner，无可共享）。
+
+**轻量的默认运行。** coverage 被刻意排除在默认 `addopts` 之外（coverage
+追踪器会抬高 RSS/CPU）：默认的 `{{ pm_run }}pytest` 保持轻量，便于反复的
+本地迭代。≥ 80% 阈值仍被强制执行 —— 只是改由**显式命令**（上面的 gate 4
+和 CI）承担，而不在默认里。
+
+**可选的单次运行内存上限。** 变量 `PYTEST_GUARD_MEM_MAX`（例如 `4G`；`0`
+或未设置 —— 关闭）：在带 systemd 会话的 Linux 上，运行会被放进一个带 RSS
+限额的临时 cgroup，让失控的测试被 OOM-killer **在它自己的 cgroup 内**杀掉
+（该次运行失败，但机器和 IDE 存活），而不是拖垮整个系统。在 Linux/systemd
+之外（macOS、Windows、容器）它是 no-op —— 运行仍走互斥。
+
+**跨平台。** `flock` 属于 util-linux（Linux / 类 macOS）。在没有它的地方
+（Windows），包装器会**优雅降级**：打印一行提示，直接跑测试（不做串行化），
+绝不失败。
 
 ## Git 工作流
 

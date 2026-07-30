@@ -9,6 +9,7 @@ explicitly via `uv run pytest -m integration`.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -40,7 +41,7 @@ def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 
 @pytest.mark.skipif(not _have_uv(), reason='uv binary not in PATH')
 def test_generated_project_passes_pre_push_checks(tmp_path: Path) -> None:
-    """End-to-end: dreamteam init → uv sync → all 4 pre-push checks pass."""
+    """End-to-end: dreamteam init → uv sync → 4 pre-push checks + guard pass."""
     target = tmp_path / 'e2e-project'
     init_result = runner.invoke(app, ['init', str(target), '--defaults'])
     assert init_result.exit_code == 0, init_result.output
@@ -49,11 +50,24 @@ def test_generated_project_passes_pre_push_checks(tmp_path: Path) -> None:
     # Install deps in the generated project
     _run(['uv', 'sync'], cwd=target)
 
-    # 4 pre-push checks
+    # Gates 1-3 + light default pytest (coverage no longer in addopts, T031)
     _run(['uv', 'run', 'ruff', 'check', '.'], cwd=target)
     _run(['uv', 'run', 'ruff', 'format', '--check', '.'], cwd=target)
     _run(['uv', 'run', 'mypy', 'src'], cwd=target)
     _run(['uv', 'run', 'pytest'], cwd=target)
+
+    # Gate 4 proper: the heavy-run mutex wrapper (T031) is shipped, executable,
+    # and runs the explicit ≥80%-on-src coverage gate on the generated project.
+    guard = target / 'scripts' / 'pytest-guard.sh'
+    assert guard.is_file(), 'pytest-guard.sh missing from generated project'
+    assert os.access(guard, os.X_OK), 'pytest-guard.sh is not executable'
+    _run(
+        [
+            'bash', str(guard),
+            '--cov=src', '--cov-report=term-missing', '--cov-fail-under=80',
+        ],
+        cwd=target,
+    )
 
 
 @pytest.mark.skipif(not _have_uv(), reason='uv binary not in PATH')

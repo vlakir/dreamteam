@@ -112,7 +112,14 @@ mypy_path = "src"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["src"]
-addopts = "-q --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80"
+# Coverage is intentionally NOT in the default addopts: the coverage tracer's
+# accumulating data noticeably inflates a full run's peak RSS, so the default
+# `pytest` stays light for repeated local iteration (important when several git
+# worktrees share one machine — see CLAUDE.md → heavy-run mutex). The ≥80%
+# threshold is still enforced, just as an explicit command in the pre-push gate
+# and CI (run through the mutex wrapper):
+#   scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80
+addopts = "-q --tb=short"
 testpaths = ["tests"]
 
 

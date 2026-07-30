@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
+source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -76,8 +76,11 @@ hand.
 - Linter: `ruff` (rule `select = ["ALL"]` with a fixed `ignore`).
 - Type checker: `mypy` with `mypy_path = "src"`.
 - Test stack: `pytest` + `pytest-cov` + `pytest-asyncio`. Coverage
-  threshold ≥ 80% line coverage on `src/` (`--cov-fail-under=80`
-  in `[tool.pytest.ini_options]`).
+  threshold ≥ 80% line coverage on `src/` (`--cov-fail-under=80`). The
+  threshold is enforced by an **explicit command** in the pre-push gate
+  and CI, not by the default `addopts` — the default `pytest` is kept
+  deliberately light (see "Heavy test runs — through the mutex wrapper"
+  below).
 - **Source root — `src/`** (always, in every project).
 - Tests — in `tests/` at the root (`ruff` excludes it, but `pytest`
   finds them via `testpaths = ["tests"]`).
@@ -112,7 +115,9 @@ Before every `git push` run **four** checks, each with 0 errors:
 1. `{{ pm_run }}ruff check .`
 2. `{{ pm_run }}ruff format --check .`
 3. `{{ pm_run }}mypy <code>`
-4. `{{ pm_run }}pytest` (includes coverage threshold ≥ 80%).
+4. `scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80`
+   — the full run with the ≥ 80% coverage threshold **through the mutex
+   wrapper** (see "Heavy test runs — through the mutex wrapper" below).
 
 **Run them as a single chain**, so a failure at any step aborts the
 commit:
@@ -121,7 +126,7 @@ commit:
 {{ pm_run }}ruff check . && \
 {{ pm_run }}ruff format --check . && \
 {{ pm_run }}mypy <code> && \
-{{ pm_run }}pytest && \
+scripts/pytest-guard.sh --cov=src --cov-report=term-missing --cov-fail-under=80 && \
 git add -A && git commit -m "..." && git push
 ```
 
@@ -134,6 +139,45 @@ the cause**. And do not mask exit codes: `pytest | tail -5` returns
 No `# noqa` / `# type: ignore` / `ignore`-section extensions without
 explicit discussion with the Developer. Details — in the global
 `~/.claude/CLAUDE.md`, sections "Linters" and "Testing".
+
+## Heavy test runs — through the mutex wrapper
+
+When several `git worktree`s share one machine (see "Parallel work in
+multiple git worktrees" below), the shared resource is **RAM**. A full /
+coverage run holds a noticeable RSS; two or three at once (next to a
+heavy IDE) stack into **OOM or a freeze**. The wrapper
+`scripts/pytest-guard.sh` serialises heavy runs across ALL worktrees
+through a shared per-user lock (concurrency 1, blocking wait: the second
+run waits its turn and starts by itself). Only the **launch** is
+serialised — code and uncommitted session state are never touched.
+
+**Rule — what goes through the wrapper, what goes direct:**
+
+- **Full / coverage run and the pre-push test gate — through the
+  wrapper** (`scripts/pytest-guard.sh …`), not the bare runner;
+  especially with live parallel sessions.
+- **A single-file run** (light, one-off) — may go direct
+  (`{{ pm_run }}pytest tests/test_x.py`); the mutex is optional.
+- **CI — direct** (isolated runner, nothing to share).
+
+**Light default run.** Coverage is kept out of the default `addopts`
+(the coverage tracer inflates RSS/CPU): the default `{{ pm_run }}pytest`
+stays light for repeated local iteration. The ≥ 80% threshold is still
+enforced — just by an **explicit command** (gate 4 above and CI), not by
+the default.
+
+**Optional per-run memory cap.** The variable `PYTEST_GUARD_MEM_MAX`
+(e.g. `4G`; `0` or unset — off): on Linux with a systemd session the run
+is launched in a transient cgroup with an RSS limit, so a runaway test
+is killed by the OOM-killer **inside its own cgroup** (the run fails,
+but the machine and the IDE survive) instead of taking down the system.
+Outside Linux/systemd (macOS, Windows, containers) it is a no-op — the
+run still goes through the mutex.
+
+**Cross-platform.** `flock` is util-linux (Linux / macOS-like). Where it
+is absent (Windows) the wrapper **degrades gracefully**: it prints one
+notice line and runs the tests directly (no serialisation), never
+failing.
 
 ## Git workflow
 

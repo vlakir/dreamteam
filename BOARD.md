@@ -24,6 +24,19 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
      релизе. После переноса — очищаем. Очищено при release cut
      1.3.0 — 2026-05-15. -->
 
+- **T031** — [closed 2026-07-30, PR T031-pytest-guard] Дисциплина тяжёлых
+  тест-прогонов при параллельных worktree в шаблоне. Продолжение T030:
+  общий ресурс — RAM, полный/coverage-прогон в нескольких worktree
+  стекается в OOM/зависание. Зашито самодостаточно: мьютекс-обёртка
+  `template/scripts/pytest-guard.sh` (drop-in префикс, per-user `flock`,
+  concurrency 1, блокирующее ожидание; раннер по `package_manager`; без
+  `flock`/Windows — прямой прогон, opt-in mem-cap `PYTEST_GUARD_MEM_MAX`
+  через systemd cgroup), вынос coverage из дефолтного `addopts` (порог
+  ≥80% — явной командой в гейте 4 + CI), новый раздел «Тяжёлые
+  тест-прогоны — через мьютекс-обёртку» в генерируемом `CLAUDE.md`
+  (source `ru` + re-bootstrap `en/fr/de/zh`). ADR + CHANGELOG
+  `[Unreleased]`. Интеграция: `test_template` гонит обёртку с coverage,
+  `test_multilang` проверяет наличие+executable ×5 языков.
 - **T030** — [closed 2026-07-30, PR T030-worktree-methodology] Методика
   параллельных git worktree + memory-agnostic принцип в шаблоне. В
   генерируемый `CLAUDE.md` добавлены два самодостаточных раздела: «Где
