@@ -24,6 +24,12 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
      релизе. После переноса — очищаем. Очищено при release cut
      1.3.0 — 2026-05-15. -->
 
+- **T032** — [closed 2026-07-30, PR T032-derived-ruff-cpy001] Сгенерённые
+  проекты падали на своём же pre-push `ruff check` (`CPY001` из свежего
+  `ruff`, вышел из preview при `select = ["ALL"]`). Фикс: `CPY001` в
+  `ignore`-лист шаблона (`src/dreamteam/template/pyproject.toml`). ADR +
+  CHANGELOG `[Unreleased]` → Fixed. Проверено: `dreamteam init` → derived
+  `ruff` зелёный; integration 52 passed; полный сьют 151 passed, cov 88%.
 - **T026** — [closed 2026-07-05, текущий PR] Роли команды: Архитектор
   (read-only субагент) + Дизайнер (Claude Design MCP) в шаблоне. Все 9
   фаз §8 + ADR §9 закрыты. Рендер шапка+тело (partials под `_exclude`
