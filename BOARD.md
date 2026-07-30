@@ -28,3 +28,6 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 - **T033** — Каркас хранилища и модель задачи (фундамент E1: резолв
   `$DT_HOME`, `<slug>`, ленивое создание store, pydantic-модель `Task`
   с round-trip). `[closed 2026-07-30, PR T033-store-core]`
+- **T034** — Базовые операции над задачами: `dt task new/show/move/split`,
+  выдача ID через `counter` + `O_EXCL`, `--json`, `parent`/`blocks`.
+  `[closed 2026-07-30, PR T034-task-ops]`
