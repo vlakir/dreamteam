@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -207,6 +207,93 @@ If the Developer has a global `~/.claude/CLAUDE.md` configured —
 that file holds the extended version of these rules (sections
 "Never push directly to main", "One PR — one commit", "Code review
 on every PR"). The short version above is a self-contained source.
+
+## Where project knowledge lives (memory-agnostic)
+
+**Core principle: all durable project knowledge lives INSIDE the
+project** — in its repository (`CLAUDE.md`, `DECISIONS.md`, `docs/`,
+`specs/`, `BOARD.md` / `BACKLOG.md`). Any **external** persistent
+assistant-memory layer (if the Developer has one at all — they may not)
+is **only an optional duplicate / backup**; the methodology must work
+even WITHOUT it.
+
+The reason is twofold:
+
+1. External assistant memory is often tied to a path / machine and does
+   not travel or get shared between working copies (worktrees) and
+   platforms.
+2. Knowledge about the project should travel with the repository to
+   anyone who clones it.
+
+**The rule:** first record the fact in the project's files, and only
+then (if such a mechanism exists) optionally mirror it outside. "Mirror
+it if you like, but everything about the project is inside the project."
+
+## Working in parallel across several git worktrees
+
+Several tasks can run **at the same time**, each in its own
+`git worktree` (a separate working copy of the repository, shared
+`.git`), so you don't switch branches inside a single checkout. At such
+a moment **several Claude sessions** may be working in parallel in
+different folders — one per worktree. They must know about each other
+and not collide.
+
+**The registry is the built-in `git worktree list`.** All worktrees
+share one `.git`, so from any clone folder `git worktree list` shows ALL
+sibling worktrees (path + branch + HEAD). No homemade registry file is
+needed.
+
+**Start ritual.** At the start of a session — `git worktree list` +
+`git branch --show-current`. If there is more than one worktree,
+**another session may be working** nearby on a different branch; its
+path and branch are **someone else's territory**.
+
+**Isolation (hard):**
+
+- One worktree = one task = one branch. Do not check out, commit,
+  rebase or push into someone else's branch; do not edit files under
+  someone else's worktree path.
+- Run gates and tests from **your own** environment. An inherited
+  virtual-environment variable may point at **another** folder's
+  environment — activate / point to your own, otherwise you run the
+  checks in the wrong environment.
+- **Shared "append-at-the-top" journals** (`DECISIONS.md`,
+  `CHANGELOG.md`, `BOARD.md`, `BACKLOG.md`) almost always conflict when
+  two parallel tasks merge. Touch **only your own task's entry**; before
+  the PR always `git fetch` + `git rebase` onto fresh `main` and resolve
+  conflicts (usually — keep the others' entries, add yours). Code of
+  different tasks usually merges cleanly — it is the journal text that
+  conflicts.
+
+**Worktree lifecycle:**
+
+- Create: `git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>` (or onto
+  an existing branch).
+- Before the PR: `git fetch` → rebase onto fresh `main` → squash into
+  one commit (the "one PR — one commit" rule) → push → PR → review.
+- After merge: `git worktree prune` + delete the local branch.
+
+**Clean up after yourself — asking permission.** Once a task or a
+related group of tasks is done, **propose removing the clone folder**
+(worktree). But the clone may hold something needed (uncommitted work,
+local notes, artifacts), so `git worktree remove` — **only after an
+explicit "yes"** from the Developer. Do not remove it silently. The main
+checkout and other people's worktrees are left untouched.
+
+**Shared dev services — one instance per user.** If launching the app
+brings up shared resources (a database, containers, a local config, a
+busy port), two parallel copies **share** them — diverging
+migrations / state, a fight over the port. Warn, and show how to isolate
+(a separate DB / config / port per worktree).
+
+**Memory is NOT shared between folders.** The assistant's file-based
+auto-memory, if it has one, is usually tied to the cwd path: a session
+started **inside** a clone folder gets a SEPARATE (empty) memory and
+does NOT see the main folder's memory. So keep durable knowledge in the
+repository's files (they are present in every worktree) — see "Where
+project knowledge lives (memory-agnostic)" above. By default prefer
+starting the session from the main folder and working on the worktree
+via absolute paths.
 
 ## Project-specific rules
 
