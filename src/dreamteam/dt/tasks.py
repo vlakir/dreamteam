@@ -16,7 +16,8 @@ from __future__ import annotations
 import datetime
 import os
 import re
-from typing import TYPE_CHECKING, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 from dreamteam.dt.model import (
     TASK_STATUSES,
@@ -27,17 +28,39 @@ from dreamteam.dt.model import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from pathlib import Path
 
     from dreamteam.dt.model import TaskStatus
 
 _COUNTER_NAME = 'counter'
 _ID_MIN_DIGITS = 3
-# Canonical task ID: `T` + at least three digits. Validating every externally
-# supplied ID before it reaches the filesystem keeps a crafted value like
-# `../../repo/.git/x` from escaping `$DT_STORE/tasks` (path traversal) and
-# honours the T033 invariant "never operate inside git".
-_ID_RE = re.compile(r'^T\d{3,}$')
+# Canonical task ID: `T` + at least three ASCII digits. Validating every
+# externally supplied ID before it reaches the filesystem keeps a crafted value
+# like `../../repo/.git/x` from escaping `$DT_STORE/tasks` (path traversal) and
+# honours the T033 invariant "never operate inside git". `[0-9]` (not `\d`) is
+# deliberate: `\d` also matches unicode digits (e.g. `T۰۰۱`), which would yield
+# a valid-but-surprising filename — robustness, not a security boundary.
+_ID_RE = re.compile(r'^T[0-9]{3,}$')
+
+_ISSUE_ERROR = 'error'
+_ISSUE_WARNING = 'warning'
+
+
+class CheckIssue(NamedTuple):
+    """
+    One integrity finding from :func:`check_tasks`.
+
+    ``kind`` is ``'error'`` (fails the pre-push gate) or ``'warning'``
+    (informational, exit 0). ``task_id`` anchors the finding to a record.
+    """
+
+    task_id: str
+    kind: str
+    message: str
+
+    @property
+    def is_error(self) -> bool:
+        """True for a gate-failing finding (``kind == 'error'``)."""
+        return self.kind == _ISSUE_ERROR
 
 
 def _today() -> datetime.date:
@@ -276,3 +299,192 @@ def split_task(
         message = f'parent task {parent_id!r} not found in {_tasks_dir(store)}'
         raise TaskError(message)
     return new_task(store, title, parent=parent_id, today=today)
+
+
+def load_all_tasks(store: Path) -> dict[str, Task]:
+    """
+    Load every task record in ``$DT_STORE/tasks``, keyed by on-disk ID (stem).
+
+    Only files whose stem is a canonical ``T<NNN>`` are loaded; stray files are
+    ignored so a hand-dropped note never breaks the graph walk. Shared by
+    ``check`` and ``ready`` (and later ``board``, T037).
+    """
+    tasks_dir = _tasks_dir(store)
+    if not tasks_dir.exists():
+        return {}
+    records: dict[str, Task] = {}
+    for path in sorted(tasks_dir.glob('T*.md')):
+        if _ID_RE.match(path.stem):
+            records[path.stem] = load_task(path)
+    return records
+
+
+def _dangling_ref_issues(tasks: dict[str, Task]) -> list[CheckIssue]:
+    """Flag ``deps``/``parent`` pointing at IDs absent from the store."""
+    issues: list[CheckIssue] = []
+    for task_id in sorted(tasks):
+        task = tasks[task_id]
+        issues.extend(
+            CheckIssue(task_id, _ISSUE_ERROR, f'dep {dep!r} references unknown task')
+            for dep in task.deps
+            if dep not in tasks
+        )
+        if task.parent is not None and task.parent not in tasks:
+            issues.append(
+                CheckIssue(
+                    task_id,
+                    _ISSUE_ERROR,
+                    f'parent {task.parent!r} references unknown task',
+                )
+            )
+    return issues
+
+
+def _find_cycles(tasks: dict[str, Task]) -> list[list[str]]:
+    """
+    Return every distinct ``deps`` cycle as a node list (self-loop = length 1).
+
+    Three-colour DFS over the edge "task → each of its ``deps``". Dangling deps
+    are skipped here (reported separately). A back-edge to a node still on the
+    stack marks a cycle; cycles are de-duplicated by node set so the same loop
+    entered from different starts is reported once.
+    """
+    white, gray, black = 0, 1, 2
+    color = dict.fromkeys(tasks, white)
+    stack: list[str] = []
+    cycles: list[list[str]] = []
+    seen: set[frozenset[str]] = set()
+
+    def visit(node: str) -> None:
+        color[node] = gray
+        stack.append(node)
+        for nxt in tasks[node].deps:
+            if nxt not in color:
+                continue
+            if color[nxt] == gray:
+                cycle = stack[stack.index(nxt) :]
+                key = frozenset(cycle)
+                if key not in seen:
+                    seen.add(key)
+                    cycles.append(cycle)
+            elif color[nxt] == white:
+                visit(nxt)
+        stack.pop()
+        color[node] = black
+
+    for node in sorted(tasks):
+        if color[node] == white:
+            visit(node)
+    return cycles
+
+
+def _cycle_issues(tasks: dict[str, Task]) -> list[CheckIssue]:
+    """One error per distinct ``deps`` cycle, anchored to its smallest ID."""
+    issues: list[CheckIssue] = []
+    for cycle in _find_cycles(tasks):
+        path = ' -> '.join([*cycle, cycle[0]])
+        issues.append(CheckIssue(min(cycle), _ISSUE_ERROR, f'dependency cycle: {path}'))
+    return sorted(issues)
+
+
+def _spec_present(repo_root: Path, spec: str) -> bool:
+    """
+    True iff ``spec`` resolves to a real file **inside** ``repo_root``.
+
+    ``spec`` must be repo-root-relative (the record contract). An absolute path
+    or one escaping the root via ``..`` is rejected — otherwise
+    ``repo_root / spec`` would silently drop the root (absolute) or point
+    outside it, letting an unrelated out-of-repo file satisfy the check and
+    mask a genuinely missing spec (a false negative in the CI gate).
+    """
+    rel = Path(spec)
+    if rel.is_absolute():
+        return False
+    target = (repo_root / rel).resolve()
+    return target.is_relative_to(repo_root.resolve()) and target.is_file()
+
+
+def _spec_issues(
+    tasks: dict[str, Task],
+    repo_root: Path | None,
+    current_branch: str | None,
+) -> list[CheckIssue]:
+    """
+    Verify ``spec`` files (soft), escalating on the task's own branch.
+
+    ``spec`` is a path relative to the repository root. A missing (or malformed:
+    absolute / escaping) file is a warning — the spec may live only on its
+    task's branch. It becomes an error only when that branch is the one
+    currently checked out (the file should be here and is not). Without a git
+    worktree (``repo_root is None``) the path cannot be resolved, so the check
+    is skipped.
+    """
+    if repo_root is None:
+        return []
+    issues: list[CheckIssue] = []
+    for task_id in sorted(tasks):
+        task = tasks[task_id]
+        if not task.spec or _spec_present(repo_root, task.spec):
+            continue
+        on_task_branch = (
+            task.branch is not None
+            and current_branch is not None
+            and task.branch == current_branch
+        )
+        if on_task_branch:
+            issues.append(
+                CheckIssue(
+                    task_id,
+                    _ISSUE_ERROR,
+                    f'spec file {task.spec!r} not found (task branch '
+                    f'{current_branch!r} is checked out — it must be present here)',
+                )
+            )
+        else:
+            issues.append(
+                CheckIssue(
+                    task_id, _ISSUE_WARNING, f'spec file {task.spec!r} not found'
+                )
+            )
+    return issues
+
+
+def check_tasks(
+    store: Path,
+    *,
+    repo_root: Path | None = None,
+    current_branch: str | None = None,
+) -> list[CheckIssue]:
+    """
+    Validate the task graph: dangling refs, ``deps`` cycles, ``spec`` files.
+
+    Pure and git-free: the git context (``repo_root``, ``current_branch``) is
+    supplied by the caller — the CLI resolves it via :func:`dreamteam.dt.paths`,
+    tests pass it directly. Returns every finding (errors and warnings); the
+    caller decides the exit code. See ``specs/T035-task-validation/spec.md``.
+    """
+    tasks = load_all_tasks(store)
+    return [
+        *_dangling_ref_issues(tasks),
+        *_cycle_issues(tasks),
+        *_spec_issues(tasks, repo_root, current_branch),
+    ]
+
+
+def ready_tasks(store: Path) -> list[Task]:
+    """
+    Tasks in ``todo`` whose every ``dep`` exists and is ``done`` (ID order).
+
+    A task with no deps is ready. A dep that is absent from the store leaves the
+    task un-ready (its ``done`` status cannot be confirmed) — the dangling
+    reference itself is surfaced by :func:`check_tasks`, not here.
+    """
+    tasks = load_all_tasks(store)
+    ready: list[Task] = []
+    for task_id in sorted(tasks):
+        task = tasks[task_id]
+        if task.status != 'todo':
+            continue
+        if all(dep in tasks and tasks[dep].status == 'done' for dep in task.deps):
+            ready.append(task)
+    return ready

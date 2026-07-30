@@ -26,6 +26,26 @@
 
 ### Added
 
+- **T035 — валидация и готовность** (`dt task check` / `dt task ready`,
+  третья задача E1). Целостность графа задач и вопрос «что можно брать»:
+  - `dt task check` — валидация: висячие ссылки `deps`/`parent` (ERROR),
+    циклы в `deps` (ERROR, three-colour DFS, каждый цикл один раз, self-loop
+    — цикл длины 1), существование spec-файла (мягко: WARNING, но ERROR если
+    ветка задачи выгружена — путь резолвится относительно текущей рабочей
+    копии). `--json` = `{errors, warnings}`; код ≠ 0 при любой ошибке.
+  - `dt task ready` — задачи `todo`, у которых все `deps` существуют и в
+    `done` (без deps — готова; висячий dep не делает готовой). `--json` —
+    полные записи.
+  - `dt/tasks.py` (typer-free И git-free): `check_tasks`/`ready_tasks`/
+    `load_all_tasks`; git-контекст (`repo_root`/`current_branch`) входит
+    параметром, добывается в `dt/paths.py` (`git_context`, best-effort,
+    `(None, None)` вне git / detached HEAD → ветка `None`).
+  - Подключение в pre-push: CI-шаг `uv run dt task check` в `ci.yml` рядом
+    с `translate_check` (критерий приёмки E1 №5); на пустом store dreamteam
+    проходит vacuously до догфудинга `migrate` (T042).
+  - Свёрнут микро-нит из ревью T034: `_ID_RE` `\d`→`[0-9]` (ASCII-цифры,
+    unicode `T۰۰۱` отвергается). Робастность, не security.
+  - Спека — `specs/T035-task-validation/spec.md`; ADR в `DECISIONS.md`.
 - **T034 — базовые операции над задачами** (`dt task new/show/move/split`,
   вторая задача E1). Первые пользовательские команды оперативного слоя
   поверх фундамента T033:

@@ -47,3 +47,6 @@ jobs:
 
       - name: Translate check (multilang source_hash guard)
         run: uv run python scripts/translate_check.py
+
+      - name: Task graph check (dt task check)
+        run: uv run dt task check

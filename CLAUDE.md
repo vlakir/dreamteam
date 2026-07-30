@@ -62,6 +62,13 @@ uv build                                 # wheel + sdist в dist/
 3. `uv run mypy src`
 4. `uv run pytest` (fast suite; integration tests запускаются точечно).
 
+CI (`.github/workflows/ci.yml`) прогоняет эти четыре плюс два guard-шага:
+`scripts/translate_check.py` (multilang `source_hash`) и `uv run dt task check`
+(целостность графа задач — циклы `deps`, битые `parent`-ссылки, мягкая
+проверка spec-файлов; T035). На пустом store самого dreamteam `dt task check`
+проходит vacuously — станет осмысленным после догфудинга `dt migrate tasks`
+(T042).
+
 Никаких `# noqa` / `# type: ignore` / расширений `ignore`-секций без
 явного обсуждения с Разработчиком — даже когда ruff выдаёт ложно-
 положительные срабатывания (типичные false positives и обходы без
