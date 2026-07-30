@@ -17,7 +17,7 @@ without losing unknown fields — see ``specs/T033-store-core/spec.md`` §3.
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,6 +26,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 TaskStatus = Literal['todo', 'doing', 'review', 'done', 'dropped']
+# Single source for the allowed status values, derived from the Literal so the
+# two never drift. Used by `dt task move` validation (T034) and `check` (T035).
+TASK_STATUSES: tuple[TaskStatus, ...] = get_args(TaskStatus)
 
 _FRONTMATTER_FENCE = '---'
 _BOM = '﻿'
