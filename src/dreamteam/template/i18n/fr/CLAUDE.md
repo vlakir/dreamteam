@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -242,6 +242,98 @@ ce fichier contient la version étendue de ces règles (sections
 « Ne jamais pusher directement sur main », « Une PR — un commit »,
 « Code review sur chaque PR »). La version courte ci-dessus suffit
 comme source autonome.
+
+## Où vit la connaissance du projet (memory-agnostic)
+
+**Principe central : toute connaissance durable du projet vit À
+L'INTÉRIEUR du projet** — dans son dépôt (`CLAUDE.md`, `DECISIONS.md`,
+`docs/`, `specs/`, `BOARD.md` / `BACKLOG.md`). Toute couche **externe**
+de mémoire persistante de l'assistant (si le Développeur en a une —
+peut-être pas) n'est **qu'un double / une sauvegarde optionnels** ; la
+méthodologie doit fonctionner même SANS elle.
+
+La raison est double :
+
+1. La mémoire externe de l'assistant est souvent liée à un chemin / une
+   machine et ne se transporte ni ne se partage entre les copies de
+   travail (worktrees) et les plateformes.
+2. La connaissance du projet doit voyager avec le dépôt vers quiconque
+   le clone.
+
+**La règle :** enregistre d'abord le fait dans les fichiers du projet,
+et seulement ensuite (si un tel mécanisme existe) duplique-le
+éventuellement à l'extérieur. « Duplique si tu veux, mais tout ce qui
+concerne le projet est dans le projet. »
+
+## Travail en parallèle sur plusieurs git worktrees
+
+Plusieurs tâches peuvent être menées **en même temps**, chacune dans son
+propre `git worktree` (une copie de travail distincte du dépôt, `.git`
+partagé), pour ne pas changer de branche dans un seul checkout. À ce
+moment-là, **plusieurs sessions Claude** peuvent travailler en parallèle
+dans des dossiers différents — une par worktree. Elles doivent se
+connaître mutuellement et ne pas se télescoper.
+
+**Le registre, c'est le `git worktree list` intégré.** Tous les
+worktrees partagent un seul `.git`, donc depuis n'importe quel dossier
+cloné `git worktree list` montre TOUS les worktrees frères (chemin +
+branche + HEAD). Aucun fichier-registre maison n'est nécessaire.
+
+**Rituel de démarrage.** Au début d'une session — `git worktree list` +
+`git branch --show-current`. S'il y a plus d'un worktree, **une autre
+session travaille peut-être** à côté sur une autre branche ; son chemin
+et sa branche sont **le territoire de quelqu'un d'autre**.
+
+**Isolation (stricte) :**
+
+- Un worktree = une tâche = une branche. Ne pas checkout, committer,
+  rebaser ni pusher dans la branche d'autrui ; ne pas éditer de fichiers
+  sous le chemin de worktree d'autrui.
+- Lancer les gates et les tests depuis **ton propre** environnement. Une
+  variable d'environnement virtuel héritée peut pointer vers
+  l'environnement d'un **autre** dossier — active / pointe vers le tien,
+  sinon tu lances les vérifications dans le mauvais environnement.
+- **Les journaux « ajout par le haut »** (`DECISIONS.md`,
+  `CHANGELOG.md`, `BOARD.md`, `BACKLOG.md`) entrent presque toujours en
+  conflit lors du merge de deux tâches parallèles. Ne touche **qu'à
+  l'entrée de ta propre tâche** ; avant la PR, toujours `git fetch` +
+  `git rebase` sur un `main` frais et résous les conflits (en général —
+  garder les entrées des autres, ajouter la tienne). Le code de
+  différentes tâches se fusionne d'habitude proprement — c'est le texte
+  des journaux qui entre en conflit.
+
+**Cycle de vie d'un worktree :**
+
+- Créer : `git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>` (ou sur
+  une branche existante).
+- Avant la PR : `git fetch` → rebase sur `main` frais → squash en un
+  seul commit (règle « une PR — un commit ») → push → PR → review.
+- Après le merge : `git worktree prune` + supprimer la branche locale.
+
+**Nettoie derrière toi — en demandant la permission.** Une fois une
+tâche ou un groupe de tâches liées terminé, **propose de retirer le
+dossier cloné** (worktree). Mais le clone peut contenir quelque chose de
+nécessaire (travail non committé, notes locales, artefacts), donc
+`git worktree remove` — **seulement après un « oui » explicite** du
+Développeur. Ne le supprime pas en silence. Le checkout principal et les
+worktrees des autres restent intacts.
+
+**Services de dev partagés — une instance par utilisateur.** Si le
+lancement de l'app fait monter des ressources partagées (une base de
+données, des conteneurs, une config locale, un port occupé), deux copies
+parallèles les **partagent** — migrations / état divergents, bataille
+pour le port. Préviens, et montre comment isoler (une BD / config / port
+distincts par worktree).
+
+**La mémoire n'est PAS partagée entre les dossiers.** L'auto-mémoire
+fichier de l'assistant, s'il en a une, est d'habitude liée au chemin
+cwd : une session démarrée **à l'intérieur** d'un dossier cloné obtient
+une mémoire SÉPARÉE (vide) et ne voit PAS la mémoire du dossier
+principal. Garde donc la connaissance durable dans les fichiers du dépôt
+(ils sont présents dans chaque worktree) — voir « Où vit la connaissance
+du projet (memory-agnostic) » ci-dessus. Par défaut, préfère démarrer la
+session depuis le dossier principal et travailler sur le worktree via
+des chemins absolus.
 
 ## Règles spécifiques au projet
 

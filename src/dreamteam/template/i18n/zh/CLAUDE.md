@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: cc4fd8b518658944cdb1fc86c6b77cff6331a1a52d6e8ab6b90b82fe9c0ace43
+source_hash: 3378ba9c199376f56b0389d7a6612e7fd845975c02405553a0f7bc4ff17a078a
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -193,6 +193,75 @@ git add -A && git commit -m "..." && git push
 如果开发者配置了全局 `~/.claude/CLAUDE.md` —— 那里有这些规则的扩展
 版本（章节「不要直接 push 到 main」、「一个 PR —— 一个 commit」、
 「每个 PR 的 code review」）。上面的简短版本已是自洽的来源。
+
+## 项目知识存放在哪里（memory-agnostic）
+
+**核心原则：所有 durable 的项目知识都存放在项目内部** —— 在其仓库里
+（`CLAUDE.md`、`DECISIONS.md`、`docs/`、`specs/`、`BOARD.md` /
+`BACKLOG.md`）。助手的任何**外部**持久记忆层（如果开发者有的话 ——
+也可能没有）都**只是可选的副本 / 兜底**；方法论必须在**没有**它时也能
+运转。
+
+原因有二：
+
+1. 助手的外部记忆常绑定到某个路径 / 机器，不随工作副本（worktree）与
+   平台迁移或共享。
+2. 关于项目的知识应当随仓库一起，交给任何克隆它的人。
+
+**规则：**先把事实记入项目文件，之后（如果存在这样的机制）再可选地把它
+镜像到外部。「想镜像就镜像，但关于项目的一切都在项目里。」
+
+## 在多个 git worktree 中并行工作
+
+多个任务可以**同时**推进，每个在自己的 `git worktree`（仓库的独立工作
+副本，共享 `.git`）里，从而不必在同一个 checkout 里切换分支。这种时刻，
+不同文件夹里可能有**多个 Claude 会话**并行工作 —— 每个 worktree 一个。
+它们必须彼此知情，不相互冲撞。
+
+**注册表就是内置的 `git worktree list`。**所有 worktree 共享一个
+`.git`，所以从任何克隆文件夹执行 `git worktree list` 都会列出全部同级
+worktree（路径 + 分支 + HEAD）。不需要自制的注册表文件。
+
+**启动仪式。**会话开始时 —— `git worktree list` +
+`git branch --show-current`。如果 worktree 多于一个，旁边**可能有另一个
+会话**在别的分支上工作；它的路径和分支是**别人的领地**。
+
+**隔离（硬性）：**
+
+- 一个 worktree = 一个任务 = 一个分支。不要 checkout、commit、rebase 或
+  push 到别人的分支；不要编辑别人 worktree 路径下的文件。
+- gate 和测试从**自己的**环境里跑。继承来的虚拟环境变量可能指向**另一个**
+  文件夹的环境 —— 激活 / 指向你自己的，否则你是在错误的环境里跑检查。
+- **共享的「从顶部追加」日志**（`DECISIONS.md`、`CHANGELOG.md`、
+  `BOARD.md`、`BACKLOG.md`）在两个并行任务合并时几乎总会冲突。只碰**你
+  自己任务的条目**；PR 前务必 `git fetch` + `git rebase` 到最新的
+  `main` 并解决冲突（通常 —— 保留别人的条目，写入你自己的）。不同任务的
+  代码通常干净合并 —— 冲突的正是日志文本。
+
+**worktree 生命周期：**
+
+- 创建：`git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>`（或基于已有
+  分支）。
+- PR 前：`git fetch` → 到最新 `main` 上 rebase → squash 成一个 commit
+  （「一个 PR 一个 commit」规则）→ push → PR → review。
+- 合并后：`git worktree prune` + 删除本地分支。
+
+**收拾好自己的东西 —— 先征得许可。**一个任务或一组相关任务完成后，
+**提议移除克隆文件夹**（worktree）。但克隆可能含有需要的东西（未提交的
+工作、本地笔记、产物），所以 `git worktree remove` —— **只有在开发者
+明确说「可以」之后**才做。不要默默删除。主 checkout 和别人的 worktree
+在收拾时不碰。
+
+**共享 dev 服务 —— 每个用户一个实例。**如果启动应用会拉起共享资源
+（数据库、容器、本地配置、被占用的端口），两个并行副本会**共用**它们
+—— 迁移 / 状态发散、争抢端口。要预警，并演示如何隔离（每个 worktree
+一份单独的 DB / 配置 / 端口）。
+
+**记忆在文件夹之间并不共享。**助手基于文件的自动记忆（若有）通常绑定到
+cwd 路径：在克隆文件夹**内部**启动的会话得到一份**单独的（空）**记忆，
+**看不到**主文件夹的记忆。因此把 durable 知识放在仓库文件里（每个
+worktree 都有）—— 见上文「项目知识存放在哪里（memory-agnostic）」。默认
+优先从主文件夹启动会话，并通过绝对路径操作 worktree。
 
 ## 项目特定规则
 
