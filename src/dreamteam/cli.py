@@ -16,6 +16,7 @@ from copier import Worker, run_copy
 
 from dreamteam import __version__
 from dreamteam.task_cli import task_app
+from dreamteam.worktree_cli import worktree_app
 
 ANSWERS_FILE = '.copier-answers.yml'
 BUNDLE_SUBPATH = '.bundle'
@@ -48,6 +49,10 @@ app = typer.Typer(
 # live in `task_cli` (typer-facing) over the typer-free `dt/` core; mounting
 # here exposes them under both the `dt` and `dreamteam` entry points.
 app.add_typer(task_app)
+# Worktree placement and lifecycle (`dt worktree root/path/list/prune`, T036) —
+# same pattern: git-free core in `dt/worktrees`, git helpers in `dt/paths`,
+# Typer wrappers in `worktree_cli`.
+app.add_typer(worktree_app)
 
 
 def _template_path() -> Path:

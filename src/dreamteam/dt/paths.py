@@ -24,10 +24,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 DT_HOME_ENV = 'DT_HOME'
 _DT_SUFFIX = '.dt'
 _SLUG_LENGTH = 8
+_BRANCH_REF_PREFIX = 'refs/heads/'
 
 
 class DtHomeError(Exception):
@@ -218,3 +220,147 @@ def ensure_store(cwd: Path | None = None) -> Path:
     if first_creation:
         sys.stderr.write(f'dreamteam: created operational state directory {home}\n')
     return home
+
+
+class WorktreeInfo(NamedTuple):
+    """
+    One parsed record from ``git worktree list --porcelain``.
+
+    ``branch`` is the short name (``refs/heads/`` stripped) or ``None`` for a
+    detached or bare worktree. ``head`` is the commit SHA (``None`` for a bare
+    repository). Consumed by the git-free worktree logic in
+    :mod:`dreamteam.dt.worktrees`.
+    """
+
+    path: Path
+    branch: str | None
+    head: str | None
+    bare: bool
+    detached: bool
+
+
+def _git_returncode(*args: str, cwd: Path | None = None) -> tuple[int, str]:
+    """
+    Run ``git <args>`` for its exit *code* and stderr; raise on exec failure.
+
+    Some git queries (notably ``merge-base --is-ancestor``) signal their answer
+    through the exit code — 0/1 are both valid results, not errors — so they
+    cannot go through :func:`_run_git` (which raises on any non-zero). Returns
+    ``(returncode, stripped stderr)`` so callers can tell a real answer from a
+    git failure (rc 128); a genuine failure to *launch* git still surfaces as
+    :class:`DtHomeError`.
+    """
+    try:
+        result = subprocess.run(
+            [_git_binary(), *args],
+            cwd=cwd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        message = (
+            f'failed to run git ({exc}); set the DT_HOME environment variable '
+            'to resolve the operational state directory'
+        )
+        raise DtHomeError(message) from exc
+    return result.returncode, result.stderr.strip()
+
+
+def _parse_worktree_porcelain(porcelain: str) -> list[WorktreeInfo]:
+    """Parse ``git worktree list --porcelain`` blocks into :class:`WorktreeInfo`."""
+    infos: list[WorktreeInfo] = []
+    for raw_block in porcelain.split('\n\n'):
+        block = raw_block.strip('\n')
+        if not block:
+            continue
+        path: Path | None = None
+        branch: str | None = None
+        head: str | None = None
+        bare = False
+        detached = False
+        for line in block.split('\n'):
+            if line.startswith('worktree '):
+                path = Path(line.removeprefix('worktree '))
+            elif line.startswith('HEAD '):
+                head = line.removeprefix('HEAD ')
+            elif line.startswith('branch '):
+                ref = line.removeprefix('branch ')
+                branch = ref.removeprefix(_BRANCH_REF_PREFIX)
+            elif line == 'detached':
+                detached = True
+            elif line == 'bare':
+                bare = True
+        if path is not None:
+            infos.append(
+                WorktreeInfo(
+                    path=path, branch=branch, head=head, bare=bare, detached=detached
+                )
+            )
+    return infos
+
+
+def list_worktrees(cwd: Path | None = None) -> list[WorktreeInfo]:
+    """All worktrees of the current repository (``git worktree list --porcelain``)."""
+    return _parse_worktree_porcelain(
+        _run_git('worktree', 'list', '--porcelain', cwd=cwd)
+    )
+
+
+def default_base_branch(cwd: Path | None = None) -> str:
+    """
+    Best-effort local base branch to test "merged" against.
+
+    Prefers the remote default (``origin/HEAD`` → e.g. ``main``); falls back to
+    the first existing local ``main``/``master``; defaults to ``main``. The name
+    is *local* so merged-ness is checked offline without a fetch.
+    """
+    try:
+        ref = _run_git('symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD', cwd=cwd)
+        return ref.rsplit('/', 1)[-1]
+    except DtHomeError:
+        pass
+    for candidate in ('main', 'master'):
+        code, _ = _git_returncode(
+            'rev-parse', '--verify', '--quiet', f'refs/heads/{candidate}', cwd=cwd
+        )
+        if code == 0:
+            return candidate
+    return 'main'
+
+
+def branch_merged(branch: str, base: str, cwd: Path | None = None) -> bool:
+    """
+    True iff ``branch`` is an ancestor of ``base`` (fully merged, no squash).
+
+    Uses ``git merge-base --is-ancestor`` (exit 0 = ancestor, 1 = not). Correct
+    for merge- and rebase-workflows; a squash-merged branch is *not* an ancestor
+    and reads as not-merged — the safe, conservative answer for ``prune``. Any
+    other exit code (e.g. 128 — a missing ``branch``/``base`` ref) is a real git
+    failure and is raised as :class:`DtHomeError` rather than masked as
+    "not merged", so ``prune`` surfaces the cause instead of a misleading skip.
+    """
+    code, stderr = _git_returncode('merge-base', '--is-ancestor', branch, base, cwd=cwd)
+    if code in (0, 1):
+        return code == 0
+    detail = stderr or 'unknown git failure'
+    message = (
+        f'cannot determine whether {branch!r} is merged into {base!r} '
+        f'(git merge-base exited {code}: {detail})'
+    )
+    raise DtHomeError(message)
+
+
+def worktree_dirty(path: Path) -> bool:
+    """True iff the worktree at ``path`` has uncommitted changes."""
+    return bool(_run_git('status', '--porcelain', cwd=path))
+
+
+def remove_worktree(path: Path, cwd: Path | None = None) -> None:
+    """Remove the worktree at ``path`` (``git worktree remove``); raise on failure."""
+    _run_git('worktree', 'remove', str(path), cwd=cwd)
+
+
+def delete_branch(branch: str, cwd: Path | None = None) -> None:
+    """Safe-delete a merged local ``branch`` (``git branch -d``); raise if refused."""
+    _run_git('branch', '-d', branch, cwd=cwd)
