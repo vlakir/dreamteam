@@ -31,3 +31,7 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 - **T034** — Базовые операции над задачами: `dt task new/show/move/split`,
   выдача ID через `counter` + `O_EXCL`, `--json`, `parent`/`blocks`.
   `[closed 2026-07-30, PR T034-task-ops]`
+- **T035** — Валидация и готовность: `dt task check` (циклы `deps`,
+  целостность `parent`, мягкая проверка spec), `dt task ready`, подключение
+  `check` в CI/pre-push; свёрнут микро-нит валидатора ID.
+  `[closed 2026-07-30, PR T035-task-validation]`

@@ -127,6 +127,24 @@ def worktree_slug(path: Path | None = None) -> str:
     return digest[:_SLUG_LENGTH]
 
 
+def git_context(cwd: Path | None = None) -> tuple[Path | None, str | None]:
+    """
+    Best-effort ``(repo_toplevel, current_branch)`` for the current worktree.
+
+    Returns ``(None, None)`` when not inside a git repository — callers that
+    only need the operational store (``DT_HOME`` override, hooks) degrade
+    gracefully rather than failing. A detached ``HEAD`` yields a ``None``
+    branch (there is no task branch to match against). Used by ``dt task
+    check`` to resolve ``spec`` paths and decide the warning/error escalation.
+    """
+    try:
+        toplevel = Path(_run_git('rev-parse', '--show-toplevel', cwd=cwd))
+        branch = _run_git('rev-parse', '--abbrev-ref', 'HEAD', cwd=cwd)
+    except DtHomeError:
+        return None, None
+    return toplevel, (None if branch == 'HEAD' else branch)
+
+
 def store_dir(cwd: Path | None = None) -> Path:
     """``$DT_STORE`` = ``$DT_HOME/store`` — task records, counter, sessions."""
     return dt_home(cwd=cwd) / 'store'

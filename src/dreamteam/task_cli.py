@@ -16,11 +16,13 @@ from typing import TYPE_CHECKING, Annotated
 import typer
 
 from dreamteam.dt.model import TASK_STATUSES
-from dreamteam.dt.paths import DtHomeError, ensure_store, store_dir
+from dreamteam.dt.paths import DtHomeError, ensure_store, git_context, store_dir
 from dreamteam.dt.tasks import (
     TaskError,
+    check_tasks,
     move_task,
     new_task,
+    ready_tasks,
     show_task,
     split_task,
 )
@@ -28,8 +30,10 @@ from dreamteam.dt.tasks import (
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+    from typing import Any
 
     from dreamteam.dt.model import Task
+    from dreamteam.dt.tasks import CheckIssue
 
 _EXIT_ERROR = 1
 
@@ -40,7 +44,7 @@ task_app = typer.Typer(
 )
 
 
-def _run(action: Callable[[Path], Task]) -> Task:
+def _run[T](action: Callable[[Path], T]) -> T:
     """
     Resolve/create the store, run ``action`` against it, map errors to exit 1.
 
@@ -57,12 +61,16 @@ def _run(action: Callable[[Path], Task]) -> Task:
         raise typer.Exit(code=_EXIT_ERROR) from exc
 
 
-def _to_json(task: Task) -> str:
+def _task_obj(task: Task) -> dict[str, Any]:
     # `body` is excluded from the model dump (it is not frontmatter); the
     # agent-facing JSON contract includes it, so re-attach it explicitly.
     data = task.model_dump(mode='json')
     data['body'] = task.body
-    return json.dumps(data, ensure_ascii=False, indent=2)
+    return data
+
+
+def _to_json(task: Task) -> str:
+    return json.dumps(_task_obj(task), ensure_ascii=False, indent=2)
 
 
 def _human_show(task: Task) -> str:
@@ -177,3 +185,71 @@ def _split(
         json_out=json_out,
         human=f'created {task.id} (parent {parent_id})  {task.title}',
     )
+
+
+def _issue_obj(issue: CheckIssue) -> dict[str, str]:
+    return {'task': issue.task_id, 'kind': issue.kind, 'message': issue.message}
+
+
+def _emit_check(issues: list[CheckIssue], *, json_out: bool) -> None:
+    """Print findings, then exit non-zero if any is an error."""
+    errors = [issue for issue in issues if issue.is_error]
+    warnings = [issue for issue in issues if not issue.is_error]
+    if json_out:
+        payload = {
+            'errors': [_issue_obj(issue) for issue in errors],
+            'warnings': [_issue_obj(issue) for issue in warnings],
+        }
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        for issue in issues:
+            typer.echo(f'  [{issue.kind}] {issue.task_id}  {issue.message}', err=True)
+        summary = (
+            'check: ok'
+            if not issues
+            else f'check: {len(errors)} error(s), {len(warnings)} warning(s)'
+        )
+        typer.echo(summary, err=True)
+    if errors:
+        raise typer.Exit(code=_EXIT_ERROR)
+
+
+def _emit_ready(tasks: list[Task], *, json_out: bool) -> None:
+    if json_out:
+        payload = [_task_obj(task) for task in tasks]
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if not tasks:
+        typer.echo('no ready tasks')
+        return
+    for task in tasks:
+        typer.echo(f'{task.id}  {task.title}')
+
+
+@task_app.command('check')
+def _check(
+    *,
+    json_out: Annotated[
+        bool, typer.Option('--json', help='Emit findings as JSON.')
+    ] = False,
+) -> None:
+    """Validate the task graph; exit non-zero on any integrity error."""
+    repo_root, current_branch = git_context()
+    issues = _run(
+        lambda store: check_tasks(
+            store, repo_root=repo_root, current_branch=current_branch
+        )
+    )
+    _emit_check(issues, json_out=json_out)
+
+
+@task_app.command('ready')
+def _ready(
+    *,
+    json_out: Annotated[
+        bool, typer.Option('--json', help='Emit the ready records as JSON.')
+    ] = False,
+) -> None:
+    """List tasks in ``todo`` whose dependencies are all ``done``."""
+    tasks = _run(ready_tasks)
+    _emit_ready(tasks, json_out=json_out)
