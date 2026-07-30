@@ -35,3 +35,8 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   целостность `parent`, мягкая проверка spec), `dt task ready`, подключение
   `check` в CI/pre-push; свёрнут микро-нит валидатора ID.
   `[closed 2026-07-30, PR T035-task-validation]`
+- **T036** — Размещение и жизненный цикл worktree: `dt worktree
+  root/path/list/prune`; путь вычисляется (`$DT_HOME/worktrees/<branch>`),
+  факт — из `git worktree list --porcelain`; `prune` консервативен
+  (managed-only, слитую ветку удаляет, squash не детектит → пропуск).
+  `[closed 2026-07-30, PR T036-worktrees]`

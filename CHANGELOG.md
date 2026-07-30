@@ -26,6 +26,33 @@
 
 ### Added
 
+- **T036 — размещение и жизненный цикл worktree** (`dt worktree
+  root/path/list/prune`, четвёртая задача E1). Даёт агенту источник пути до
+  рабочей копии задачи (лечит подстановку основной копии) и безопасную уборку:
+  - `dt worktree root` — печатает `$DT_HOME/worktrees` для репозитория.
+  - `dt worktree path <id|branch>` — путь рабочей копии: auto-detect аргумента
+    (точный `T<NNN>` → task ID, читаем поле `branch`; иначе literal branch);
+    фактический из `git worktree list --porcelain`, иначе вычисленный
+    `$DT_HOME/worktrees/<branch>` (нигде не хранится). `--json` =
+    `{branch, path, exists}`.
+  - `dt worktree list` — сопоставление worktree с задачами (по полю `branch`,
+    фолбэк — префикс `T<NNN>`); отдельно «осиротевшие» managed-worktree без
+    задачи. Посторонние (основная копия, ручные) не помечаются. `--json` =
+    `{matched, orphaned}`.
+  - `dt worktree prune` — сносит managed-worktree задач в `done`/`dropped` со
+    слитой веткой и чистым деревом, удаляя и worktree, и слитую локальную
+    ветку (`git branch -d`); **никогда** не трогает грязный/неслитый —
+    пропускает с перечислением всех причин. `--json` =
+    `{removed, skipped, errors}`.
+  - `dt/worktrees.py` — чистое ядро (typer-free И git-free): classify/resolve
+    path, сопоставление, планировщик prune над предвычисленными git-фактами.
+    Git-вызовы (`list_worktrees`/`branch_merged`/`worktree_dirty`/
+    `remove_worktree`/`delete_branch`/автодетект base) — в `dt/paths.py`;
+    Typer-обёртки — `worktree_cli.py`.
+  - Известное ограничение: слитость через `merge-base --is-ancestor` не
+    детектит squash-merge → такая ветка консервативно «не слита» и prune её
+    пропускает (безопасный отказ; ручная уборка методики компенсирует).
+  - Спека — `specs/T036-worktrees/spec.md`; ADR в `DECISIONS.md`.
 - **T035 — валидация и готовность** (`dt task check` / `dt task ready`,
   третья задача E1). Целостность графа задач и вопрос «что можно брать»:
   - `dt task check` — валидация: висячие ссылки `deps`/`parent` (ERROR),
