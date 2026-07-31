@@ -45,3 +45,7 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   от рендера; секции столбиком `todo→doing→review→done`, `dropped` отсеян,
   сортировка `updated` убыв.; `--json` = columns.
   `[closed 2026-07-30, PR T037-board]`
+- **T038** — Поиск задачи по фразе `dt task find`: токены (casefold, Unicode),
+  веса `title>tags/branch>body`, статус active>done, морфология через общий
+  префикс ≥4 (`курсор`~`курсора`); ранжирование score→updated→id; `--json`
+  со score; без эмбеддингов. `[closed 2026-07-30, PR #84]`

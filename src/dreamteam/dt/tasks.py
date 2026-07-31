@@ -315,7 +315,14 @@ def load_all_tasks(store: Path) -> dict[str, Task]:
     records: dict[str, Task] = {}
     for path in sorted(tasks_dir.glob('T*.md')):
         if _ID_RE.match(path.stem):
-            records[path.stem] = load_task(path)
+            record = load_task(path)
+            # The filename stem is the canonical ID — it is the `O_EXCL` race
+            # arbiter (T034) and what `show`/`start` resolve a path from. A
+            # hand-edited record whose frontmatter `id` drifted from its filename
+            # is realigned here, so bulk consumers (`find`/`board`/`ready`) never
+            # emit an ID that a follow-up command cannot open.
+            record.id = path.stem
+            records[path.stem] = record
     return records
 
 
@@ -469,6 +476,105 @@ def check_tasks(
         *_cycle_issues(tasks),
         *_spec_issues(tasks, repo_root, current_branch),
     ]
+
+
+_W_TITLE = 3
+_W_TAG = 2
+_W_BRANCH = 2
+_W_BODY = 1
+# Common-prefix length at/above which two tokens match — crude morphology
+# tolerance without a stemmer (`курсор`~`курсора`, `полноэкранный`~`полноэкранном`).
+# Below it, only exact equality counts (so `cli` does not hit `client`).
+_PREFIX_MIN = 4
+_MIN_TOKEN_LEN = 2
+_ACTIVE_STATUSES = frozenset({'todo', 'doing', 'review'})
+_ACTIVE_FACTOR = 1.0
+_INACTIVE_FACTOR = 0.5
+_TOKEN_RE = re.compile(r'\w+')
+
+
+class ScoredTask(NamedTuple):
+    """A task with its relevance score from :func:`find_tasks` (score > 0)."""
+
+    task: Task
+    score: float
+
+
+def _tokenize(text: str) -> list[str]:
+    """Case-folded Unicode word tokens (Cyrillic included), ≥ 2 chars."""
+    return [
+        token
+        for token in _TOKEN_RE.findall(text.casefold())
+        if len(token) >= _MIN_TOKEN_LEN
+    ]
+
+
+def _token_hit(query: str, candidate: str) -> bool:
+    """True iff two tokens match by shared prefix (≥ 4) or exact when shorter."""
+    shared = len(os.path.commonprefix([query, candidate]))
+    return shared >= _PREFIX_MIN or (shared == len(query) == len(candidate))
+
+
+def _score(task: Task, query_tokens: list[str]) -> float:
+    """
+    Weighted relevance of ``task`` for the query tokens.
+
+    Each query token contributes the *maximum* field weight among the fields it
+    hits (title/tags/branch/body) — not the sum across fields, so a long body
+    cannot outrank a title match. The total is scaled by a status factor
+    (active tasks above finished ones). Returns 0.0 when nothing matches.
+    """
+    fields: tuple[tuple[list[str], int], ...] = (
+        (_tokenize(task.title), _W_TITLE),
+        (_tokenize(' '.join(task.tags)), _W_TAG),
+        (_tokenize(task.branch or ''), _W_BRANCH),
+        (_tokenize(task.body), _W_BODY),
+    )
+    total = 0
+    for query in query_tokens:
+        best = 0
+        for tokens, weight in fields:
+            if weight > best and any(_token_hit(query, token) for token in tokens):
+                best = weight
+        total += best
+    if total == 0:
+        return 0.0
+    factor = _ACTIVE_FACTOR if task.status in _ACTIVE_STATUSES else _INACTIVE_FACTOR
+    return total * factor
+
+
+def find_tasks(store: Path, query: str) -> list[ScoredTask]:
+    """
+    Rank tasks against a free-text ``query`` (highest relevance first).
+
+    Pure and git-free. Searches titles, tags, branches and bodies with field
+    weights and morphology-tolerant prefix matching (see the module constants);
+    keeps only positive scores. Ties break by ``updated`` (newest first) then
+    ID. Empty/whitespace queries yield an empty list. See
+    ``specs/T038-task-find/spec.md``.
+    """
+    query_tokens = _tokenize(query)
+    if not query_tokens:
+        return []
+    scored = [
+        ScoredTask(task, score)
+        for task in load_all_tasks(store).values()
+        if (score := _score(task, query_tokens)) > 0
+    ]
+    scored.sort(
+        key=lambda item: (
+            -item.score,
+            item.task.updated is None,
+            _neg_ordinal(item.task.updated),
+            item.task.id,
+        )
+    )
+    return scored
+
+
+def _neg_ordinal(day: datetime.date | None) -> int:
+    """Negated ordinal for newest-first date sorting (``None`` → 0, sorted last)."""
+    return 0 if day is None else -day.toordinal()
 
 
 def ready_tasks(store: Path) -> list[Task]:
