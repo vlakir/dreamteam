@@ -59,3 +59,9 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   rename внутри CLI (тихо вне tmux), `--json` со спекой и Handover. Чистые
   ядра `dt/slug.py` + `dt/starts.py` + `dt/tmux.py`, git-хелперы в `paths.py`.
   `[closed 2026-08-01, PR #86]`
+- **T040** — Синхронизация BACKLOG.md `dt backlog sync`: статус-независимая
+  проекция store в управляемый блок между маркерами (ручная проза сохранена,
+  self-bootstrap), отказ вне основной ветки без `--force`; чистая функция
+  расхождения `backlog_divergence` для будущего `dt context` (T051). Ядро
+  `dt/backlog.py` (typer-/git-free), обёртка `backlog_cli.py`.
+  `[closed 2026-08-01, PR #87]`

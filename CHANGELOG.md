@@ -26,6 +26,25 @@
 
 ### Added
 
+- **T040 — синхронизация BACKLOG.md** (`dt backlog sync`, точка входа E1,
+  `deps: T034`). Под оперативным слоем `BACKLOG.md` — статус-независимая
+  проекция store в git-слой (design §215–216):
+  - `dt/backlog.py` (pure, git-free): `backlog_items` — незавершённые задачи
+    (`todo`/`doing`/`review`, без `done`/`dropped`) по **числовому** ID;
+    `render_item`/`render_block` — формат `- **T<NNN>** — [<created>] <title>
+    (deps: …; spec: …)`; `sync_backlog` рвёт только регион между маркерами
+    `<!-- dt:backlog:begin/end -->`, сохраняя ручную прозу, self-bootstrap при
+    отсутствии маркеров, идемпотентно (regex с функцией-заменой — заголовки с
+    `\`/`\g` не интерпретируются).
+  - `backlog_divergence(store, backlog_text) → (added, removed)` — чистая
+    функция расхождения BACKLOG↔store для будущего `dt context` (T051):
+    `added` — заведённые вне блока, `removed` — завершённые/выброшенные в блоке.
+    Построена сейчас по декомпозиции дизайн-карточки T008; CLI у неё нет.
+  - `dt backlog sync [--force]` в `backlog_cli.py`: отказ вне основной ветки
+    (`default_base_branch`, detached HEAD и «вне git» — тоже) без `--force`,
+    иначе две ветки дают merge-конфликт BACKLOG.md; `--json` `{backlog,tasks}`.
+    Пишет `repo_root/BACKLOG.md`. Спека `specs/T040-backlog-sync/spec.md`
+    (Analyzed), ADR в `DECISIONS.md`.
 - **T039 — композитный старт задачи** (`dt task start T<NNN>`, точка входа
   E1, `deps: T034, T036`). Одна команда сворачивает рутину начала работы
   (design §326/§336, карточка T007):

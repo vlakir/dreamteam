@@ -15,6 +15,7 @@ import yaml
 from copier import Worker, run_copy
 
 from dreamteam import __version__
+from dreamteam.backlog_cli import backlog_app
 from dreamteam.board_cli import board
 from dreamteam.task_cli import task_app
 from dreamteam.worktree_cli import worktree_app
@@ -58,6 +59,9 @@ app.add_typer(worktree_app)
 # Text kanban (`dt board`, T037) — top-level command (no subcommands yet;
 # `dt board serve` arrives in E10). Model lives in the git-free `dt/board`.
 app.command(name='board')(board)
+# BACKLOG.md projection (`dt backlog sync`, T040) — regenerates the managed
+# block from the store; git-free core in `dt/backlog`, git context in `dt/paths`.
+app.add_typer(backlog_app)
 
 
 def _template_path() -> Path:
