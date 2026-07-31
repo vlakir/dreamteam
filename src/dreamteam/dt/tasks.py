@@ -281,6 +281,30 @@ def move_task(
     return task
 
 
+def start_task(
+    store: Path,
+    task_id: str,
+    branch: str,
+    *,
+    today: datetime.date | None = None,
+) -> Task:
+    """
+    Mark a task started: status → ``doing``, record its ``branch``, bump ``updated``.
+
+    The record-mutation half of the composite ``dt task start`` (T039) — the
+    git/worktree/binding/tmux effects are orchestrated by the CLI. Saves once.
+    Allowed from any status (re-opening a ``done`` task is legitimate).
+    """
+    if today is None:
+        today = _today()
+    task = load_existing(store, task_id)
+    task.status = 'doing'
+    task.branch = branch
+    task.updated = today
+    save_task(_record_path(store, task_id), task)
+    return task
+
+
 def split_task(
     store: Path,
     parent_id: str,

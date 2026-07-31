@@ -267,6 +267,24 @@ def _git_returncode(*args: str, cwd: Path | None = None) -> tuple[int, str]:
     return result.returncode, result.stderr.strip()
 
 
+def _run_git_effect(*args: str, cwd: Path | None = None) -> None:
+    """
+    Run an effectful ``git <args>`` (e.g. ``worktree add``); raise the real cause.
+
+    Unlike :func:`_run_git`, a non-zero exit does **not** assume "not inside a
+    git repository": the command and git's own stderr are surfaced verbatim, so
+    ``dt task start`` reports the actual reason a ``git worktree add`` failed
+    (missing base ref, destination exists, invalid branch name, …) instead of a
+    misleading generic message. A failure to *launch* git still raises
+    :class:`DtHomeError` via :func:`_git_returncode`.
+    """
+    code, stderr = _git_returncode(*args, cwd=cwd)
+    if code != 0:
+        detail = stderr or f'git exited {code}'
+        message = f'git {" ".join(args)} failed: {detail}'
+        raise DtHomeError(message)
+
+
 def _parse_worktree_porcelain(porcelain: str) -> list[WorktreeInfo]:
     """Parse ``git worktree list --porcelain`` blocks into :class:`WorktreeInfo`."""
     infos: list[WorktreeInfo] = []
@@ -354,6 +372,45 @@ def branch_merged(branch: str, base: str, cwd: Path | None = None) -> bool:
 def worktree_dirty(path: Path) -> bool:
     """True iff the worktree at ``path`` has uncommitted changes."""
     return bool(_run_git('status', '--porcelain', cwd=path))
+
+
+def local_branch_exists(branch: str, cwd: Path | None = None) -> bool:
+    """
+    True iff a local ``refs/heads/<branch>`` exists (no network).
+
+    Used by ``dt task start`` (T039) to decide whether ``git worktree add``
+    needs ``-b`` (create the branch) or can attach to the existing one. Uses the
+    exit code of ``rev-parse --verify --quiet`` (0 = exists, 1 = absent).
+    """
+    code, _ = _git_returncode(
+        'rev-parse', '--verify', '--quiet', f'{_BRANCH_REF_PREFIX}{branch}', cwd=cwd
+    )
+    return code == 0
+
+
+def add_worktree(
+    path: Path,
+    branch: str,
+    *,
+    create_branch: bool,
+    base: str | None = None,
+    cwd: Path | None = None,
+) -> None:
+    """
+    Create a worktree at ``path`` for ``branch`` (``dt task start``, T039).
+
+    With ``create_branch`` the branch is created off ``base`` (a local ref;
+    ``HEAD`` when ``base`` is ``None``) via ``git worktree add -b``; otherwise it
+    attaches to the existing branch. No network call is made. On git failure the
+    real cause (git's stderr) is surfaced via :func:`_run_git_effect` — e.g. a
+    missing ``base`` ref or an already-existing destination.
+    """
+    if create_branch:
+        _run_git_effect(
+            'worktree', 'add', '-b', branch, str(path), base or 'HEAD', cwd=cwd
+        )
+    else:
+        _run_git_effect('worktree', 'add', str(path), branch, cwd=cwd)
 
 
 def remove_worktree(path: Path, cwd: Path | None = None) -> None:

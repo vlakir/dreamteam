@@ -11,22 +11,45 @@ as ``dt task …`` and ``dreamteam task …``. See ``specs/T034-task-ops/spec.md
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, NamedTuple
 
 import typer
 
 from dreamteam.dt.model import TASK_STATUSES
-from dreamteam.dt.paths import DtHomeError, ensure_store, git_context, store_dir
+from dreamteam.dt.paths import (
+    DtHomeError,
+    add_worktree,
+    by_worktree_dir,
+    default_base_branch,
+    ensure_store,
+    git_context,
+    list_worktrees,
+    local_branch_exists,
+    store_dir,
+    worktree_slug,
+    worktrees_dir,
+)
+from dreamteam.dt.slug import branch_name
+from dreamteam.dt.starts import (
+    context_line,
+    extract_handover,
+    plan_start,
+    write_binding,
+)
 from dreamteam.dt.tasks import (
     TaskError,
     check_tasks,
     find_tasks,
+    load_existing,
     move_task,
     new_task,
     ready_tasks,
     show_task,
     split_task,
+    start_task,
 )
+from dreamteam.dt.tmux import rename_window
+from dreamteam.dt.worktrees import resolve_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,6 +60,18 @@ if TYPE_CHECKING:
     from dreamteam.dt.tasks import CheckIssue, ScoredTask
 
 _EXIT_ERROR = 1
+
+
+class StartResult(NamedTuple):
+    """Outcome of ``dt task start`` for human/JSON rendering."""
+
+    task: Task
+    branch: str
+    worktree: Path
+    worktree_created: bool
+    branch_created: bool
+    tmux_renamed: bool
+
 
 task_app = typer.Typer(
     name='task',
@@ -186,6 +221,82 @@ def _split(
         json_out=json_out,
         human=f'created {task.id} (parent {parent_id})  {task.title}',
     )
+
+
+def _do_start(store: Path, task_id: str) -> StartResult:
+    """
+    Orchestrate ``dt task start``: branch + worktree, record, binding, tmux.
+
+    Effects are ordered most-fragile-first (git ``worktree add`` before any
+    record/binding write) so a git failure leaves no half-applied state
+    (spec A6). The branch is the record's ``branch`` if already set (idempotent
+    re-run), else generated from the title.
+    """
+    task = load_existing(store, task_id)
+    branch = task.branch or branch_name(task_id, task.title)
+    managed_root = worktrees_dir()
+    path, worktree_exists = resolve_path(managed_root, branch, list_worktrees())
+    plan = plan_start(
+        branch,
+        path,
+        worktree_exists=worktree_exists,
+        branch_exists=local_branch_exists(branch),
+    )
+    if plan.create_worktree:
+        base = default_base_branch() if plan.create_branch else None
+        add_worktree(
+            plan.path, plan.branch, create_branch=plan.create_branch, base=base
+        )
+    started = start_task(store, task_id, plan.branch)
+    write_binding(
+        by_worktree_dir(), worktree_slug(plan.path), task_id, context_line(started)
+    )
+    return StartResult(
+        task=started,
+        branch=plan.branch,
+        worktree=plan.path,
+        worktree_created=plan.create_worktree,
+        branch_created=plan.create_branch,
+        tmux_renamed=rename_window(task_id),
+    )
+
+
+def _start_obj(result: StartResult) -> dict[str, Any]:
+    return {
+        'id': result.task.id,
+        'status': result.task.status,
+        'branch': result.branch,
+        'worktree': str(result.worktree),
+        'worktree_created': result.worktree_created,
+        'branch_created': result.branch_created,
+        'spec': result.task.spec or '',
+        'handover': extract_handover(result.task.body),
+        'tmux_renamed': result.tmux_renamed,
+    }
+
+
+def _emit_start(result: StartResult, *, json_out: bool) -> None:
+    if json_out:
+        typer.echo(json.dumps(_start_obj(result), ensure_ascii=False, indent=2))
+        return
+    verb = 'created' if result.worktree_created else 'reused'
+    typer.echo(f'{result.task.id} → {result.task.status}  {result.branch}')
+    typer.echo(f'  worktree {verb}: {result.worktree}')
+    if result.tmux_renamed:
+        typer.echo(f'  tmux window renamed to {result.task.id}')
+
+
+@task_app.command('start')
+def _start(
+    task_id: Annotated[str, typer.Argument(help='Task ID, e.g. T034.')],
+    *,
+    json_out: Annotated[
+        bool, typer.Option('--json', help='Emit the start result as JSON.')
+    ] = False,
+) -> None:
+    """Start a task: status → doing, create/attach branch + worktree, bind, tmux."""
+    result = _run(lambda store: _do_start(store, task_id))
+    _emit_start(result, json_out=json_out)
 
 
 def _issue_obj(issue: CheckIssue) -> dict[str, str]:
