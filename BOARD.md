@@ -49,3 +49,7 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   веса `title>tags/branch>body`, статус active>done, морфология через общий
   префикс ≥4 (`курсор`~`курсора`); ранжирование score→updated→id; `--json`
   со score; без эмбеддингов. `[closed 2026-07-30, PR #84]`
+- **T058** — `dt task check` предупреждает о дрейфе frontmatter `id` ↔ имя
+  файла (follow-up ревью T038): сравнивает сырой `load_task(path).id` с именем
+  файла → WARNING (не ERROR — стор самоисцеляется). Acceptance: запись с
+  `id`≠stem даёт warning, `check` не падает. `[closed 2026-08-01, PR #85]`
