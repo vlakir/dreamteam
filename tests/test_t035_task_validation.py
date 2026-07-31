@@ -204,6 +204,32 @@ def test_check_spec_escaping_path_is_not_present(store: Path, tmp_path: Path) ->
 
 
 # --------------------------------------------------------------------------- #
+# check_tasks — frontmatter id / filename drift (T058)                         #
+# --------------------------------------------------------------------------- #
+
+
+def test_check_id_matching_filename_has_no_issue(store: Path) -> None:
+    _write(store, 'T001')
+    assert check_tasks(store) == []
+
+
+def test_check_id_mismatch_is_warning(store: Path) -> None:
+    # Filename stem T001, but frontmatter id drifted to T999 (a hand-edit).
+    save_task(store / 'tasks' / 'T001.md', Task(id='T999', title='drift'))
+    issues = check_tasks(store)
+    assert [(i.task_id, i.kind) for i in issues] == [('T001', 'warning')]
+    assert 'differs from filename' in issues[0].message
+
+
+def test_check_id_mismatch_does_not_fail_gate(store: Path) -> None:
+    # A mismatch is a warning, never an error — the store self-heals, so the
+    # pre-push gate must not fail on it.
+    save_task(store / 'tasks' / 'T001.md', Task(id='T999', title='drift'))
+    issues = check_tasks(store)
+    assert not any(issue.is_error for issue in issues)
+
+
+# --------------------------------------------------------------------------- #
 # ready_tasks                                                                 #
 # --------------------------------------------------------------------------- #
 

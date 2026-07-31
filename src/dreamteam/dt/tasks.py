@@ -301,29 +301,45 @@ def split_task(
     return new_task(store, title, parent=parent_id, today=today)
 
 
+def _scan_records(store: Path) -> tuple[dict[str, Task], list[tuple[str, str]]]:
+    """
+    Parse the task records once: canonical dict plus ``id``-drift pairs.
+
+    The filename stem is the canonical ID — it is the ``O_EXCL`` race arbiter
+    (T034) and what ``show``/``start`` resolve a path from. Each record's ``id``
+    is realigned to its stem so bulk consumers (``find``/``board``/``ready``)
+    never emit an ID a follow-up command cannot open. A record whose raw
+    frontmatter ``id`` drifted from its filename (a hand-edit) is collected as a
+    ``(stem, raw_id)`` pair *before* realignment, so ``check`` can warn about it
+    from this single parse — no second read. Stray, non-``T<NNN>`` files are
+    ignored so a hand-dropped note never breaks the walk.
+    """
+    tasks_dir = _tasks_dir(store)
+    if not tasks_dir.exists():
+        return {}, []
+    records: dict[str, Task] = {}
+    drift: list[tuple[str, str]] = []
+    for path in sorted(tasks_dir.glob('T*.md')):
+        if not _ID_RE.match(path.stem):
+            continue
+        record = load_task(path)
+        if record.id != path.stem:
+            drift.append((path.stem, record.id))
+        record.id = path.stem
+        records[path.stem] = record
+    return records, drift
+
+
 def load_all_tasks(store: Path) -> dict[str, Task]:
     """
     Load every task record in ``$DT_STORE/tasks``, keyed by on-disk ID (stem).
 
-    Only files whose stem is a canonical ``T<NNN>`` are loaded; stray files are
-    ignored so a hand-dropped note never breaks the graph walk. Shared by
-    ``check`` and ``ready`` (and later ``board``, T037).
+    Thin wrapper over :func:`_scan_records` returning only the records (drift is
+    for ``check``). Only ``T<NNN>`` stems are loaded and each ``id`` is
+    canonicalized to its filename. Shared by ``check``, ``ready``, ``find`` and
+    ``board``.
     """
-    tasks_dir = _tasks_dir(store)
-    if not tasks_dir.exists():
-        return {}
-    records: dict[str, Task] = {}
-    for path in sorted(tasks_dir.glob('T*.md')):
-        if _ID_RE.match(path.stem):
-            record = load_task(path)
-            # The filename stem is the canonical ID — it is the `O_EXCL` race
-            # arbiter (T034) and what `show`/`start` resolve a path from. A
-            # hand-edited record whose frontmatter `id` drifted from its filename
-            # is realigned here, so bulk consumers (`find`/`board`/`ready`) never
-            # emit an ID that a follow-up command cannot open.
-            record.id = path.stem
-            records[path.stem] = record
-    return records
+    return _scan_records(store)[0]
 
 
 def _dangling_ref_issues(tasks: dict[str, Task]) -> list[CheckIssue]:
@@ -456,6 +472,27 @@ def _spec_issues(
     return issues
 
 
+def _id_mismatch_issues(drift: list[tuple[str, str]]) -> list[CheckIssue]:
+    """
+    Warn for each ``(stem, raw_id)`` where a record's frontmatter ``id`` drifted.
+
+    The filename is authoritative — :func:`_scan_records` realigns ``id`` to the
+    stem in memory, so the tool keeps working, but the on-disk record is
+    inconsistent (usually a hand-edit). A warning (not an error): the store is
+    self-healing, so it must not fail the pre-push gate; the user is told to fix
+    the record. Drift is detected in the same single parse, not a second read.
+    """
+    return [
+        CheckIssue(
+            stem,
+            _ISSUE_WARNING,
+            f'frontmatter id {raw_id!r} differs from filename '
+            '(the filename is authoritative — update the record)',
+        )
+        for stem, raw_id in drift
+    ]
+
+
 def check_tasks(
     store: Path,
     *,
@@ -463,18 +500,22 @@ def check_tasks(
     current_branch: str | None = None,
 ) -> list[CheckIssue]:
     """
-    Validate the task graph: dangling refs, ``deps`` cycles, ``spec`` files.
+    Validate the task graph: dangling refs, ``deps`` cycles, ``spec`` files,
+    frontmatter-``id``/filename drift.
 
     Pure and git-free: the git context (``repo_root``, ``current_branch``) is
     supplied by the caller — the CLI resolves it via :func:`dreamteam.dt.paths`,
-    tests pass it directly. Returns every finding (errors and warnings); the
-    caller decides the exit code. See ``specs/T035-task-validation/spec.md``.
+    tests pass it directly. Records are parsed once (``_scan_records``) for both
+    the graph checks and the drift warning. Returns every finding (errors and
+    warnings); the caller decides the exit code. See
+    ``specs/T035-task-validation/spec.md``.
     """
-    tasks = load_all_tasks(store)
+    tasks, drift = _scan_records(store)
     return [
         *_dangling_ref_issues(tasks),
         *_cycle_issues(tasks),
         *_spec_issues(tasks, repo_root, current_branch),
+        *_id_mismatch_issues(drift),
     ]
 
 
