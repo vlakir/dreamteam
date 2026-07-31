@@ -26,6 +26,27 @@
 
 ### Added
 
+- **T039 — композитный старт задачи** (`dt task start T<NNN>`, точка входа
+  E1, `deps: T034, T036`). Одна команда сворачивает рутину начала работы
+  (design §326/§336, карточка T007):
+  - `dt/slug.py` (pure) — транслитерация заголовка ru→lat + нормализация
+    в ASCII-slug; `branch_name` строит `T<NNN>-<slug>`
+    (`«Композитный старт задачи»` → `T039-kompozitnyi-start-zadachi`),
+    пустой slug → ветка `T<NNN>`. Уникальность даёт префикс, коллизии slug
+    безвредны.
+  - `dt/starts.py` (pure) — `plan_start` (decision-table worktree/ветка →
+    какой git-вызов), `context_line` для statusline, `extract_handover`
+    (секция `## Handover` для `--json`), `write_binding`.
+  - `dt/tmux.py` — best-effort `rename-window` внутри CLI при `$TMUX`;
+    вне tmux/без бинаря — тихий no-op, никогда не бросает (§419).
+  - git-хелперы в `paths.py`: `local_branch_exists`, `add_worktree`
+    (с `-b` от локальной base без fetch, либо attach к существующей ветке);
+    `start_task` в `tasks.py` (статус→`doing` + `branch` + `updated`).
+  - Команда `dt task start` в `task_cli.py`: идемпотентна (переиспользует
+    существующий worktree/ветку), пишет привязку под slug **нового**
+    worktree, `--json` `{id,status,branch,worktree,worktree_created,
+    branch_created,spec,handover,tmux_renamed}`. Спека
+    `specs/T039-task-start/spec.md` (Analyzed), ADR в `DECISIONS.md`.
 - **T058 — `dt task check` ловит дрейф frontmatter `id` ↔ имя файла**
   (follow-up к ревью T038). Имя файла — канонический ID; T038 канонизировал
   `load_all_tasks` (`id = path.stem`), из-за чего рассогласование стало

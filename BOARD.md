@@ -53,3 +53,9 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   файла (follow-up ревью T038): сравнивает сырой `load_task(path).id` с именем
   файла → WARNING (не ERROR — стор самоисцеляется). Acceptance: запись с
   `id`≠stem даёт warning, `check` не падает. `[closed 2026-08-01, PR #85]`
+- **T039** — Композитный старт задачи `dt task start`: статус → `doing`,
+  генерация ветки `T<NNN>-<slug>` (транслит ru→lat), создание/переиспользование
+  worktree, привязка нового worktree (`current-task`/`context.line`), tmux
+  rename внутри CLI (тихо вне tmux), `--json` со спекой и Handover. Чистые
+  ядра `dt/slug.py` + `dt/starts.py` + `dt/tmux.py`, git-хелперы в `paths.py`.
+  `[closed 2026-08-01, PR #86]`

@@ -46,9 +46,10 @@ app = typer.Typer(
     help='Project scaffolding CLI with built-in methodology.',
     no_args_is_help=True,
 )
-# Operational task layer (`dt task new/show/move/split`, T034). The wrappers
-# live in `task_cli` (typer-facing) over the typer-free `dt/` core; mounting
-# here exposes them under both the `dt` and `dreamteam` entry points.
+# Operational task layer (`dt task new/show/move/split/check/find/ready`, T034;
+# composite `start`, T039). The wrappers live in `task_cli` (typer-facing) over
+# the typer-free `dt/` core; mounting here exposes them under both the `dt` and
+# `dreamteam` entry points.
 app.add_typer(task_app)
 # Worktree placement and lifecycle (`dt worktree root/path/list/prune`, T036) —
 # same pattern: git-free core in `dt/worktrees`, git helpers in `dt/paths`,
