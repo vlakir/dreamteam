@@ -98,6 +98,18 @@ def _main_worktree(cwd: Path | None = None) -> Path:
     return common_dir
 
 
+def main_worktree(cwd: Path | None = None) -> Path:
+    """
+    Root of the repository's *main* working copy (public wrapper).
+
+    Every linked worktree shares one main copy (via the git common directory),
+    so this is the same path from anywhere in the repo. ``dt context`` (T051)
+    reads its ``BACKLOG.md`` as the divergence reference (design §217/§880) —
+    the current worktree's copy would show false drift on any old branch.
+    """
+    return _main_worktree(cwd=cwd)
+
+
 def dt_home(cwd: Path | None = None) -> Path:
     """
     Resolve ``$DT_HOME`` = ``${DT_HOME:-<main-worktree>.dt}``.

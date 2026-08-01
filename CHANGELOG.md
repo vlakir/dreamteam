@@ -26,6 +26,23 @@
 
 ### Added
 
+- **T051 — ориентация сессии** (`dt context`, эпик E9, `deps: T034, T036`).
+  Отвечает «где я и над чем работаю» после reboot/`/clear` без флагов; ключ
+  связи — ветка/worktree (§299):
+  - `dt/context.py` (pure, git-free): `resolve_task_id` — единый порядок
+    §309 (`DT_TASK` → префикс ветки `T<NNN>` → `by-worktree/<slug>/current-task`
+    → непривязанная); `build_context` над предвычисленными git-фактами
+    (блокеры = `deps` ≠ `done`; расхождение каталога cwd↔worktree задачи;
+    расхождение BACKLOG через `backlog_divergence` T040 — только при
+    `has_managed_block` и ненулевой дельте); рендеры human/`--json`/hook.
+  - `context_cli.py`: `dt context [--json] [--hook]`; `--hook` печатает
+    `hookSpecificOutput` (`additionalContext` ≤ 2000 симв.) и **никогда не
+    блокирует старт** — любая ошибка → exit 0 пустой вывод (§356); обновляет
+    `context.line` текущего worktree (не `current-task`).
+  - публичные хелперы: `main_worktree` в `paths.py` (корень основной копии для
+    эталона BACKLOG, §217/§880), `has_managed_block` в `backlog.py`. Спека
+    `specs/T051-context/spec.md` (Analyzed), ADR. Границы: хук в `settings.json`
+    + реестр сессий — T052; statusline — T054; устаревание Handover — T055.
 - **T041 — перенос состояния между машинами** (`dt state export/import`, точка
   входа E1, `deps: T034`). Оперативный слой не ездит с git (§233) — явный
   ручной канал переноса **только записей задач и счётчика** (§209):

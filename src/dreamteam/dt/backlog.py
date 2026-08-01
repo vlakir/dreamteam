@@ -129,6 +129,17 @@ def sync_backlog(existing_text: str, items: list[Task]) -> str:
     return f'{block}\n'
 
 
+def has_managed_block(text: str) -> bool:
+    """
+    True iff ``text`` contains a managed block (both markers, in order).
+
+    Used by ``dt context`` (T051) to decide whether BACKLOG divergence is even
+    meaningful: a project that has not adopted ``dt backlog sync`` has no block,
+    so every store task would read as "added" — a false signal best skipped.
+    """
+    return _BLOCK_RE.search(text) is not None
+
+
 def parse_block_ids(text: str) -> list[str]:
     """
     Task IDs listed inside the managed block of ``text`` (empty if no block).
