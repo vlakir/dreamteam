@@ -79,3 +79,10 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   `context.line`. Ядро `dt/context.py` (typer-/git-free) + хелперы
   `main_worktree`/`has_managed_block`, обёртка `context_cli.py`.
   `[closed 2026-08-01, PR #89]`
+- **T052** — SessionStart-хук и реестр сессий: `dt context --hook` читает stdin
+  хука (`session_id`/`cwd`, толерантно; `transcript_path` не читается) и пишет
+  `sessions/<TASK_ID>.json` (файл-на-задачу, атомарно, best-effort после payload,
+  только для привязанной сессии). Ядро `dt/sessions.py` (typer-/git-free):
+  `SessionRecord`, `write_/read_session_record`, `current_timestamp` (tz-aware).
+  Шаблонный `template/.claude/settings.json` с хуком `dt context --hook` без
+  `matcher`. Контракт хука сверен по докам (§441). `[closed 2026-08-01, PR #90]`
