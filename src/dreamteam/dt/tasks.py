@@ -97,6 +97,19 @@ def _record_path(store: Path, task_id: str) -> Path:
     return _tasks_dir(store) / f'{task_id}.md'
 
 
+def record_path(store: Path, task_id: str) -> Path:
+    """
+    Validated path to a task record — ``$DT_STORE/tasks/<id>.md``.
+
+    Public primitive for bulk consumers (``dt state import`` T041, ``dt migrate
+    tasks`` T042): the ID is checked against ``T[0-9]{3,}`` **before** it is used
+    as a filename, so a crafted value (``../..``, an absolute path) cannot escape
+    ``tasks/`` — the same traversal guard the record-op helpers apply.
+    """
+    _ensure_valid_id(task_id)
+    return _record_path(store, task_id)
+
+
 def format_id(number: int) -> str:
     """``T`` + zero-padded number (min 3 digits): 1 → ``T001``, 1000 → ``T1000``."""
     return f'T{number:0{_ID_MIN_DIGITS}d}'
@@ -149,6 +162,27 @@ def _write_counter(store: Path, number: int) -> None:
     _counter_path(store).write_text(
         f'{max(_read_counter(store), number)}\n', encoding='utf-8'
     )
+
+
+def read_counter(store: Path) -> int:
+    """
+    Current high-water-mark ID number (0 when the counter is absent).
+
+    Public accessor for consumers that move the counter across the store
+    boundary (``dt state export`` T041); raises :class:`TaskError` on a corrupt
+    counter file, same as internal reads.
+    """
+    return _read_counter(store)
+
+
+def advance_counter(store: Path, number: int) -> None:
+    """
+    Raise ``counter`` to ``max(current, number)`` — never lower it.
+
+    Public wrapper over the internal high-water-mark write, used by ``dt state
+    import`` (T041) to guarantee ``allocate_id`` never reuses an imported number.
+    """
+    _write_counter(store, number)
 
 
 def allocate_id(store: Path) -> tuple[str, Path]:

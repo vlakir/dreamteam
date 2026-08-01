@@ -65,3 +65,10 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   расхождения `backlog_divergence` для будущего `dt context` (T051). Ядро
   `dt/backlog.py` (typer-/git-free), обёртка `backlog_cli.py`.
   `[closed 2026-08-01, PR #87]`
+- **T041** — Перенос состояния между машинами `dt state export/import`: JSON-
+  bundle (только записи задач + счётчик, `sessions/`/`by-worktree/` исключены),
+  round-trip с unknown-полями, pre-check ID/конфликтов до записи
+  (`--on-conflict skip|overwrite`, без флага — отказ со списком), счётчик =
+  `max` (не вниз), `-` = stdout/stdin для ssh-pipe. Ядро `dt/state.py`
+  (typer-/git-free) + публичный API в `tasks.py`, обёртка `state_cli.py`.
+  `[closed 2026-08-01, PR #88]`
