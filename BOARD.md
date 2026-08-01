@@ -86,3 +86,13 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   `SessionRecord`, `write_/read_session_record`, `current_timestamp` (tz-aware).
   Шаблонный `template/.claude/settings.json` с хуком `dt context --hook` без
   `matcher`. Контракт хука сверен по докам (§441). `[closed 2026-08-01, PR #90]`
+- **T053** — `dt resume` — восстановление раскладки после reboot: первый
+  потребитель реестра T052. Читает `sessions/*.json`, выдаёт команды в трёх
+  формах (таблица `dt resume` / `--tmux` скрипт / адресно `dt resume T034`),
+  `--json`. Деградация по возрасту записи `last_seen` (`RETENTION_DAYS=30`;
+  устаревшая → `claude` + Handover, без обращения к приватной раскладке
+  транскриптов — ADR; без записи → `claude --continue`), таблица только по
+  активным задачам. Пути `shlex.quote`-квотированы; `--tmux` печатается, не
+  исполняется (граница «не диспетчер»). Чистое ядро `dt/resume.py`
+  (typer-/git-free) + `read_all_session_records` в `sessions.py`, обёртка
+  `resume_cli.py`. `[closed 2026-08-01, PR #91]`

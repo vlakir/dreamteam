@@ -18,6 +18,7 @@ from dreamteam import __version__
 from dreamteam.backlog_cli import backlog_app
 from dreamteam.board_cli import board
 from dreamteam.context_cli import context
+from dreamteam.resume_cli import resume
 from dreamteam.state_cli import state_app
 from dreamteam.task_cli import task_app
 from dreamteam.worktree_cli import worktree_app
@@ -70,6 +71,10 @@ app.add_typer(state_app)
 # Session orientation (`dt context`, T051) — resolve the task (DT_TASK → branch →
 # current-task), print it, `--hook` for SessionStart; git-free core in `dt/context`.
 app.command(name='context')(context)
+# Session-layout recovery (`dt resume`, T053) — read the T052 registry and emit
+# recovery commands (table / `--tmux` script / one task); git-free core in
+# `dt/resume`, retention judged by record age (never stats transcripts).
+app.command(name='resume')(resume)
 
 
 def _template_path() -> Path:
