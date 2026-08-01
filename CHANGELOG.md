@@ -26,6 +26,23 @@
 
 ### Added
 
+- **T041 — перенос состояния между машинами** (`dt state export/import`, точка
+  входа E1, `deps: T034`). Оперативный слой не ездит с git (§233) — явный
+  ручной канал переноса **только записей задач и счётчика** (§209):
+  - `dt/state.py` (pure, git-free): `export_bundle` (читает только `tasks/` +
+    `counter`, `sessions/`/`by-worktree/` исключены по построению);
+    `serialize`/`parse` — JSON `{dt_state_version, counter, tasks:[...]}` с
+    round-trip записи (unknown-поля + тело), версия проверяется (новее →
+    отказ); `import_bundle` — pre-check ID (валидация + дубли) и конфликтов
+    **до** записи, политика `--on-conflict skip|overwrite` (без флага —
+    прерывание со списком всех конфликтных ID, ни одной записи), счётчик после
+    импорта поднят до `max(локальный, bundle, наибольший импортируемый номер)`.
+  - `state_cli.py`: `dt state export <file>` / `import <file>
+    [--on-conflict …] [--json]`; `-` = stdout/stdin для прямого канала
+    `export - | ssh other 'dt state import -'`.
+  - публичный API в `tasks.py`: `read_counter`, `advance_counter`,
+    `record_path` (валидирует ID → защита от path traversal); переиспользуется
+    T042. Спека `specs/T041-state-transfer/spec.md` (Analyzed), ADR.
 - **T040 — синхронизация BACKLOG.md** (`dt backlog sync`, точка входа E1,
   `deps: T034`). Под оперативным слоем `BACKLOG.md` — статус-независимая
   проекция store в git-слой (design §215–216):
