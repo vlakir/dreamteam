@@ -91,6 +91,35 @@ def extract_handover(body: str) -> str:
     return '\n'.join(collected).strip()
 
 
+def write_context_line(by_worktree_root: Path, slug: str, line: str) -> None:
+    """
+    Rewrite only ``context.line`` for ``slug``'s worktree (slug dir created).
+
+    Unlike :func:`write_binding` this leaves ``current-task`` untouched — used
+    by ``dt task move`` (T054) to refresh the statusline string after a status
+    change without (re)binding the worktree. The file ends with a newline.
+    """
+    directory = by_worktree_root / slug
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / _CONTEXT_LINE_NAME).write_text(f'{line}\n', encoding='utf-8')
+
+
+def read_current_task(by_worktree_root: Path, slug: str) -> str | None:
+    """
+    Return the task ID bound to ``slug``'s worktree, or ``None`` if unbound.
+
+    Reads ``by-worktree/<slug>/current-task``; a missing file or empty content
+    yields ``None`` (an unbound worktree is a legal state, not an error).
+    """
+    try:
+        text = (by_worktree_root / slug / _CURRENT_TASK_NAME).read_text(
+            encoding='utf-8'
+        )
+    except OSError:
+        return None
+    return text.strip() or None
+
+
 def write_binding(by_worktree_root: Path, slug: str, task_id: str, line: str) -> None:
     """
     Write the per-worktree binding files under ``by-worktree/<slug>/``.
@@ -102,4 +131,4 @@ def write_binding(by_worktree_root: Path, slug: str, task_id: str, line: str) ->
     directory = by_worktree_root / slug
     directory.mkdir(parents=True, exist_ok=True)
     (directory / _CURRENT_TASK_NAME).write_text(f'{task_id}\n', encoding='utf-8')
-    (directory / _CONTEXT_LINE_NAME).write_text(f'{line}\n', encoding='utf-8')
+    write_context_line(by_worktree_root, slug, line)

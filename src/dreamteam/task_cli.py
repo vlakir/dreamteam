@@ -10,6 +10,7 @@ as ``dt task …`` and ``dreamteam task …``. See ``specs/T034-task-ops/spec.md
 
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import TYPE_CHECKING, Annotated, NamedTuple
 
@@ -34,7 +35,9 @@ from dreamteam.dt.starts import (
     context_line,
     extract_handover,
     plan_start,
+    read_current_task,
     write_binding,
+    write_context_line,
 )
 from dreamteam.dt.tasks import (
     TaskError,
@@ -95,6 +98,32 @@ def _run[T](action: Callable[[Path], T]) -> T:
     except (TaskError, DtHomeError, OSError) as exc:
         typer.echo(f'dt task: {exc}', err=True)
         raise typer.Exit(code=_EXIT_ERROR) from exc
+
+
+def _refresh_line_after_move(task: Task) -> None:
+    """
+    Rewrite this worktree's ``context.line`` after a move, when it is on ``task``.
+
+    Only when the current worktree is actually working on ``task`` — so moving
+    an *unrelated* task never clobbers the statusline of the task in hand
+    (design §778). An existing ``current-task`` binding is authoritative: if the
+    worktree is bound, refresh only when it is bound to ``task``. The
+    ``HEAD``-on-``task.branch`` test is a *fallback* used only for an **unbound**
+    worktree — otherwise a shared branch value (e.g. ``main``) would let an
+    unrelated move overwrite the bound task's line. Best-effort: a silent no-op
+    outside git or on any I/O glitch, since the move itself has already
+    succeeded — the statusline is a convenience, never a reason to fail.
+    """
+    with contextlib.suppress(OSError, DtHomeError):
+        cwd, branch = git_context()
+        if cwd is None:
+            return
+        slug = worktree_slug(cwd)
+        root = by_worktree_dir()
+        bound = read_current_task(root, slug)
+        on_branch = bound is None and task.branch is not None and branch == task.branch
+        if bound == task.id or on_branch:
+            write_context_line(root, slug, context_line(task))
 
 
 def _task_obj(task: Task) -> dict[str, Any]:
@@ -202,6 +231,7 @@ def _move(
 ) -> None:
     """Change a task's status and bump its ``updated`` date."""
     task = _run(lambda store: move_task(store, task_id, status))
+    _refresh_line_after_move(task)
     _emit(task, json_out=json_out, human=f'{task.id} → {task.status}')
 
 

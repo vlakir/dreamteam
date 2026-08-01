@@ -26,6 +26,31 @@
 
 ### Added
 
+- **T054 — Statusline (shell-reader для `context.line`)** (эпик E9,
+  `deps: T051`). Постоянный ответ «над чем эта сессия» в статусной строке
+  Claude Code, без запуска Python (§421–423):
+  - `template/.claude/statusline.sh` — тонкий POSIX-sh reader: игнорирует
+    stdin (worktree берётся `git rev-parse` от cwd сессии — контракт
+    statusLine), резолвит `$DT_HOME` из git-common-dir (или override) и
+    `<slug>` = `sha1(resolved-abs-path)[:8]` **побитово** как
+    `dreamteam.dt.paths` (symlink-паритет через `cd && pwd -P`,
+    `printf '%s' | sha1sum | cut`; fallback `shasum` для macOS), печатает
+    `<каталог> · <context.line>`. Любой сбой (не git / нет store / нет
+    привязки / пустой файл / нет sha1-утилиты) → пустой stdout + `exit 0`
+    (non-zero гасит строку). ~26 мс на прогон.
+  - `.claude/settings.json`: ключ `statusLine` (`type: command`) —
+    bootstrap локализует скрипт по `git rev-parse --show-toplevel` (cwd
+    сессии может быть подкаталогом) и терпит «не git» (`|| true`); блок
+    `hooks.SessionStart` (T052) сохранён.
+  - `dt task move` теперь тоже перезаписывает `context.line` **текущего
+    worktree** (design §778) — но только если перемещаемая задача и есть
+    задача этого worktree (`current-task`-привязка или `HEAD` на
+    `task.branch`), иначе строку не трогает (footgun чужого move).
+    Хелперы `read_current_task`/`write_context_line` в `dt/starts.py`;
+    `move_task` остаётся git-free, git-эффект — в обёртке `task_cli.py`.
+    Спека `specs/T054-statusline/spec.md` (Analyzed), ADR. Границы:
+    Handover/PreCompact — T055; секция методики `sessions` — T047;
+    догфудинг в самом dreamteam — после T042.
 - **T053 — `dt resume` (восстановление раскладки после reboot)** (эпик E9,
   `deps: T052, T036`; замыкает критический путь T033 → T034 → T051 → T052 →
   **T053**). Первый потребитель реестра T052: читает `sessions/*.json` и выдаёт
