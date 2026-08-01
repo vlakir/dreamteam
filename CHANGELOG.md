@@ -26,6 +26,30 @@
 
 ### Added
 
+- **T052 — SessionStart-хук и реестр сессий** (эпик E9, `deps: T051`).
+  Замыкает автоматическую привязку сессии к задаче: `dt context --hook`
+  теперь читает вход хука и попутно строит реестр — без единого действия
+  человека (§362):
+  - `dt/sessions.py` (pure, typer-/git-free): `SessionRecord`
+    (`session_id`/`cwd`/`last_seen`); `write_session_record` — атомарная
+    запись `sessions/<TASK_ID>.json` (temp + `Path.replace` в том же каталоге,
+    файл-на-задачу → параллельные хуки не гоняются, §370); толерантный
+    `read_session_record` (задел под `dt resume` T053 — битый/отсутствующий
+    файл → `None`, лишние поля игнорируются); `current_timestamp` — tz-aware
+    ISO-8601 (`flake8-datetimez`). `task_id` валидируется по `^T[0-9]{3,}$` до
+    выхода на ФС (защита от path traversal, как в store-слое — находка qodo:
+    write → `ValueError`, read → `None`).
+  - `context_cli.py`: `--hook` парсит stdin SessionStart-хука
+    (`session_id`/`cwd`, толерантно к пустому/битому входу; `isatty`-гард от
+    зависания при ручном запуске; `transcript_path` не читается, §358) и
+    пишет запись реестра **только** для привязанной сессии с `session_id` —
+    после вывода payload и best-effort (провал записи не стоит контекста).
+  - `src/dreamteam/template/.claude/settings.json`: шаблонный SessionStart-хук
+    `dt context --hook` без `matcher` (срабатывает на всех `source`, §353) —
+    привязка сессий в derived-проектах работает из коробки. Контракт хука
+    сверен по официальной документации до реализации (§441). Спека
+    `specs/T052-session-registry/spec.md` (Analyzed), ADR. Границы: `dt resume`
+    — T053; statusline — T054; Handover/PreCompact — T055.
 - **T051 — ориентация сессии** (`dt context`, эпик E9, `deps: T034, T036`).
   Отвечает «где я и над чем работаю» после reboot/`/clear` без флагов; ключ
   связи — ветка/worktree (§299):
