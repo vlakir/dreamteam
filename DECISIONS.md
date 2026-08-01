@@ -14,6 +14,47 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 
 <!-- Новые решения добавляются сюда, новые сверху. -->
 
+### 2026-08-01 — T054: statusline — git-only shell-reader, паритет slug с Python без интерпретатора
+
+- **Контекст.** T054 (карточка T022, эпик E9, `deps: T051`) добавляет
+  `statusLine` типа `command` в `.claude/settings.json` шаблона. Контракт Claude
+  Code (сверен по докам `code.claude.com/docs/en/statusline.md`): команда
+  вызывается на **каждом** обновлении сообщений (debounce 300 мс), исполняется
+  с рабочим каталогом = cwd сессии, non-zero exit или пустой stdout **гасят**
+  строку. `context.line` уже пишут SessionStart-хук (T052), `dt task start`
+  (T039), `dt context` (T051) в `by-worktree/<slug>/context.line`. Дизайн §423:
+  запуск Python в statusline недопустим, бюджет < 50 мс. Спека
+  `specs/T054-statusline/spec.md` (Analyzed).
+- **Решение — тонкий POSIX-sh reader, вычисляющий `<slug>`/`$DT_HOME` побитово
+  как Python, без запуска интерпретатора.** `template/.claude/statusline.sh`:
+  игнорирует stdin (worktree берётся `git rev-parse` от cwd), резолвит
+  `$DT_HOME` из git-common-dir (или override) как `dreamteam.dt.paths.dt_home`,
+  slug = `sha1(resolved-abs-path)[:8]` (`printf '%s' | sha1sum | cut`,
+  `cd && pwd -P` для symlink-паритета с `Path.resolve()`), печатает
+  `<basename cwd> · <context.line>`. **Любой** сбой → пустой stdout + `exit 0`.
+  Замер: ~26 мс на прогон (вкл. спавн `sh`+`git`+`sha1sum`).
+- **`command` = bootstrap через git-toplevel.** Относительный путь
+  `.claude/statusline.sh` ненадёжен (cwd сессии может быть подкаталогом),
+  `~`/абсолют шаблон знать не может → `command` локализует скрипт по
+  `git rev-parse --show-toplevel` и терпит «не git» (`|| true`). Toplevel
+  передаётся скрипту как `$1` (скрипт также работает автономно без аргумента).
+- **`dt task move` тоже пишет `context.line`** (design §778, включено в T054 по
+  решению Разработчика при поднятом флаге scope). **С guard'ом:** строку
+  текущего worktree обновляем только если перемещаемая задача и есть задача
+  этого worktree (её `current-task`-привязка или `HEAD` на `task.branch`) —
+  иначе `dt task move` чужой задачи затёр бы статуслайн задачи «в руках».
+  Ядро `move_task` остаётся git-free; git-эффект — в обёртке `task_cli.py`,
+  как у `dt task start`. Общие file-I/O хелперы (`read_current_task`,
+  `write_context_line`) вынесены в `dt/starts.py` рядом с `write_binding`.
+- **Отвергнутая альтернатива — парсить stdin-JSON (`jq`/python) ради `cwd`.**
+  Не нужно: контракт гарантирует рабочий каталог = cwd сессии, `git rev-parse`
+  от `.` даёт worktree без внешних зависимостей и без интерпретатора.
+- **Последствия.** Паритет slug — жёсткая зависимость от `worktree_slug`
+  (тест: скрипт читает файл, записанный Python по его slug; чужой slug → пусто).
+  `sha1sum` (Linux) с fallback `shasum` (macOS). Догфудинг на самом репо
+  `dreamteam` отложен до `dt migrate tasks` (T042): store пуст, строка была бы
+  всё равно пустой.
+
 ### 2026-08-01 — T053: `dt resume` определяет вычищенный транскрипт по возрасту записи, не трогая приватную раскладку транскриптов
 
 - **Контекст.** T053 (карточка T021, эпик E9, `deps: T052, T036`) — первый

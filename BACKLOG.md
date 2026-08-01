@@ -76,8 +76,9 @@ T050 — дешёвый первый подопытный через саму н
   задачи, Handover по событиям). deps: T043, T038, T039.
 <!-- T053 (dt resume) взята в работу 2026-08-01 — переехала в BOARD.md → Doing;
      spec: specs/T053-resume/spec.md. deps: T052, T036. -->
-- **T054** — [2026-07-30] Statusline — shell-скрипт читает
-  `context.line` по `<slug>`, < 50 мс, без Python. deps: T051.
+<!-- T054 (statusline) закрыта 2026-08-01 — см. BOARD.md → Done и
+     CHANGELOG [Unreleased]. deps: T051. Включила также writer-часть
+     `dt task move` → context.line (design §778). -->
 - **T055** — [2026-07-30] Handover как живая секция; обновление по
   событиям, PreCompact-хук, детект устаревания. deps: T051, T043.
 

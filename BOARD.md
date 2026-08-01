@@ -96,3 +96,12 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   исполняется (граница «не диспетчер»). Чистое ядро `dt/resume.py`
   (typer-/git-free) + `read_all_session_records` в `sessions.py`, обёртка
   `resume_cli.py`. `[closed 2026-08-01, PR #91]`
+- **T054** — Statusline (shell-reader для `context.line`): `template/.claude/
+  statusline.sh` — POSIX-sh reader без Python, вычисляет `<slug>`/`$DT_HOME`
+  побитово как `dreamteam.dt.paths` (git-only, `sha1sum`/`shasum`, symlink-
+  паритет `cd && pwd -P`), печатает `<каталог> · <context.line>`; любой сбой →
+  пусто + `exit 0` (~26 мс). `statusLine` в `settings.json` (bootstrap по
+  git-toplevel). `dt task move` теперь пишет `context.line` текущего worktree
+  (design §778) с guard'ом (только задача этого worktree). Хелперы
+  `read_current_task`/`write_context_line` в `dt/starts.py`.
+  `[closed 2026-08-01, PR #92]`

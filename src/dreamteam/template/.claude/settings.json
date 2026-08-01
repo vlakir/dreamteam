@@ -10,5 +10,9 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "t=$(git rev-parse --show-toplevel 2>/dev/null) && sh \"$t/.claude/statusline.sh\" \"$t\" || true"
   }
 }
