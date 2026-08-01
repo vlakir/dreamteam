@@ -72,3 +72,10 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
   `max` (не вниз), `-` = stdout/stdin для ssh-pipe. Ядро `dt/state.py`
   (typer-/git-free) + публичный API в `tasks.py`, обёртка `state_cli.py`.
   `[closed 2026-08-01, PR #88]`
+- **T051** — Ориентация сессии `dt context`: резолв задачи (`DT_TASK` → префикс
+  ветки → `current-task` → непривязанная), вывод (задача/статус/спека/Handover/
+  блокеры=deps≠done/PR + строки расхождения BACKLOG и каталога), `--json` и
+  `--hook` (никогда не блокирует старт, `additionalContext` ≤ 2000). Обновляет
+  `context.line`. Ядро `dt/context.py` (typer-/git-free) + хелперы
+  `main_worktree`/`has_managed_block`, обёртка `context_cli.py`.
+  `[closed 2026-08-01, PR #89]`

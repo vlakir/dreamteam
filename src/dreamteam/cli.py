@@ -17,6 +17,7 @@ from copier import Worker, run_copy
 from dreamteam import __version__
 from dreamteam.backlog_cli import backlog_app
 from dreamteam.board_cli import board
+from dreamteam.context_cli import context
 from dreamteam.state_cli import state_app
 from dreamteam.task_cli import task_app
 from dreamteam.worktree_cli import worktree_app
@@ -66,6 +67,9 @@ app.add_typer(backlog_app)
 # State transfer between machines (`dt state export/import`, T041) — task records
 # and counter only; git-free core in `dt/state`, session/worktree data excluded.
 app.add_typer(state_app)
+# Session orientation (`dt context`, T051) — resolve the task (DT_TASK → branch →
+# current-task), print it, `--hook` for SessionStart; git-free core in `dt/context`.
+app.command(name='context')(context)
 
 
 def _template_path() -> Path:
