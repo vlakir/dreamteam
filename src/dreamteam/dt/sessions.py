@@ -110,3 +110,22 @@ def read_session_record(sessions_dir: Path, task_id: str) -> SessionRecord | Non
     ):
         return None
     return SessionRecord(session_id=session_id, cwd=cwd, last_seen=last_seen)
+
+
+def read_all_session_records(sessions_dir: Path) -> dict[str, SessionRecord]:
+    """
+    Read every ``<TASK_ID>.json`` in ``sessions_dir``; keyed by task ID.
+
+    The consumer is ``dt resume`` (T053), which needs the whole registry at once
+    to render the recovery layout. A missing directory yields an empty mapping (a
+    store where no session ever ran). Each file goes through the tolerant
+    :func:`read_session_record`, so a stem that is not a canonical ``T<NNN>`` ID
+    (a stray/hidden file, the path-traversal guard) or a malformed JSON is simply
+    skipped — a partly-written or stale registry never crashes resume.
+    """
+    records: dict[str, SessionRecord] = {}
+    for path in sorted(sessions_dir.glob('*.json')):
+        record = read_session_record(sessions_dir, path.stem)
+        if record is not None:
+            records[path.stem] = record
+    return records

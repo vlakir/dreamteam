@@ -26,6 +26,33 @@
 
 ### Added
 
+- **T053 — `dt resume` (восстановление раскладки после reboot)** (эпик E9,
+  `deps: T052, T036`; замыкает критический путь T033 → T034 → T051 → T052 →
+  **T053**). Первый потребитель реестра T052: читает `sessions/*.json` и выдаёт
+  человеку точные команды восстановления сессий (§372–388):
+  - `dt/resume.py` (pure, typer-/git-free): `is_stale` — детект вычищенного
+    транскрипта **по возрасту записи** `last_seen` (порог `RETENTION_DAYS = 30`,
+    дефолт `cleanupPeriodDays`), непарсящийся/naive timestamp → свежий;
+    `resume_entry`/`continue_entry`/`build_entries` — сборка `ResumeEntry`
+    (`mode` = `resume`/`stale`/`continue`), таблица только по **активным**
+    задачам, dangling-записи и `done`/`dropped` отсеяны, сортировка по номеру
+    ID; рендеры `render_table`/`render_tmux`/`entries_json`. Все пути в командах
+    и tmux-скрипте `shlex.quote`-квотированы.
+  - Деградация: свежая запись → `cd <wt> && claude --resume <id>`; устаревшая →
+    `cd <wt> && claude` + подсказка прочитать Handover (транскрипт вычищен);
+    без записи (адресно) → `cd <wt> && claude --continue` (§384). Транскрипты
+    **не** трогаются — путь `~/.claude/projects/<munged-cwd>/` недокументирован,
+    acceptance §434/#8 запрещает чтение их внутренностей (ADR).
+  - `read_all_session_records` в `dt/sessions.py` — перечисление реестра
+    (толерантно к битым/чужим файлам).
+  - `resume_cli.py`: три формы — таблица (`dt resume`), tmux-скрипт (`--tmux`,
+    по окну на задачу, имя окна = ID, §386/§414; **печатается**, не
+    исполняется — граница «не диспетчер», §619), адресно (`dt resume T034`,
+    одна строка для `eval`); `--json`; `--tmux`+`--json` взаимоисключающи.
+    Монтаж top-level в `cli.py`. Спека `specs/T053-resume/spec.md` (Analyzed;
+    2 развилки Clarify закрыты Разработчиком: деградация по возрасту, таблица
+    по активным), ADR. Границы: statusline — T054; Handover/PreCompact — T055;
+    догфудинг в самом dreamteam — после T042.
 - **T052 — SessionStart-хук и реестр сессий** (эпик E9, `deps: T051`).
   Замыкает автоматическую привязку сессии к задаче: `dt context --hook`
   теперь читает вход хука и попутно строит реестр — без единого действия
