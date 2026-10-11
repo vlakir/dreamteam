@@ -38,6 +38,9 @@ vanilla_docker.sh
 # Caches
 .cache/
 
+# Git worktrees of parallel tasks — live inside the project (see CLAUDE.md)
+/.worktrees/
+
 # Local SQLite
 *.sqlite
 

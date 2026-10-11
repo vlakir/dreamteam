@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
+source_hash: 74888e6517a22453b9c4056ccbee033eab2e06ff3b145c07a7a1a181abd0669d
 translation_engine: claude-opus-4-8
-translation_date: 2026-07-30
+translation_date: 2026-10-11
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -277,8 +277,11 @@ worktree（路径 + 分支 + HEAD）。不需要自制的注册表文件。
 
 **worktree 生命周期：**
 
-- 创建：`git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>`（或基于已有
-  分支）。
+- 创建：`git worktree add .worktrees/T<NNN>-<slug> -b T<NNN>-<slug>`
+  （或基于已有分支）——**放在项目内部**的 `.worktrees/` 目录：工作副本
+  不会散落在磁盘各处。`/.worktrees/` 已在 `.gitignore` 中；linter、测试
+  和搜索都不会进入其中。旧位置 `../<repo>-T<NNN>` 属于历史，这类目录
+  保留到清理为止。
 - PR 前：`git fetch` → 到最新 `main` 上 rebase → squash 成一个 commit
   （「一个 PR 一个 commit」规则）→ push → PR → review。
 - 合并后：`git worktree prune` + 删除本地分支。

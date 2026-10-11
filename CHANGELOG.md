@@ -297,6 +297,15 @@
 
 ### Changed
 
+- **Рабочие папки задач — внутри проекта (`.worktrees/`).** Методика
+  шаблона (`CLAUDE.md`, 5 языков) создаёт worktree командой
+  `git worktree add .worktrees/T<NNN>-<slug> -b T<NNN>-<slug>`;
+  `dt task start` кладёт копии в `<main>/.worktrees/` вместо
+  `<repo>.dt/worktrees/` (старый корень по-прежнему видят
+  `dt worktree list/prune`). `/.worktrees/` добавлен в `.gitignore`
+  пакета и шаблона, в ruff `exclude` и mypy `exclude`; `dreamteam update`
+  не обходит вложенные worktree. ADR — в `DECISIONS.md`.
+
 - **Приземлена дорожная карта v0.3 → v1.0** (методический PR, без T-ID).
   Разворот пакета из тонкого Copier-CLI в stateful-инструмент с
   оперативным слоем состояния (`<repo>.dt/`). Дизайн-документ —

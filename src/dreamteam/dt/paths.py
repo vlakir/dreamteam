@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 DT_HOME_ENV = 'DT_HOME'
+# Directory (inside the main worktree) holding task worktrees; git-ignored.
+WORKTREES_DIRNAME = '.worktrees'
 _DT_SUFFIX = '.dt'
 _SLUG_LENGTH = 8
 _BRANCH_REF_PREFIX = 'refs/heads/'
@@ -180,8 +182,32 @@ def by_worktree_dir(cwd: Path | None = None) -> Path:
 
 
 def worktrees_dir(cwd: Path | None = None) -> Path:
-    """``$DT_HOME/worktrees`` — auto-managed task working copies."""
+    """
+    ``<main-worktree>/.worktrees`` — where task working copies are created.
+
+    Task worktrees live *inside* the project (git-ignored via ``/.worktrees/``)
+    rather than scattered next to it, so they never sprawl across the disk. The
+    root is the same from every worktree (resolved via the git common dir) and
+    does not follow ``$DT_HOME`` — the store stays outside git, the working
+    copies do not. Created lazily by ``git worktree add``, never by
+    :func:`ensure_store`.
+    """
+    return _main_worktree(cwd=cwd) / WORKTREES_DIRNAME
+
+
+def legacy_worktrees_dir(cwd: Path | None = None) -> Path:
+    """
+    ``$DT_HOME/worktrees`` — the pre-``.worktrees`` placement, read-only now.
+
+    Nothing is created here any more, but worktrees made there earlier are still
+    recognised as managed by ``dt worktree list`` / ``prune`` until cleaned up.
+    """
     return dt_home(cwd=cwd) / 'worktrees'
+
+
+def managed_worktree_roots(cwd: Path | None = None) -> tuple[Path, Path]:
+    """Both managed roots: the current :func:`worktrees_dir` and the legacy one."""
+    return worktrees_dir(cwd=cwd), legacy_worktrees_dir(cwd=cwd)
 
 
 def _create_root(home: Path) -> bool:
@@ -210,14 +236,13 @@ def ensure_store(cwd: Path | None = None) -> Path:
     home = dt_home(cwd=cwd)
     # Derive the tree from the already-resolved `home` — the public path
     # helpers each re-resolve `dt_home()` (a git call when DT_HOME is unset),
-    # which we must not repeat six times per initialization.
+    # which we must not repeat once per subdirectory.
     store = home / 'store'
     subdirs = [
         store,
         store / 'tasks',
         store / 'sessions',
         store / 'by-worktree',
-        home / 'worktrees',
     ]
     try:
         first_creation = _create_root(home)

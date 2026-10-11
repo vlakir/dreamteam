@@ -288,7 +288,7 @@ def test_start_is_idempotent(repo: Path) -> None:
     managed = [
         line
         for line in _git(repo, 'worktree', 'list').splitlines()
-        if '.dt/worktrees/' in line
+        if '/.worktrees/' in line
     ]
     assert len(managed) == 1
 

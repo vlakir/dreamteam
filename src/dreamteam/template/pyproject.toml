@@ -67,6 +67,7 @@ exclude = [
     ".mypy_cache",
     ".ruff_cache",
     ".venv",
+    ".worktrees",
     "venv",
     "__pypackages__",
     "build",
@@ -107,6 +108,7 @@ line-ending = "auto"
 explicit_package_bases = true
 ignore_missing_imports = true
 mypy_path = "src"
+exclude = ["^\\.worktrees/"]
 
 
 [tool.pytest.ini_options]

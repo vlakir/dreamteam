@@ -25,6 +25,7 @@ from dreamteam.dt.paths import (
     branch_merged,
     default_base_branch,
     ensure_store,
+    legacy_worktrees_dir,
     store_dir,
     worktrees_dir,
 )
@@ -173,8 +174,18 @@ def test_resolve_path_rejects_escape(tmp_path: Path, escape: str) -> None:
 
 def test_is_managed(tmp_path: Path) -> None:
     root = tmp_path / 'worktrees'
-    assert is_managed(root / 'T034-x', root) is True
-    assert is_managed(tmp_path / 'elsewhere', root) is False
+    assert is_managed(root / 'T034-x', (root,)) is True
+    assert is_managed(tmp_path / 'elsewhere', (root,)) is False
+
+
+def test_is_managed_any_of_several_roots(tmp_path: Path) -> None:
+    current = tmp_path / 'proj' / '.worktrees'
+    legacy = tmp_path / 'proj.dt' / 'worktrees'
+    roots = (current, legacy)
+    assert is_managed(current / 'T034-x', roots) is True
+    assert is_managed(legacy / 'T033-old', roots) is True
+    assert is_managed(tmp_path / 'proj', roots) is False
+    assert is_managed(tmp_path / 'proj-T035', roots) is False
 
 
 # --------------------------------------------------------------------------- #
@@ -212,7 +223,7 @@ def test_partition_matched_orphan_and_bystander(tmp_path: Path) -> None:
     orphan_wt = _wt(root / 'T099-gone', 'T099-gone')  # managed, no task
     bystander = _wt(tmp_path / 'main', 'main')  # not managed, no task
     matched, orphaned = partition_worktrees(
-        [matched_wt, orphan_wt, bystander], tasks, root
+        [matched_wt, orphan_wt, bystander], tasks, (root,)
     )
     assert [m.task_id for m in matched] == ['T034']
     assert orphaned == [orphan_wt]
@@ -228,7 +239,7 @@ def test_prune_plan_removable(tmp_path: Path) -> None:
     wt = _wt(root / 'T034-x', 'T034-x')
     tasks = {'T034': _task('T034', status='done', branch='T034-x')}
     removable, skipped = prune_plan(
-        [wt], tasks, root, {'T034-x': True}, {wt.path: False}
+        [wt], tasks, (root,), {'T034-x': True}, {wt.path: False}
     )
     assert [e.task_id for e in removable] == ['T034']
     assert skipped == []
@@ -238,7 +249,9 @@ def test_prune_plan_dropped_is_removable(tmp_path: Path) -> None:
     root = tmp_path / 'worktrees'
     wt = _wt(root / 'T034-x', 'T034-x')
     tasks = {'T034': _task('T034', status='dropped', branch='T034-x')}
-    removable, _ = prune_plan([wt], tasks, root, {'T034-x': True}, {wt.path: False})
+    removable, _ = prune_plan(
+        [wt], tasks, (root,), {'T034-x': True}, {wt.path: False}
+    )
     assert len(removable) == 1
 
 
@@ -248,7 +261,7 @@ def test_prune_plan_collects_all_reasons(tmp_path: Path) -> None:
     tasks = {'T034': _task('T034', status='doing', branch='T034-x')}
     # not done/dropped, not merged, and dirty — every guard fails at once.
     removable, skipped = prune_plan(
-        [wt], tasks, root, {'T034-x': False}, {wt.path: True}
+        [wt], tasks, (root,), {'T034-x': False}, {wt.path: True}
     )
     assert removable == []
     reasons = skipped[0].reasons
@@ -262,7 +275,7 @@ def test_prune_plan_skips_orphan_and_detached(tmp_path: Path) -> None:
     orphan = _wt(root / 'T099-x', 'T099-x')  # managed, no task
     detached = _wt(root / 'det', None, detached=True)
     removable, skipped = prune_plan(
-        [orphan, detached], {}, root, {'T099-x': True}, {}
+        [orphan, detached], {}, (root,), {'T099-x': True}, {}
     )
     assert removable == []
     assert {s.info.path for s in skipped} == {orphan.path, detached.path}
@@ -273,7 +286,9 @@ def test_prune_plan_ignores_non_managed(tmp_path: Path) -> None:
     root = tmp_path / 'worktrees'
     outside = _wt(tmp_path / 'elsewhere' / 'T034-x', 'T034-x')
     tasks = {'T034': _task('T034', status='done', branch='T034-x')}
-    removable, skipped = prune_plan([outside], tasks, root, {'T034-x': True}, {})
+    removable, skipped = prune_plan(
+        [outside], tasks, (root,), {'T034-x': True}, {}
+    )
     assert (removable, skipped) == ([], [])
 
 
@@ -338,12 +353,12 @@ def _add_worktree(repo: Path, branch: str, *, commit: bool = False) -> Path:
 def test_cli_root(repo: Path) -> None:
     result = CliRunner().invoke(app, ['worktree', 'root'])
     assert result.exit_code == 0
-    assert result.output.strip() == str(repo.parent / 'proj.dt' / 'worktrees')
+    assert result.output.strip() == str(repo / '.worktrees')
 
 
 def test_cli_root_json(repo: Path) -> None:
     result = CliRunner().invoke(app, ['worktree', 'root', '--json'])
-    assert json.loads(result.output)['root'].endswith('proj.dt/worktrees')
+    assert json.loads(result.output)['root'].endswith('proj/.worktrees')
 
 
 def test_cli_path_computed_for_branch(repo: Path) -> None:
@@ -351,13 +366,13 @@ def test_cli_path_computed_for_branch(repo: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload['exists'] is False
-    assert payload['path'].endswith('proj.dt/worktrees/T034-cursor')
+    assert payload['path'].endswith('proj/.worktrees/T034-cursor')
 
 
 def test_cli_path_human(repo: Path) -> None:
     result = CliRunner().invoke(app, ['worktree', 'path', 'T034-cursor'])
     assert result.exit_code == 0
-    assert result.output.strip().endswith('proj.dt/worktrees/T034-cursor')
+    assert result.output.strip().endswith('proj/.worktrees/T034-cursor')
 
 
 def test_cli_path_actual_for_existing(repo: Path) -> None:
@@ -409,6 +424,31 @@ def test_cli_prune_removes_done_merged_clean(repo: Path) -> None:
     assert not path.exists()
     # branch is gone too (safe-deleted).
     assert branch not in _git(repo, 'branch', '--format=%(refname:short)').split()
+
+
+def test_cli_list_and_prune_cover_legacy_location(repo: Path) -> None:
+    """Worktrees made under the old `$DT_HOME/worktrees` stay managed."""
+    legacy = legacy_worktrees_dir() / 'T099-old'
+    _git(repo, 'worktree', 'add', '-b', 'T099-old', str(legacy))
+    listed = json.loads(
+        CliRunner().invoke(app, ['worktree', 'list', '--json']).output
+    )
+    assert [o['branch'] for o in listed['orphaned']] == ['T099-old']
+    save_task(
+        store_dir() / 'tasks' / 'T099.md',
+        _task('T099', status='done', branch='T099-old'),
+    )
+    pruned = json.loads(
+        CliRunner().invoke(app, ['worktree', 'prune', '--json']).output
+    )
+    assert [r['branch'] for r in pruned['removed']] == ['T099-old']
+    assert not legacy.exists()
+
+
+def test_new_worktrees_are_created_inside_the_project(repo: Path) -> None:
+    path = _add_worktree(repo, 'T034-inside')
+    assert path == repo / '.worktrees' / 'T034-inside'
+    assert path.is_dir()
 
 
 def test_cli_prune_skips_unmerged(repo: Path) -> None:

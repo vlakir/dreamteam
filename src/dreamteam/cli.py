@@ -45,6 +45,11 @@ EXIT_CONFLICTS = 2
 # and a value above this threshold (255 in practice) on internal failure.
 MERGE_FILE_ERROR_RC = 127
 
+# Directories a project walk never descends into: git metadata and the nested
+# task worktrees (`.worktrees/`, full clones of other branches — their files and
+# any mid-rebase conflict markers are not this project's state).
+SKIP_DIRS = frozenset({'.git', '.worktrees'})
+
 app = typer.Typer(
     name='dreamteam',
     help='Project scaffolding CLI with built-in methodology.',
@@ -556,11 +561,11 @@ def _three_way_update(
 
 
 def _relfiles(root: Path) -> set[Path]:
-    """Relative paths of every file under `root`, excluding `.git`."""
+    """Relative paths of every file under `root`, excluding `SKIP_DIRS`."""
     return {
         path.relative_to(root)
         for path in root.rglob('*')
-        if path.is_file() and '.git' not in path.parts
+        if path.is_file() and not SKIP_DIRS.intersection(path.parts)
     }
 
 
@@ -636,7 +641,7 @@ def _dry_run(
     """
     Render what `dreamteam update` would produce, without writing to target.
 
-    Builds a preview copy of the project (minus `.git`), applies the same
+    Builds a preview copy of the project (minus `SKIP_DIRS`), applies the same
     merge plan the real update would (or the overwrite fallback when the
     merge preconditions are not met), then diffs the preview against the
     original. The target itself is never touched — the merge plan is
@@ -657,7 +662,7 @@ def _dry_run(
     )
     with tempfile.TemporaryDirectory(prefix='dreamteam-dryrun-') as tmp:
         preview = Path(tmp) / 'preview'
-        shutil.copytree(target, preview, ignore=shutil.ignore_patterns('.git'))
+        shutil.copytree(target, preview, ignore=shutil.ignore_patterns(*SKIP_DIRS))
         if can_merge and base_tag is not None:
             try:
                 writes, deletes, _count = _compute_update_plan(
@@ -674,7 +679,9 @@ def _dry_run(
                 # diff. Production update has its own fallback chain; here we
                 # just want the report.
                 shutil.rmtree(preview)
-                shutil.copytree(target, preview, ignore=shutil.ignore_patterns('.git'))
+                shutil.copytree(
+                    target, preview, ignore=shutil.ignore_patterns(*SKIP_DIRS)
+                )
                 _overwrite_update(preview, user_answers)
         else:
             _overwrite_update(preview, user_answers)
@@ -692,7 +699,7 @@ def _conflict_count(target: Path) -> int:
     """
     count = 0
     for path in target.rglob('*'):
-        if not path.is_file() or '.git' in path.parts:
+        if not path.is_file() or SKIP_DIRS.intersection(path.parts):
             continue
         try:
             text = path.read_text(encoding='utf-8')

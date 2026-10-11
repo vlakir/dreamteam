@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
+source_hash: 74888e6517a22453b9c4056ccbee033eab2e06ff3b145c07a7a1a181abd0669d
 translation_engine: claude-opus-4-8
-translation_date: 2026-07-30
+translation_date: 2026-10-11
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -351,8 +351,13 @@ et sa branche sont **le territoire de quelqu'un d'autre**.
 
 **Cycle de vie d'un worktree :**
 
-- Créer : `git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>` (ou sur
-  une branche existante).
+- Créer : `git worktree add .worktrees/T<NNN>-<slug> -b T<NNN>-<slug>`
+  (ou sur une branche existante) — **à l'intérieur du projet**, dans le
+  répertoire `.worktrees/` : les copies de travail ne s'éparpillent pas
+  sur le disque. `/.worktrees/` est déjà dans `.gitignore` ; linters,
+  tests et recherche n'y descendent pas. L'ancien emplacement
+  `../<repo>-T<NNN>` relève de l'historique ; ces dossiers vivent
+  jusqu'au nettoyage.
 - Avant la PR : `git fetch` → rebase sur `main` frais → squash en un
   seul commit (règle « une PR — un commit ») → push → PR → review.
 - Après le merge : `git worktree prune` + supprimer la branche locale.

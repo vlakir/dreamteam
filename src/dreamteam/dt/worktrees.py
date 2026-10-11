@@ -1,7 +1,7 @@
 """
 Worktree placement and lifecycle logic — pure, ``typer``- and ``git``-free.
 
-Computes where a task's working copy lives (``$DT_HOME/worktrees/<branch>``,
+Computes where a task's working copy lives (``<main>/.worktrees/<branch>``,
 never stored — see design §«Размещение worktree»), maps existing worktrees to
 tasks, and plans a ``prune`` over pre-gathered git facts. Every git call (list,
 merged, dirty, remove, delete) is done by :mod:`dreamteam.dt.paths` and passed
@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from dreamteam.dt.tasks import TaskError, load_existing
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     from dreamteam.dt.model import Task
@@ -108,9 +109,16 @@ def resolve_path(
     return computed, False
 
 
-def is_managed(path: Path, managed_root: Path) -> bool:
-    """True iff ``path`` lives under the managed ``$DT_HOME/worktrees/`` root."""
-    return path.resolve().is_relative_to(managed_root.resolve())
+def is_managed(path: Path, managed_roots: Sequence[Path]) -> bool:
+    """
+    True iff ``path`` lives under one of the managed roots.
+
+    The roots are the current ``<main>/.worktrees/`` and the legacy
+    ``$DT_HOME/worktrees/`` (worktrees created there before the move are still
+    listed and pruned until cleaned up).
+    """
+    resolved = path.resolve()
+    return any(resolved.is_relative_to(root.resolve()) for root in managed_roots)
 
 
 def match_task_id(branch: str | None, tasks: dict[str, Task]) -> str | None:
@@ -133,13 +141,15 @@ def match_task_id(branch: str | None, tasks: dict[str, Task]) -> str | None:
 
 
 def partition_worktrees(
-    worktrees: list[WorktreeInfo], tasks: dict[str, Task], managed_root: Path
+    worktrees: list[WorktreeInfo],
+    tasks: dict[str, Task],
+    managed_roots: Sequence[Path],
 ) -> tuple[list[WorktreeMatch], list[WorktreeInfo]]:
     """
     Split worktrees into task-matched pairs and orphans.
 
-    An *orphan* is a worktree under the managed root that maps to no task — a
-    leftover to surface. Worktrees outside the managed root that match no task
+    An *orphan* is a worktree under a managed root that maps to no task — a
+    leftover to surface. Worktrees outside every managed root that match no task
     (the main copy, hand-made ones on non-task branches) are legitimate
     bystanders and excluded from both lists.
     """
@@ -149,7 +159,7 @@ def partition_worktrees(
         task_id = match_task_id(worktree.branch, tasks)
         if task_id is not None:
             matched.append(WorktreeMatch(worktree, task_id))
-        elif is_managed(worktree.path, managed_root):
+        elif is_managed(worktree.path, managed_roots):
             orphaned.append(worktree)
     return matched, orphaned
 
@@ -157,7 +167,7 @@ def partition_worktrees(
 def prune_plan(
     worktrees: list[WorktreeInfo],
     tasks: dict[str, Task],
-    managed_root: Path,
+    managed_roots: Sequence[Path],
     merged: dict[str, bool],
     dirty: dict[Path, bool],
 ) -> tuple[list[PruneEntry], list[PruneSkip]]:
@@ -173,7 +183,7 @@ def prune_plan(
     removable: list[PruneEntry] = []
     skipped: list[PruneSkip] = []
     for worktree in worktrees:
-        if not is_managed(worktree.path, managed_root):
+        if not is_managed(worktree.path, managed_roots):
             continue
         task_id = match_task_id(worktree.branch, tasks)
         reasons: list[str] = []
