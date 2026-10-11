@@ -1,8 +1,8 @@
 ---
 translated_from: i18n/ru/CLAUDE.md
-source_hash: 7eaae69f3591aa6e08d3aaa12ef0b3f0ac2158db49be286799b7c18e5848c934
+source_hash: 74888e6517a22453b9c4056ccbee033eab2e06ff3b145c07a7a1a181abd0669d
 translation_engine: claude-opus-4-8
-translation_date: 2026-07-30
+translation_date: 2026-10-11
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -349,8 +349,12 @@ Pfad und ihr Branch sind **fremdes Territorium**.
 
 **Worktree-Lebenszyklus:**
 
-- Anlegen: `git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>` (oder
-  auf einen bestehenden Branch).
+- Anlegen: `git worktree add .worktrees/T<NNN>-<slug> -b T<NNN>-<slug>`
+  (oder auf einen bestehenden Branch) — **innerhalb des Projekts**, im
+  Verzeichnis `.worktrees/`: Arbeitskopien verteilen sich nicht über die
+  Platte. `/.worktrees/` steht bereits in `.gitignore`; Linter, Tests und
+  Suche steigen nicht hinein. Der alte Ort `../<repo>-T<NNN>` ist
+  Geschichte; solche Ordner bleiben bis zum Aufräumen bestehen.
 - Vor der PR: `git fetch` → Rebase auf frisches `main` → Squash zu einem
   Commit (Regel „eine PR — ein Commit") → push → PR → Review.
 - Nach dem Merge: `git worktree prune` + den lokalen Branch löschen.

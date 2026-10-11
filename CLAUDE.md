@@ -126,6 +126,11 @@ noqa собраны в `DECISIONS.md` и в `src/dreamteam/cli.py`-коммен�
   PR (боты слабо ревьюят прозу), а также как targeted deep-review
   нетривиального кода и как fallback при недоступности бота. Сторонние
   ревью (CodeRabbit / qodo и т.п.) не игнорировать.
+- **Рабочие папки задач — внутри проекта:** `git worktree add
+  .worktrees/<branch> -b <branch>` (`dt task start` кладёт туда же).
+  `/.worktrees/` в `.gitignore`, ruff/mypy его исключают; собственные
+  обходы файлов (`dreamteam update`) пропускают. Старое `../<repo>-T<NNN>`
+  и `<repo>.dt/worktrees/` — история (см. ADR в `DECISIONS.md`).
 - **Импорты только в шапке модуля.** Никаких lazy / conditional
   imports в runtime коде. Исключение — `TYPE_CHECKING`-блоки для
   type hints.

@@ -169,9 +169,12 @@ def test_ensure_store_creates_tree_and_prints_once(
         tasks_dir(cwd=repo),
         sessions_dir(cwd=repo),
         by_worktree_dir(cwd=repo),
-        worktrees_dir(cwd=repo),
     ):
         assert directory.is_dir()
+    # Task worktrees live inside the project and are created lazily by
+    # `git worktree add` — the store never pre-creates the directory.
+    assert worktrees_dir(cwd=repo) == repo / '.worktrees'
+    assert not worktrees_dir(cwd=repo).exists()
     assert str(home) in first.err
     assert first.err.count('created operational state directory') == 1
 

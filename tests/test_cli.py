@@ -16,6 +16,7 @@ from dreamteam.cli import (
     EXIT_OK,
     LEGACY_COMMIT_PREFIX,
     TEAM_ROLES_IMPORT,
+    _conflict_count,
     _emit_dryrun_diff,
     _ensure_team_roles_import,
     _has_git,
@@ -77,6 +78,20 @@ def test_init_creates_project(tmp_path: Path) -> None:
     assert 'name = "my-project"' in pyproject
     main_py = (target / 'src' / 'main.py').read_text(encoding='utf-8')
     assert 'Hello from my-project!' in main_py
+
+
+def test_init_keeps_tools_out_of_nested_worktrees(tmp_path: Path) -> None:
+    """Derived projects ignore `.worktrees/` (task worktrees live inside)."""
+    target = tmp_path / 'my-project'
+    result = runner.invoke(app, ['init', str(target), '--defaults'])
+    assert result.exit_code == 0, result.output
+    gitignore = (target / '.gitignore').read_text(encoding='utf-8').splitlines()
+    assert '/.worktrees/' in gitignore
+    pyproject = (target / 'pyproject.toml').read_text(encoding='utf-8')
+    assert '    ".worktrees",' in pyproject  # ruff `exclude` replaces the defaults
+    assert 'exclude = ["^\\\\.worktrees/"]' in pyproject  # mypy
+    claude_md = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    assert 'git worktree add .worktrees/T<NNN>-<slug>' in claude_md
 
 
 def test_init_target_appears_in_output(tmp_path: Path) -> None:
@@ -346,16 +361,30 @@ def test_dry_run_with_force_warns(tmp_path: Path) -> None:
 
 
 def test_relfiles_excludes_git_and_yields_relative_paths(tmp_path: Path) -> None:
-    """`_relfiles` walks rglob, drops anything under `.git`, returns rel paths."""
+    """`_relfiles` walks rglob, drops `.git` and `.worktrees`, returns rel paths."""
     root = tmp_path / 'tree'
     (root / '.git').mkdir(parents=True)
     (root / '.git' / 'config').write_text('x')
     (root / 'a.md').write_text('hello')
     (root / 'sub').mkdir()
     (root / 'sub' / 'b.txt').write_text('world')
+    nested = root / '.worktrees' / 'T001-x'
+    nested.mkdir(parents=True)
+    (nested / 'a.md').write_text('another branch')
 
     files = _relfiles(root)
     assert files == {Path('a.md'), Path('sub/b.txt')}
+
+
+def test_conflict_count_ignores_nested_worktrees(tmp_path: Path) -> None:
+    """Conflict markers inside `.worktrees/` (another branch) are not counted."""
+    root = tmp_path / 'tree'
+    nested = root / '.worktrees' / 'T001-x'
+    nested.mkdir(parents=True)
+    (nested / 'mid-rebase.md').write_text('<<<<<<< HEAD\nx\n=======\ny\n')
+    assert _conflict_count(root) == 0
+    (root / 'own.md').write_text('<<<<<<< HEAD\nx\n=======\ny\n')
+    assert _conflict_count(root) == 1
 
 
 def test_emit_dryrun_diff_counts_buckets(

@@ -22,6 +22,7 @@ from dreamteam.dt.paths import (
     delete_branch,
     ensure_store,
     list_worktrees,
+    managed_worktree_roots,
     remove_worktree,
     store_dir,
     worktree_dirty,
@@ -73,7 +74,7 @@ def _root(
         bool, typer.Option('--json', help='Emit the root as JSON.')
     ] = False,
 ) -> None:
-    """Print ``$DT_HOME/worktrees`` — where task worktrees are placed."""
+    """Print ``<main>/.worktrees`` — where task worktrees are placed."""
 
     def action() -> str:
         ensure_store()
@@ -160,7 +161,7 @@ def _list(
         ensure_store()
         tasks = load_all_tasks(store_dir())
         matched, orphaned = partition_worktrees(
-            list_worktrees(), tasks, worktrees_dir()
+            list_worktrees(), tasks, managed_worktree_roots()
         )
         statuses: dict[str, str] = {
             task_id: task.status for task_id, task in tasks.items()
@@ -175,13 +176,13 @@ def _prune_plan() -> tuple[list[PruneEntry], list[PruneSkip]]:
     """Gather git facts and compute the removable/skipped split (read-only)."""
     ensure_store()
     tasks = load_all_tasks(store_dir())
-    root = worktrees_dir()
+    roots = managed_worktree_roots()
     worktrees = list_worktrees()
     base = default_base_branch()
-    managed = [wt for wt in worktrees if is_managed(wt.path, root)]
+    managed = [wt for wt in worktrees if is_managed(wt.path, roots)]
     merged = {wt.branch: branch_merged(wt.branch, base) for wt in managed if wt.branch}
     dirty = {wt.path: worktree_dirty(wt.path) for wt in managed}
-    return prune_plan(worktrees, tasks, root, merged, dirty)
+    return prune_plan(worktrees, tasks, roots, merged, dirty)
 
 
 def _emit_prune(

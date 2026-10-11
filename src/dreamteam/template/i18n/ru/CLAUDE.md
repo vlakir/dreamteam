@@ -301,8 +301,12 @@ Linux/systemd (macOS, Windows, контейнеры) — no-op, прогон в�
 
 **Жизненный цикл worktree:**
 
-- Создать: `git worktree add ../<repo>-T<NNN> -b T<NNN>-<slug>` (или на
-  существующую ветку).
+- Создать: `git worktree add .worktrees/T<NNN>-<slug> -b T<NNN>-<slug>`
+  (или на существующую ветку) — **внутри проекта**, в каталоге
+  `.worktrees/`: рабочие копии не расползаются по диску. `/.worktrees/`
+  уже в `.gitignore`; линтеры, тесты и поиск внутрь не заходят.
+  Старое расположение `../<repo>-T<NNN>` — история, такие папки
+  доживают до уборки.
 - Перед PR: `git fetch` → rebase на свежий `main` → squash в один
   коммит (правило «один PR — один коммит») → push → PR → review.
 - После merge: `git worktree prune` + удалить локальную ветку.
