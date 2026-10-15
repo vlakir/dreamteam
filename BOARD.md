@@ -16,92 +16,17 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Doing
 
+
+
 <!-- Максимум 1-2 задачи. -->
 
 ## Done
+
+- **T170** — [2026-10-15] Полная миграция на OpenCode и Ensemble.
+  Spec: `specs/T170-opencode-migration/spec.md`. База: релиз 1.7.0;
+  Anthropic Pro/Max исключены, API Claude и ChatGPT Plus/Pro сохраняются.
 
 <!-- Закрытые задачи, ждущие переноса в CHANGELOG.md при следующем
      релизе. После переноса — очищаем. Очищено при release cut
      1.7.0 — 2026-07-30 (T023/T024/T025/T030/T031/T032 → CHANGELOG
      [1.7.0]; T026 уже был в [1.6.0]). -->
-
-- **T033** — Каркас хранилища и модель задачи (фундамент E1: резолв
-  `$DT_HOME`, `<slug>`, ленивое создание store, pydantic-модель `Task`
-  с round-trip). `[closed 2026-07-30, PR T033-store-core]`
-- **T034** — Базовые операции над задачами: `dt task new/show/move/split`,
-  выдача ID через `counter` + `O_EXCL`, `--json`, `parent`/`blocks`.
-  `[closed 2026-07-30, PR T034-task-ops]`
-- **T035** — Валидация и готовность: `dt task check` (циклы `deps`,
-  целостность `parent`, мягкая проверка spec), `dt task ready`, подключение
-  `check` в CI/pre-push; свёрнут микро-нит валидатора ID.
-  `[closed 2026-07-30, PR T035-task-validation]`
-- **T036** — Размещение и жизненный цикл worktree: `dt worktree
-  root/path/list/prune`; путь вычисляется (`$DT_HOME/worktrees/<branch>`),
-  факт — из `git worktree list --porcelain`; `prune` консервативен
-  (managed-only, слитую ветку удаляет, squash не детектит → пропуск).
-  `[closed 2026-07-30, PR T036-worktrees]`
-- **T037** — Текстовое представление доски `dt board`: модель
-  (`board_model`/`board_columns`, git-free, переиспользуется E10) отделена
-  от рендера; секции столбиком `todo→doing→review→done`, `dropped` отсеян,
-  сортировка `updated` убыв.; `--json` = columns.
-  `[closed 2026-07-30, PR T037-board]`
-- **T038** — Поиск задачи по фразе `dt task find`: токены (casefold, Unicode),
-  веса `title>tags/branch>body`, статус active>done, морфология через общий
-  префикс ≥4 (`курсор`~`курсора`); ранжирование score→updated→id; `--json`
-  со score; без эмбеддингов. `[closed 2026-07-30, PR #84]`
-- **T058** — `dt task check` предупреждает о дрейфе frontmatter `id` ↔ имя
-  файла (follow-up ревью T038): сравнивает сырой `load_task(path).id` с именем
-  файла → WARNING (не ERROR — стор самоисцеляется). Acceptance: запись с
-  `id`≠stem даёт warning, `check` не падает. `[closed 2026-08-01, PR #85]`
-- **T039** — Композитный старт задачи `dt task start`: статус → `doing`,
-  генерация ветки `T<NNN>-<slug>` (транслит ru→lat), создание/переиспользование
-  worktree, привязка нового worktree (`current-task`/`context.line`), tmux
-  rename внутри CLI (тихо вне tmux), `--json` со спекой и Handover. Чистые
-  ядра `dt/slug.py` + `dt/starts.py` + `dt/tmux.py`, git-хелперы в `paths.py`.
-  `[closed 2026-08-01, PR #86]`
-- **T040** — Синхронизация BACKLOG.md `dt backlog sync`: статус-независимая
-  проекция store в управляемый блок между маркерами (ручная проза сохранена,
-  self-bootstrap), отказ вне основной ветки без `--force`; чистая функция
-  расхождения `backlog_divergence` для будущего `dt context` (T051). Ядро
-  `dt/backlog.py` (typer-/git-free), обёртка `backlog_cli.py`.
-  `[closed 2026-08-01, PR #87]`
-- **T041** — Перенос состояния между машинами `dt state export/import`: JSON-
-  bundle (только записи задач + счётчик, `sessions/`/`by-worktree/` исключены),
-  round-trip с unknown-полями, pre-check ID/конфликтов до записи
-  (`--on-conflict skip|overwrite`, без флага — отказ со списком), счётчик =
-  `max` (не вниз), `-` = stdout/stdin для ssh-pipe. Ядро `dt/state.py`
-  (typer-/git-free) + публичный API в `tasks.py`, обёртка `state_cli.py`.
-  `[closed 2026-08-01, PR #88]`
-- **T051** — Ориентация сессии `dt context`: резолв задачи (`DT_TASK` → префикс
-  ветки → `current-task` → непривязанная), вывод (задача/статус/спека/Handover/
-  блокеры=deps≠done/PR + строки расхождения BACKLOG и каталога), `--json` и
-  `--hook` (никогда не блокирует старт, `additionalContext` ≤ 2000). Обновляет
-  `context.line`. Ядро `dt/context.py` (typer-/git-free) + хелперы
-  `main_worktree`/`has_managed_block`, обёртка `context_cli.py`.
-  `[closed 2026-08-01, PR #89]`
-- **T052** — SessionStart-хук и реестр сессий: `dt context --hook` читает stdin
-  хука (`session_id`/`cwd`, толерантно; `transcript_path` не читается) и пишет
-  `sessions/<TASK_ID>.json` (файл-на-задачу, атомарно, best-effort после payload,
-  только для привязанной сессии). Ядро `dt/sessions.py` (typer-/git-free):
-  `SessionRecord`, `write_/read_session_record`, `current_timestamp` (tz-aware).
-  Шаблонный `template/.claude/settings.json` с хуком `dt context --hook` без
-  `matcher`. Контракт хука сверен по докам (§441). `[closed 2026-08-01, PR #90]`
-- **T053** — `dt resume` — восстановление раскладки после reboot: первый
-  потребитель реестра T052. Читает `sessions/*.json`, выдаёт команды в трёх
-  формах (таблица `dt resume` / `--tmux` скрипт / адресно `dt resume T034`),
-  `--json`. Деградация по возрасту записи `last_seen` (`RETENTION_DAYS=30`;
-  устаревшая → `claude` + Handover, без обращения к приватной раскладке
-  транскриптов — ADR; без записи → `claude --continue`), таблица только по
-  активным задачам. Пути `shlex.quote`-квотированы; `--tmux` печатается, не
-  исполняется (граница «не диспетчер»). Чистое ядро `dt/resume.py`
-  (typer-/git-free) + `read_all_session_records` в `sessions.py`, обёртка
-  `resume_cli.py`. `[closed 2026-08-01, PR #91]`
-- **T054** — Statusline (shell-reader для `context.line`): `template/.claude/
-  statusline.sh` — POSIX-sh reader без Python, вычисляет `<slug>`/`$DT_HOME`
-  побитово как `dreamteam.dt.paths` (git-only, `sha1sum`/`shasum`, symlink-
-  паритет `cd && pwd -P`), печатает `<каталог> · <context.line>`; любой сбой →
-  пусто + `exit 0` (~26 мс). `statusLine` в `settings.json` (bootstrap по
-  git-toplevel). `dt task move` теперь пишет `context.line` текущего worktree
-  (design §778) с guard'ом (только задача этого worktree). Хелперы
-  `read_current_task`/`write_context_line` в `dt/starts.py`.
-  `[closed 2026-08-01, PR #92]`

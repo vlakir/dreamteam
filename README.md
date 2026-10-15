@@ -4,6 +4,10 @@
 working project with linters, tests, kanban, ADR log, and a complete
 set of rules for AI-assisted development baked in.
 
+This branch is the **2.0.0a1 OpenCode migration preview**. It has not been
+published to PyPI. For the preview, build this checkout with `uv build` and
+install its wheel; the registry quick start below applies after publication.
+
 ```bash
 pip install dreamteam-cli                              # then `dreamteam` (or `dt`) is available
 # or zero-install via uvx:
@@ -28,7 +32,7 @@ Every project scaffolded by `dreamteam init` includes:
 - **Python stack with your chosen package manager** — `dreamteam
   init` asks for `package_manager` (`uv` default, or `poetry` /
   `pdm` / `hatch` / `pip`); the rendered `pyproject.toml`,
-  `CLAUDE.md`, and `README.md` use the right build-backend and
+  `AGENTS.md`, and `README.md` use the right build-backend and
   command prefix for the chosen manager. `ruff` (`select = ["ALL"]`
   with a curated `ignore`), `mypy` (`mypy_path = "src"`), `pytest +
   pytest-cov + pytest-asyncio` with a `--cov-fail-under=80` gate
@@ -52,81 +56,73 @@ Every project scaffolded by `dreamteam init` includes:
     (`T<NNN>` IDs, branch naming, PR naming, spec folder naming).
   - `CHANGELOG.md` — Keep-a-Changelog style with retrospective
     sections at milestone boundaries.
-  - `CLAUDE.md` — project rules for [Claude Code](https://claude.com/claude-code),
+  - `AGENTS.md` — project rules for [OpenCode](https://opencode.ai),
     including scope discipline, Git workflow, pre-push contract, and
     a structured code-review checklist.
 - **`hooks/pre-push`** — optional local hook rejecting direct pushes
   to `main` / `master`.
 - **`specs/spec-template.md`** — template for major-feature specs
   with `clarify` / `analyze` sections.
-- **Team roles — Architect + Designer** — a read-only Architect
-  subagent (`.claude/agents/architect.md`, auto-discovered by Claude
-  Code) plus a roles methodology (`.claude/team-roles.md`) that wires
-  in an external Designer. See [Team roles](#team-roles-architect--designer).
+- **Nine native OpenCode roles** with Ensemble peer messaging and isolated worktrees.
 
-## Team roles (Architect + Designer)
+## Team roles in OpenCode
 
-Beyond the **lead** (the Claude Code session driving the project),
-every scaffolded project ships a reusable collaboration loop:
+The standard team has nine roles: technical lead, analyst/architect, UX/UI
+designer, frontend, mobile, backend, test engineer, reviewer and DevOps. Each
+ships as an OpenCode agent; the lead selects the roles needed for a task.
 
-- **Architect** — a read-only subagent (`.claude/agents/architect.md`,
-  auto-discovered by Claude Code) that consults on logic and
-  architecture: context → options with trade-offs → recommendation →
-  open fork, and proposes ADR-Lite entries for `DECISIONS.md`. Its
-  source of truth is the project's own methodology files; it never
-  commits.
-- **Designer** — the external [Claude Design](https://claude.ai/design)
-  agent for visual work, called directly as an MCP. The lead hands it a
-  brief from `specs/design-brief-template.md`, iterates, and ports the
-  web prototype into the project's target stack.
+OpenCode 1.19.0 is the required agent runtime. Generated projects pin Ensemble
+0.18.0 for task coordination, peer messages and its local dashboard. Configure
+providers, models and optional MCP servers in your personal OpenCode settings;
+no particular provider or API subscription is required by dreamteam.
 
-When to call each role and the "proposed → human decided → ADR" loop
-live in `.claude/team-roles.md`, which `CLAUDE.md` imports. Both roles
-are installed by default and picked up automatically on `dreamteam
-update` (new files plus a guaranteed import line) — no manual wiring in
-existing projects.
+Use `dt doctor` to check the runtime. Start one persistent server with
+`dt serve <project>`, then connect from another terminal with `dt run <project>`.
+Additional clients must attach to the same server.
+Use `dt run <project> --session <id>` to resume an OpenCode session. The Architect
+is a read-only agent at `.opencode/agents/architect.md`; its model inherits the
+caller unless `architect_model=provider/model-id` is supplied at generation.
+A designer can use a vision model or optional MCP service of your choice.
 
-> **Pickup timing.** Claude Code loads `CLAUDE.md` (and its imports) and
-> discovers subagents at **session start** — not mid-session. So after
-> `dreamteam update`, the lead sees the new roles in the next Claude
-> Code session; if you ran the update from inside an active session,
-> restart it.
+Ensemble 0.18.0 shares its database across processes. Independent OpenCode
+processes with different session stores can archive active teams; plugin
+initialization can mark busy workers stale. Use one server for team work.
+Concurrent standalone and IDE ACP processes have not yet been accepted.
 
-### Enabling the Designer (one-time, per account)
+Project `opencode.json` loads `.opencode/team-roles.md` as instructions. Keep
+BOARD.md and BACKLOG.md as the project record and Ensemble tasks as execution
+state. Automatic merging on team cleanup is disabled. Review and validate
+changes before explicitly integrating branches. ChatGPT Plus/Pro authentication
+is available through OpenCode; Anthropic subscription plugins are not supported.
 
-The **Architect** needs no setup — Claude Code discovers the subagent
-automatically from `.claude/agents/`. The **Designer** is an external
-[Claude Design](https://claude.ai/design) MCP server; connect it once
-per account with these three steps:
+Install the pinned runtime from the official OpenCode release assets and put
+`opencode` on PATH. Run `opencode auth login` to connect an account. A successful
+`dt doctor` checks the binary version, not provider or model functionality.
+With a running server, use `dt doctor --server http://127.0.0.1:4096 --path <project>`
+to verify that Ensemble tools actually registered.
 
-1. **Register the MCP server** at user scope, so every project sees it:
 
-   ```bash
-   claude mcp add --scope user --transport http claude-design https://api.anthropic.com/v1/design/mcp
-   ```
+See [provider and role configuration](docs/opencode-providers.md) for native
+protocols, model assignments and feature checks.
 
-2. **Authenticate** — this is the step that actually connects it (not
-   `add`). Run it inside a Claude Code session; it opens the OAuth flow:
+## Recovering interrupted workers
 
-   ```text
-   /design-login
-   ```
+After restarting the server, run `dt recover <project>` on the server host to
+list interrupted members. Resume a verified task with:
 
-3. **Verify** the server is registered (optional):
+```bash
+dt recover <project> --member <name> --lead-session <session-id> --task <task-id>
+```
 
-   ```bash
-   claude mcp list        # `claude-design` should be listed / connected
-   ```
-
-That is all — the lead can now hand the Designer a brief from
-`specs/design-brief-template.md`, iterate, and pull the web prototype
-into the project.
-
-**Requirements & fallback.** Claude Design is available on the Pro /
-Max / Team / Enterprise plans (beta; not on Free). If the MCP is not
-connected — or your plan lacks access — that is **not an error**: the
-lead simply works without the Designer until it is set up. To remove it
-later: `claude mcp remove claude-design`.
+This compatibility adapter targets Ensemble 0.18.0 and OpenCode 1.19.0. It checks
+session ownership and the preserved Git worktree, backs up coordination state,
+reclaims the specified pending task, and sends one continuation request to the
+original session. Obtain the task ID from the team task list/dashboard.
+It never creates a replacement worker. Repeat requests are
+blocked; uncertain HTTP delivery requires inspection before another attempt.
+An interrupted external action may already have succeeded: the worker must
+reconcile files and tool results before retrying. This is explicit recovery,
+not a promise of exactly-once execution or unattended recovery from every failure.
 
 ## Multilingual methodology
 
@@ -138,7 +134,7 @@ language  [en (English) / ru (Русский) / fr (Français) /
 ```
 
 The chosen language renders into the derived project's narrative files
-(`CLAUDE.md` / `README.md` / `CONCEPT.md` / `BACKLOG.md` / `BOARD.md` /
+(`AGENTS.md` / `README.md` / `CONCEPT.md` / `BACKLOG.md` / `BOARD.md` /
 `CHANGELOG.md` / `DECISIONS.md` / `specs/spec-template.md`). Technical
 files (`pyproject.toml`, `src/`, `tests/`, `hooks/`) and kanban
 keywords (`To Do` / `Doing` / `Done`) are language-agnostic.
@@ -146,8 +142,8 @@ keywords (`To Do` / `Doing` / `Done`) are language-agnostic.
 **Source of truth — Russian.** Files in
 `src/dreamteam/template/i18n/ru/` are hand-edited by the maintainer;
 `en` / `fr` / `de` / `zh` are AI-translations from the Russian
-source, generated through Claude Code (no Anthropic API, no runtime
-cost — covered by the maintainer's Claude Max subscription). Each
+source, generated through OpenCode (no Anthropic API, no runtime
+cost — covered by the maintainer's OpenCode Max subscription). Each
 translated file carries a YAML frontmatter with `translated_from`,
 `source_hash` (sha256 of the ru source at translation time),
 `translation_engine`, and `translation_date`. The frontmatter is
@@ -157,7 +153,7 @@ markdown.
 **Contributing to the methodology:**
 
 1. Edit only `src/dreamteam/template/i18n/ru/<file>.md` (the source).
-2. In a Claude Code session ask: *"re-translate this change into
+2. In a OpenCode session ask: *"re-translate this change into
    en/fr/de/zh and refresh `source_hash` in the frontmatter."*
 3. Commit the ru edit together with the four regenerated translations.
 4. CI guard (`scripts/translate_check.py`, runs after pytest in
@@ -166,7 +162,7 @@ markdown.
    A mismatch fails the PR with a clear hint about regeneration.
 
 For cosmetic ru edits (typo, whitespace, paragraph re-flow) the
-short-cut is to ask Claude to refresh only the `source_hash` in all
+short-cut is to ask OpenCode to refresh only the `source_hash` in all
 four translations without retranslating the content. There is no
 machine-readable way to distinguish cosmetic from semantic diffs —
 maintainer judgment per change.
@@ -308,7 +304,7 @@ uv run pytest
 
 Methodology rules — including scope discipline, never push to `main`,
 one PR one commit, mandatory code review, task numbering `T<NNN>` —
-are documented in `CLAUDE.md` (project-level) and `~/.claude/CLAUDE.md`
+are documented in `AGENTS.md` (project-level) and `~/.config/opencode/AGENTS.md`
 (developer-level, optional).
 
 ### Sandbox (try the tool without touching the repo)

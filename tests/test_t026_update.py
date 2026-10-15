@@ -4,7 +4,7 @@ T026 Phase 9 — update acceptance: the §6 auto-pickup requirement.
 A project created by a *pre-T026* DreamTeam release must, after
 `dreamteam update`, receive the Architect subagent, the roles
 methodology, and the design brief — as clean new files — and the
-`@.claude/team-roles.md` import in CLAUDE.md, without conflict markers
+`.opencode/team-roles.md` import in AGENTS.md, without conflict markers
 on files the user did not touch, idempotently.
 
 The shipped `.bundle` only carries released tags (all pre-T026 today),
@@ -109,14 +109,14 @@ def _strip_team_roles_section(text: str) -> str:
 
 def _strip_t026(workdir: Path) -> None:
     """Remove every T026-added output file to simulate a pre-T026 template."""
-    (workdir / '.claude' / 'agents' / 'architect.md').unlink(missing_ok=True)
+    (workdir / '.opencode' / 'agents' / 'architect.md').unlink(missing_ok=True)
     shutil.rmtree(workdir / 'partials', ignore_errors=True)
     for lang_dir in (workdir / 'i18n').iterdir():
         if not lang_dir.is_dir():
             continue
-        (lang_dir / '.claude' / 'team-roles.md').unlink(missing_ok=True)
+        (lang_dir / '.opencode' / 'team-roles.md').unlink(missing_ok=True)
         (lang_dir / 'specs' / 'design-brief-template.md').unlink(missing_ok=True)
-        claude = lang_dir / 'CLAUDE.md'
+        claude = lang_dir / 'AGENTS.md'
         if claude.is_file():
             claude.write_text(
                 _strip_team_roles_section(claude.read_text(encoding='utf-8')),
@@ -245,26 +245,26 @@ def test_update_delivers_t026_files_cleanly(
     _render_derived_at_base(synthetic_bundle, target, language='en')
 
     # Precondition: the base project has none of the T026 artifacts.
-    assert not (target / '.claude' / 'agents' / 'architect.md').exists()
-    assert not (target / '.claude' / 'team-roles.md').exists()
+    assert not (target / '.opencode' / 'agents' / 'architect.md').exists()
+    assert not (target / '.opencode' / 'team-roles.md').exists()
     assert not (target / 'specs' / 'design-brief-template.md').exists()
-    assert TEAM_ROLES_IMPORT not in (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    assert TEAM_ROLES_IMPORT not in (target / 'AGENTS.md').read_text(encoding='utf-8')
 
     _git_init_derived(target)
     result = runner.invoke(app, ['update', str(target)])
     assert result.exit_code == EXIT_OK, result.output + result.stderr
 
     # New files delivered cleanly.
-    architect = target / '.claude' / 'agents' / 'architect.md'
+    architect = target / '.opencode' / 'agents' / 'architect.md'
     assert architect.is_file()
     architect_text = architect.read_text(encoding='utf-8')
     assert architect_text.startswith('---\n')
     assert architect_text.count('\n---\n') == 1
-    assert (target / '.claude' / 'team-roles.md').is_file()
+    assert (target / '.opencode' / 'team-roles.md').is_file()
     assert (target / 'specs' / 'design-brief-template.md').is_file()
 
     # Import line delivered, no conflict markers anywhere.
-    claude_text = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    claude_text = (target / 'AGENTS.md').read_text(encoding='utf-8')
     assert TEAM_ROLES_IMPORT in claude_text
     assert _has_conflict_markers(target) == []
 
@@ -275,7 +275,7 @@ def test_update_delivers_t026_files_cleanly(
     # Idempotent: a second update stays clean and does not duplicate the line.
     result2 = runner.invoke(app, ['update', str(target)])
     assert result2.exit_code == EXIT_OK, result2.output + result2.stderr
-    assert (target / 'CLAUDE.md').read_text(encoding='utf-8').count(
+    assert (target / 'AGENTS.md').read_text(encoding='utf-8').count(
         TEAM_ROLES_IMPORT,
     ) == 1
 
@@ -284,20 +284,20 @@ def test_update_import_survives_rewritten_claude_md(
     tmp_path: Path,
     synthetic_bundle: Path,
 ) -> None:
-    """Even a fully rewritten CLAUDE.md ends up with the import line (§6.3 hook)."""
+    """Even a fully rewritten AGENTS.md ends up with the import line (§6.3 hook)."""
     target = tmp_path / 'derived-rewritten'
     _render_derived_at_base(synthetic_bundle, target, language='en')
 
-    (target / 'CLAUDE.md').write_text(
+    (target / 'AGENTS.md').write_text(
         '# My own rules\n\nTotally custom, nothing from the template.\n',
         encoding='utf-8',
     )
     _git_init_derived(target)
 
-    # The merge may conflict on CLAUDE.md; the guarantee is the import
+    # The merge may conflict on AGENTS.md; the guarantee is the import
     # line's presence, delivered by the post-update hook regardless.
     runner.invoke(app, ['update', str(target)])
-    assert TEAM_ROLES_IMPORT in (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    assert TEAM_ROLES_IMPORT in (target / 'AGENTS.md').read_text(encoding='utf-8')
 
 
 def _git_out(target: Path, *args: str) -> str:
@@ -353,5 +353,5 @@ def test_update_preserves_target_git_state(
 
     # ...while the update still happened in the working tree.
     assert (target / 'MY_NOTES.md').is_file(), 'user file lost'
-    assert (target / '.claude' / 'team-roles.md').is_file(), 'template file not delivered'
-    assert TEAM_ROLES_IMPORT in (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    assert (target / '.opencode' / 'team-roles.md').is_file(), 'template file not delivered'
+    assert TEAM_ROLES_IMPORT in (target / 'AGENTS.md').read_text(encoding='utf-8')

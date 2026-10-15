@@ -41,12 +41,19 @@ vanilla_docker.sh
 # Caches
 .cache/
 
-# Git worktrees of parallel tasks — live inside the project (see CLAUDE.md)
-/.worktrees/
-
 # Local SQLite
 *.sqlite
 
 # Temp / docs builds
 temp/
 doc/
+
+# OpenCode runtime artifacts; instructions and agent definitions stay tracked.
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/bun.lock
+.opencode/bun.lockb
+
+# Isolated development worktrees
+.worktrees/

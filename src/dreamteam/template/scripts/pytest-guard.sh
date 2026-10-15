@@ -2,7 +2,7 @@
 #!/usr/bin/env bash
 # Serialise heavy test runs across all git worktrees of this project.
 #
-# Why: several worktrees (see CLAUDE.md → "Параллельная работа в нескольких
+# Why: several worktrees (see AGENTS.md → "Параллельная работа в нескольких
 # git worktree") share one machine. A full / coverage test run holds a lot of
 # RSS; two or three at once — next to a heavy IDE — can stack into OOM or a
 # frozen machine. This wrapper is a strict mutex: at most one heavy run

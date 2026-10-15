@@ -17,7 +17,7 @@ runner = CliRunner()
 LANGUAGES = ('en', 'ru', 'fr', 'de', 'zh')
 
 EXPECTED_NARRATIVE = (
-    'CLAUDE.md',
+    'AGENTS.md',
     'README.md',
     'CONCEPT.md',
     'BACKLOG.md',
@@ -28,13 +28,13 @@ EXPECTED_NARRATIVE = (
 )
 
 # A short distinctive marker per language: it must appear in the rendered
-# CLAUDE.md only when that language is selected. ru source carries the
-# legacy English heading "# Project rules for Claude" with a Russian body
+# AGENTS.md only when that language is selected. ru source carries the
+# legacy English heading "# Project rules for OpenCode" with a Russian body
 # — the marker below targets the body, not the heading.
 LANGUAGE_MARKERS = {
-    'en': 'project-specific rules for Claude',
-    'ru': 'проектные правила для Claude',
-    'fr': 'règles projet pour Claude',
+    'en': 'project-specific rules for OpenCode',
+    'ru': 'проектные правила для OpenCode',
+    'fr': 'règles projet pour OpenCode',
     'de': 'projektspezifischen Regeln',
     'zh': '项目规则',
 }
@@ -60,15 +60,15 @@ def test_init_renders_each_language(tmp_path: Path, language: str) -> None:
     )
 
     # Frontmatter must NOT bleed into derived files.
-    claude_text = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    claude_text = (target / 'AGENTS.md').read_text(encoding='utf-8')
     assert not claude_text.startswith('---'), (
-        f'{language}: translation frontmatter leaked into derived CLAUDE.md'
+        f'{language}: translation frontmatter leaked into derived AGENTS.md'
     )
 
     # Language-specific content marker.
     marker = LANGUAGE_MARKERS[language]
     assert marker.lower() in claude_text.lower(), (
-        f'{language}: marker {marker!r} not found in rendered CLAUDE.md'
+        f'{language}: marker {marker!r} not found in rendered AGENTS.md'
     )
 
     # Answers file captures the chosen language.
@@ -83,7 +83,7 @@ def test_default_language_is_en(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     answers = (target / '.copier-answers.yml').read_text(encoding='utf-8')
     assert 'language: en' in answers
-    claude_text = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    claude_text = (target / 'AGENTS.md').read_text(encoding='utf-8')
     assert LANGUAGE_MARKERS['en'].lower() in claude_text.lower()
 
 

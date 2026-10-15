@@ -2,7 +2,7 @@
 T026 Phase 8 — init acceptance for the Architect subagent render (§8.8).
 
 Fast tests (plain `dreamteam init`, no `uv sync`): on every language the
-rendered `.claude/agents/architect.md` has exactly one (functional)
+rendered `.opencode/agents/architect.md` has exactly one (functional)
 frontmatter, the right constants, `model == architect_model`, a body in
 the methodology language with no translation-frontmatter remnants, and
 the `partials/` render machinery does not leak into the derived project.
@@ -46,7 +46,7 @@ def test_architect_render_per_language(tmp_path: Path, language: str) -> None:
     target = tmp_path / f'proj-{language}'
     _init(target, '--data', f'language={language}')
 
-    architect = target / '.claude' / 'agents' / 'architect.md'
+    architect = target / '.opencode' / 'agents' / 'architect.md'
     assert architect.is_file(), 'architect subagent not rendered'
     text = architect.read_text(encoding='utf-8')
 
@@ -57,9 +57,11 @@ def test_architect_render_per_language(tmp_path: Path, language: str) -> None:
 
     _lead, frontmatter, body = text.split('---\n', 2)
     parsed = yaml.safe_load(frontmatter)
-    assert parsed['name'] == 'architect'
-    assert parsed['tools'] == 'Read, Glob, Grep'
-    assert parsed['model'] == 'inherit'  # the architect_model default
+    assert parsed['mode'] == 'subagent'
+    assert parsed['permission']['*'] == 'deny'
+    assert parsed['permission']['read'] == 'allow'
+    assert parsed['permission']['team_message'] == 'allow'
+    assert 'model' not in parsed  # the architect_model default
     assert isinstance(parsed['description'], str) and parsed['description'].strip()
 
     # Body on the methodology language, with no translation-frontmatter
@@ -71,12 +73,14 @@ def test_architect_render_per_language(tmp_path: Path, language: str) -> None:
 
 
 def test_architect_model_override(tmp_path: Path) -> None:
-    """`--data architect_model=opus` reaches the rendered subagent header."""
+    """`--data architect_model=example/coder` reaches the rendered subagent header."""
     target = tmp_path / 'proj-opus'
-    _init(target, '--data', 'language=en', '--data', 'architect_model=opus')
-    text = (target / '.claude' / 'agents' / 'architect.md').read_text(encoding='utf-8')
+    _init(target, '--data', 'language=en', '--data', 'architect_model=example/coder')
+    text = (target / '.opencode' / 'agents' / 'architect.md').read_text(
+        encoding='utf-8'
+    )
     _lead, frontmatter, _body = text.split('---\n', 2)
-    assert yaml.safe_load(frontmatter)['model'] == 'opus'
+    assert yaml.safe_load(frontmatter)['model'] == 'example/coder'
 
 
 def test_render_machinery_does_not_leak(tmp_path: Path) -> None:

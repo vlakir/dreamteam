@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/README.md
-source_hash: f96c2ff264d28425416521155c98b10324520cd825e9ded1c0cbe5f3a8289568
+source_hash: 415d2a753cb618a7325636c0583ed4c96b50ee3fe59910af261428f87a0b1715
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -70,7 +70,7 @@ Hatch 通过 `pyproject.toml` 管理依赖。Runtime —— 添加到
 - `BACKLOG.md` —— 想法与旁支发现的停车场。
 - `CHANGELOG.md` —— 显著变更的日志。
 - `specs/` —— 大型功能的规格说明。
-- `CLAUDE.md` —— Claude（Claude Code）的项目规则。
+- `AGENTS.md` —— OpenCode（OpenCode）的项目规则。
 
 ## 方法论
 

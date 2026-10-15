@@ -6,7 +6,7 @@ prompt (uv / poetry / pdm / hatch / pip) and the existing
 `language` prompt (en / ru / fr / de / zh) renders into a derived
 project with:
 
-- correct manager-aware command prefix in CLAUDE.md (`uv run ` for
+- correct manager-aware command prefix in AGENTS.md (`uv run ` for
   uv, `.venv/bin/` for pip, etc.);
 - correct build-backend in pyproject.toml;
 - the chosen language preserved in `.copier-answers.yml`;
@@ -36,7 +36,7 @@ runner = CliRunner()
 MANAGERS = ('uv', 'poetry', 'pdm', 'hatch', 'pip')
 LANGUAGES = ('en', 'ru', 'fr', 'de', 'zh')
 
-# Expected manager-aware command prefix in rendered CLAUDE.md
+# Expected manager-aware command prefix in rendered AGENTS.md
 # pre-push chain. Mirrors the `pm_run` mapping in the template.
 PM_RUN_PREFIX = {
     'uv': 'uv run ',
@@ -85,8 +85,8 @@ def test_render_matches_manager_and_language(
     )
     assert result.exit_code == EXIT_OK, result.output
 
-    # Manager-aware command prefix appears in CLAUDE.md pre-push chain.
-    claude = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    # Manager-aware command prefix appears in AGENTS.md pre-push chain.
+    claude = (target / 'AGENTS.md').read_text(encoding='utf-8')
     prefix = PM_RUN_PREFIX[package_manager]
     assert f'{prefix}ruff check .' in claude, (
         f'{package_manager}/{language}: expected pre-push command '
@@ -123,13 +123,13 @@ def test_render_matches_manager_and_language(
         assert '[tool.hatch.envs.default]' not in pyproject
 
     # Language preserved in answers; translation frontmatter stripped
-    # from the rendered CLAUDE.md (would start with `---` otherwise).
+    # from the rendered AGENTS.md (would start with `---` otherwise).
     answers = (target / '.copier-answers.yml').read_text(encoding='utf-8')
     assert f'language: {language}' in answers
     assert f'package_manager: {package_manager}' in answers
     assert not claude.startswith('---'), (
         f'{package_manager}/{language}: translation frontmatter leaked '
-        'into derived CLAUDE.md'
+        'into derived AGENTS.md'
     )
 
 
@@ -140,7 +140,7 @@ def test_default_package_manager_is_uv(tmp_path: Path) -> None:
     assert result.exit_code == EXIT_OK, result.output
     answers = (target / '.copier-answers.yml').read_text(encoding='utf-8')
     assert 'package_manager: uv' in answers
-    claude = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    claude = (target / 'AGENTS.md').read_text(encoding='utf-8')
     assert 'uv run ruff check .' in claude
 
 
@@ -152,12 +152,12 @@ def test_pip_uses_venv_bin_paths(tmp_path: Path) -> None:
         ['init', str(target), '--defaults', '--data', 'package_manager=pip'],
     )
     assert result.exit_code == EXIT_OK, result.output
-    claude = (target / 'CLAUDE.md').read_text(encoding='utf-8')
+    claude = (target / 'AGENTS.md').read_text(encoding='utf-8')
     # No bare `ruff check` / `pytest` — they would flake without
     # an activated venv in a git pre-push hook context.
     for bare in ('\nruff check', '\npytest', '\nmypy '):
         assert bare not in claude, (
-            f'bare {bare.strip()!r} command in pip-mode CLAUDE.md — '
+            f'bare {bare.strip()!r} command in pip-mode AGENTS.md — '
             'should be .venv/bin/-prefixed'
         )
     assert '.venv/bin/ruff check .' in claude

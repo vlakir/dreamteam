@@ -25,12 +25,12 @@ def _make_template(tmp_path: Path, *, en_body: str | None = None) -> Path:
     """Build a minimal template tree with i18n/ru/<file> + optional i18n/en/<file>."""
     template_root = tmp_path / 'template'
     (template_root / 'i18n' / 'ru').mkdir(parents=True)
-    (template_root / 'i18n' / 'ru' / 'CLAUDE.md').write_text(
+    (template_root / 'i18n' / 'ru' / 'AGENTS.md').write_text(
         RU_BODY, encoding='utf-8',
     )
     if en_body is not None:
         (template_root / 'i18n' / 'en').mkdir(parents=True)
-        (template_root / 'i18n' / 'en' / 'CLAUDE.md').write_text(
+        (template_root / 'i18n' / 'en' / 'AGENTS.md').write_text(
             en_body, encoding='utf-8',
         )
     return template_root
@@ -39,7 +39,7 @@ def _make_template(tmp_path: Path, *, en_body: str | None = None) -> Path:
 def _frontmatter(
     *,
     source_hash: str,
-    translated_from: str = 'i18n/ru/CLAUDE.md',
+    translated_from: str = 'i18n/ru/AGENTS.md',
 ) -> str:
     return (
         '---\n'
@@ -84,7 +84,7 @@ def test_mismatched_hash_fails(
     code, _out, err = _run(template_root, capsys)
     assert code == 1
     assert 'FAIL' in err
-    assert 'i18n/en/CLAUDE.md' in err
+    assert 'i18n/en/AGENTS.md' in err
     assert 'Hint:' in err
 
 
@@ -138,7 +138,7 @@ def test_parse_frontmatter_round_trip() -> None:
     parsed = translate_check.parse_frontmatter(fm)
     assert parsed is not None
     assert parsed['source_hash'] == RU_HASH
-    assert parsed['translated_from'] == 'i18n/ru/CLAUDE.md'
+    assert parsed['translated_from'] == 'i18n/ru/AGENTS.md'
     assert translate_check.parse_frontmatter('# no fm\n') is None
 
 
@@ -151,7 +151,7 @@ def test_iter_translation_files_skips_missing_dirs(tmp_path: Path) -> None:
         template_root / 'i18n',
     )
     rels = [str(p.relative_to(template_root)) for p in files]
-    assert rels == ['i18n/en/CLAUDE.md']
+    assert rels == ['i18n/en/AGENTS.md']
 
 
 PARTIAL_RU_BODY = '<!-- description: X -->\nProse line.\n'

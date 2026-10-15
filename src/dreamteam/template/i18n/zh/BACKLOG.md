@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/BACKLOG.md
-source_hash: 97561a99e58717c8b3c1493b0669d8e69849ccff9ed8694c913846ee8908efb1
+source_hash: 2e77b47e3292371b7529bc9a2d494a48383d41053bf845384b2b16bb6f81e065
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -8,7 +8,7 @@ translation_date: 2026-05-15
 
 存放想法、旁支发现以及「以后该修一下」的事项的停车场。
 
-**规则：** 如果在做当前任务时，Claude 或开发者注意到与任务无关的
+**规则：** 如果在做当前任务时，OpenCode 或开发者注意到与任务无关的
 内容 —— 它进入这里，而不是当前 commit。这是抵御 scope creep 的
 防线。
 

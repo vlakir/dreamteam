@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+source_hash: 759cc8c73b812b3a1d47bccedf009071169fe48ebe31fd1a8365c480f83efd34
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -17,7 +17,7 @@ translation_date: 2026-07-30
 >
 > Lors de la création du projet via `dreamteam init`, ce fichier
 > est déjà en place ; passe le rituel de questions croisées avec
-> Claude (voir ci-dessous), remplis les sections et fige-les comme
+> OpenCode (voir ci-dessous), remplis les sections et fige-les comme
 > immuables.
 
 <!-- La structure ci-dessous est un QUESTIONNAIRE (leading questions)
@@ -27,7 +27,7 @@ translation_date: 2026-07-30
      transposer dans ces rubriques. L'essentiel : qu'une section « Out
      of scope » soit présente sous une forme quelconque (protection
      contre le scope creep) et que le document reste immuable une fois
-     figé. Le rituel de clarify (questions croisées de Claude sur les
+     figé. Le rituel de clarify (questions croisées de OpenCode sur les
      angles morts) se fait sur le contenu réel. -->
 
 ## Objectif
@@ -80,7 +80,7 @@ spec d'une grosse fonctionnalité :
 
 1. Le Développeur écrit une première ébauche des sections (ou
    formule simplement l'idée).
-2. Claude pose des questions croisées sur les angles morts :
+2. OpenCode pose des questions croisées sur les angles morts :
    - **Objectif :** quelle douleur / quel problème le projet
      résout-il ?
    - **Utilisateur :** qui exactement est l'utilisateur, dans quel

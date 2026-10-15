@@ -1,13 +1,13 @@
 ---
 translated_from: i18n/ru/specs/design-brief-template.md
-source_hash: 363870ea9a98177cf5c059873a36541d3aff7b1d81cbefce0baceafae44a76f7
+source_hash: 1665957fc291b289b590b2af28467294b6328a5b71fe8e97e6e0fcd7753901f0
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-05
 ---
 # Design brief: <screen / feature name>
 
-**For the role:** Designer (Claude Design). How to connect it and when
-to call it — in `.claude/team-roles.md`.
+**For the role:** Designer (Designer). How to connect it and when
+to call it — in `.opencode/team-roles.md`.
 **Status:** Draft | Handed to the Designer | Prototype received | Ported to the stack
 **Date:** <YYYY-MM-DD>
 
@@ -49,7 +49,7 @@ to call it — in `.claude/team-roles.md`.
 
 <!-- Mood and visual language: restrained / playful / dense / airy. If
      the account has a design system configured (brand colors,
-     typography), the Designer will use it; for a fresh project, Claude
+     typography), the Designer will use it; for a fresh project, OpenCode
      Design's defaults. State explicit preferences if any. -->
 
 ## 6. Constraints

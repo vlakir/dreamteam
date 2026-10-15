@@ -35,7 +35,7 @@ runner = CliRunner()
 MANAGERS = ('uv', 'poetry', 'pdm', 'hatch', 'pip')
 
 EXPECTED_NARRATIVE = (
-    'CLAUDE.md',
+    'AGENTS.md',
     'README.md',
     'CONCEPT.md',
     'BACKLOG.md',
@@ -78,7 +78,7 @@ def test_apply_pycharm_scaffold_keep_pyproject(tmp_path: Path) -> None:
     PyCharm-style scaffold: `pyproject.toml` + `.venv/` present.
 
     `--on-conflict keep` preserves the user's pyproject.toml; everything
-    else (CLAUDE.md, README.md, …) is created. `.venv/` is untouched.
+    else (AGENTS.md, README.md, …) is created. `.venv/` is untouched.
     """
     target = tmp_path / 'efactory'
     target.mkdir()
@@ -213,7 +213,7 @@ def test_apply_dry_run_writes_nothing(tmp_path: Path) -> None:
     # No writes whatsoever besides what existed.
     assert (target / 'pyproject.toml').read_text(encoding='utf-8') == user_pyproject
     assert not (target / '.copier-answers.yml').exists()
-    assert not (target / 'CLAUDE.md').exists()
+    assert not (target / 'AGENTS.md').exists()
 
 
 def test_apply_already_dreamteam_errors(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/specs/spec-template.md
-source_hash: 0f45d2d1435c67a85ab50b0aa1d9f10e3c089615ee91c53712e6b80a55e4513c
+source_hash: 4887f0f72fb9ecb93fed045dcccb4a5943203ee18f8deb67752544e34aff0da4
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -77,9 +77,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Clarify (von Claude ausgefüllt)
+## Clarify (von OpenCode ausgefüllt)
 
-<!-- Claude liest die Spec noch einmal und stellt Gegenfragen zu
+<!-- OpenCode liest die Spec noch einmal und stellt Gegenfragen zu
      blinden Flecken. Kategorien: Auth, Validation, Errors, Edge
      Cases, Performance, Sicherheit, Integrationen. Die Antworten
      des Entwicklers werden in die entsprechenden Abschnitte
@@ -95,9 +95,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Analyze (von Claude ausgefüllt)
+## Analyze (von OpenCode ausgefüllt)
 
-<!-- Claude liest die Spec (und den Plan, falls vorhanden) und
+<!-- OpenCode liest die Spec (und den Plan, falls vorhanden) und
      sucht nach Widersprüchen, Inkonsistenzen, Auslassungen,
      technischen Unmöglichkeiten.
 

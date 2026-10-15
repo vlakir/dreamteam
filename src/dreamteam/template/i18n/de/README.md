@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/README.md
-source_hash: f96c2ff264d28425416521155c98b10324520cd825e9ded1c0cbe5f3a8289568
+source_hash: 415d2a753cb618a7325636c0583ed4c96b50ee3fe59910af261428f87a0b1715
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -75,7 +75,7 @@ nur nach vorheriger Absprache.
 - `BACKLOG.md` — Parking für Ideen und Seitenfunde.
 - `CHANGELOG.md` — Journal nennenswerter Änderungen.
 - `specs/` — Spezifikationen großer Features.
-- `CLAUDE.md` — Projektregeln für Claude (Claude Code).
+- `AGENTS.md` — Projektregeln für OpenCode (OpenCode).
 
 ## Methodik
 

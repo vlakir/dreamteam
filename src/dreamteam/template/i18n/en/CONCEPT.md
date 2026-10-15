@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+source_hash: 759cc8c73b812b3a1d47bccedf009071169fe48ebe31fd1a8365c480f83efd34
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -17,7 +17,7 @@ translation_date: 2026-07-30
 >
 > When the project is created via `dreamteam init` this file is
 > already in place; go through the counter-question ritual with
-> Claude (see below), fill in the sections and lock them as
+> OpenCode (see below), fill in the sections and lock them as
 > immutable.
 
 <!-- The structure below is a QUESTIONNAIRE (leading questions) for an
@@ -26,7 +26,7 @@ translation_date: 2026-07-30
      wholesale with your own, without recasting anything into these
      headings. What matters is that an "Out of scope" section is
      present in some form (protection against scope creep) and that the
-     document stays immutable once locked. The clarify ritual (Claude's
+     document stays immutable once locked. The clarify ritual (OpenCode's
      counter-questions about blind spots) runs against the actual
      content. -->
 
@@ -78,7 +78,7 @@ spec:
 
 1. The Developer writes a first draft of the sections (or simply
    states the idea).
-2. Claude asks counter-questions about blind spots:
+2. OpenCode asks counter-questions about blind spots:
    - **Goal:** what pain / task does the project solve?
    - **User:** who exactly is the user, in what context?
    - **Key functionality:** what is the minimum set for MVP? What

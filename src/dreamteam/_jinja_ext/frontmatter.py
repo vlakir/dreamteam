@@ -1,7 +1,7 @@
 """
 Jinja filters for assembling the Architect subagent file (T026).
 
-The Architect subagent (`.claude/agents/architect.md`) needs a
+The Architect subagent (`.opencode/agents/architect.md`) needs a
 *functional* YAML frontmatter (`name`/`description`/`tools`/`model`)
 that must reach the derived project intact. Its prose body, however, is
 translatable and lives in `partials/architect.body.<language>.md`.

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import difflib
+import json
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -15,23 +17,18 @@ import yaml
 from copier import Worker, run_copy
 
 from dreamteam import __version__
-from dreamteam.backlog_cli import backlog_app
-from dreamteam.board_cli import board
-from dreamteam.context_cli import context
-from dreamteam.resume_cli import resume
-from dreamteam.state_cli import state_app
-from dreamteam.task_cli import task_app
-from dreamteam.worktree_cli import worktree_app
+from dreamteam.recovery import interrupted, resume_member
+from dreamteam.runtime import ENSEMBLE, inspect_ensemble, inspect_runtime, launch, serve
 
 ANSWERS_FILE = '.copier-answers.yml'
 BUNDLE_SUBPATH = '.bundle'
 # T026 §6.3: the roles methodology is delivered as a separate file
-# (.claude/team-roles.md) that CLAUDE.md must import. `_ensure_team_roles_import`
+# (.opencode/team-roles.md) that AGENTS.md must reference. `_ensure_team_roles_import`
 # guarantees this line on `dreamteam update` even when the user rewrote
-# their CLAUDE.md — see the function docstring.
-CLAUDE_MD = 'CLAUDE.md'
-TEAM_ROLES_FILE = '.claude/team-roles.md'
-TEAM_ROLES_IMPORT = f'@{TEAM_ROLES_FILE}'
+# their AGENTS.md — see the function docstring.
+AGENTS_MD = 'AGENTS.md'
+TEAM_ROLES_FILE = '.opencode/team-roles.md'
+TEAM_ROLES_IMPORT = TEAM_ROLES_FILE
 # Legacy `_commit` prefix used by derived projects created on
 # dreamteam-cli 1.0.0–1.2.0 (before T009 Phase 1). Kept for backward-
 # compatible mapping in `_resolve_base_version_tag`.
@@ -45,41 +42,11 @@ EXIT_CONFLICTS = 2
 # and a value above this threshold (255 in practice) on internal failure.
 MERGE_FILE_ERROR_RC = 127
 
-# Directories a project walk never descends into: git metadata and the nested
-# task worktrees (`.worktrees/`, full clones of other branches — their files and
-# any mid-rebase conflict markers are not this project's state).
-SKIP_DIRS = frozenset({'.git', '.worktrees'})
-
 app = typer.Typer(
     name='dreamteam',
     help='Project scaffolding CLI with built-in methodology.',
     no_args_is_help=True,
 )
-# Operational task layer (`dt task new/show/move/split/check/find/ready`, T034;
-# composite `start`, T039). The wrappers live in `task_cli` (typer-facing) over
-# the typer-free `dt/` core; mounting here exposes them under both the `dt` and
-# `dreamteam` entry points.
-app.add_typer(task_app)
-# Worktree placement and lifecycle (`dt worktree root/path/list/prune`, T036) —
-# same pattern: git-free core in `dt/worktrees`, git helpers in `dt/paths`,
-# Typer wrappers in `worktree_cli`.
-app.add_typer(worktree_app)
-# Text kanban (`dt board`, T037) — top-level command (no subcommands yet;
-# `dt board serve` arrives in E10). Model lives in the git-free `dt/board`.
-app.command(name='board')(board)
-# BACKLOG.md projection (`dt backlog sync`, T040) — regenerates the managed
-# block from the store; git-free core in `dt/backlog`, git context in `dt/paths`.
-app.add_typer(backlog_app)
-# State transfer between machines (`dt state export/import`, T041) — task records
-# and counter only; git-free core in `dt/state`, session/worktree data excluded.
-app.add_typer(state_app)
-# Session orientation (`dt context`, T051) — resolve the task (DT_TASK → branch →
-# current-task), print it, `--hook` for SessionStart; git-free core in `dt/context`.
-app.command(name='context')(context)
-# Session-layout recovery (`dt resume`, T053) — read the T052 registry and emit
-# recovery commands (table / `--tmux` script / one task); git-free core in
-# `dt/resume`, retention judged by record age (never stats transcripts).
-app.command(name='resume')(resume)
 
 
 def _template_path() -> Path:
@@ -200,6 +167,7 @@ def _write_answers_file(target: Path, user_answers: dict[str, Any]) -> None:
       falls back to the on-disk template path; `dreamteam update`
       will then take the overwrite fallback path.
     """
+    answers_path = _safe_managed_path(target, Path(ANSWERS_FILE))
     bundle = _bundle_path()
     src_path = bundle if bundle.is_dir() else _template_path()
     payload: dict[str, Any] = {
@@ -207,7 +175,7 @@ def _write_answers_file(target: Path, user_answers: dict[str, Any]) -> None:
         '_src_path': str(src_path),
     }
     payload.update(user_answers)
-    (target / ANSWERS_FILE).write_text(
+    answers_path.write_text(
         yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
         encoding='utf-8',
     )
@@ -215,11 +183,11 @@ def _write_answers_file(target: Path, user_answers: dict[str, Any]) -> None:
 
 def _ensure_team_roles_import(target: Path) -> None:
     """
-    Guarantee CLAUDE.md imports the roles methodology (T026 §6.3).
+    Keep a reference to the team methodology in project rules.
 
     `dreamteam update` re-applies the template via run_copy / run_update.
-    The template's CLAUDE.md carries an `@.claude/team-roles.md` import
-    line, but a user who rewrote their own CLAUDE.md may not receive it
+    The template's AGENTS.md carries a `.opencode/team-roles.md` reference
+    line, but a user who rewrote their own AGENTS.md may not receive it
     through the three-way merge. Copier's `_migrations` would be the
     usual delivery hook, but they only fire on `run_update` — not the
     run_copy-based overwrite path this CLI also uses — so the guarantee
@@ -227,41 +195,47 @@ def _ensure_team_roles_import(target: Path) -> None:
 
     Idempotent: the import block is appended only when the line is
     absent, so a fresh render that already carries it, or a second
-    `update`, never produces a duplicate. If CLAUDE.md is missing
+    `update`, never produces a duplicate. If AGENTS.md is missing
     (nothing to import into) it is a no-op — the template render, not
-    this hook, is what creates CLAUDE.md.
+    this hook, is what creates AGENTS.md.
 
     Guarded on the roles file's presence: the import is added only when
-    `.claude/team-roles.md` actually exists in the project. Otherwise —
+    `.opencode/team-roles.md` actually exists in the project. Otherwise —
     e.g. a dreamteam-cli whose bundle predates T026 and did not deliver
-    team-roles.md — we would write a dangling `@import` to a missing
+    team-roles.md — we would write a dangling reference to a missing
     file. In the real §6.3 case team-roles.md always arrives as a new
     file, so the import is still added.
     """
     if not (target / TEAM_ROLES_FILE).is_file():
         return
-    claude_md = target / CLAUDE_MD
-    if not claude_md.is_file():
+    agents_md = target / AGENTS_MD
+    if not agents_md.is_file():
         return
-    text = claude_md.read_text(encoding='utf-8')
+    text = agents_md.read_text(encoding='utf-8')
     if TEAM_ROLES_IMPORT in text:
         return
     separator = '' if text.endswith('\n') else '\n'
-    block = (
-        f'{separator}\n## Team roles (Architect + Designer) — dreamteam\n\n'
-        f'{TEAM_ROLES_IMPORT}\n'
-    )
-    claude_md.write_text(text + block, encoding='utf-8')
+    block = f'{separator}\n## Team roles — dreamteam\n\n{TEAM_ROLES_IMPORT}\n'
+    agents_md.write_text(text + block, encoding='utf-8')
 
 
 def _read_full_answers(answers_file: Path) -> dict[str, Any]:
     """Read every key in the answers file (including `_commit`, `_src_path`)."""
+    _safe_managed_path(answers_file.parent, Path(answers_file.name))
     return yaml.safe_load(answers_file.read_text(encoding='utf-8'))
 
 
 def _user_answers(answers: dict[str, Any]) -> dict[str, Any]:
     """Filter copier metadata (`_commit`, `_src_path`, …) out of answers."""
-    return {k: v for k, v in answers.items() if not k.startswith('_')}
+    result = {k: v for k, v in answers.items() if not k.startswith('_')}
+    if result.get('architect_model') in ('opus', 'sonnet', 'haiku', 'fable'):
+        typer.echo(
+            'Legacy Architect model alias replaced with inherit; '
+            'configure a provider/model-id to select a specific model.',
+            err=True,
+        )
+        result['architect_model'] = 'inherit'
+    return result
 
 
 def _version_callback(*, value: bool) -> None:
@@ -294,6 +268,9 @@ def _parse_data(items: list[str]) -> dict[str, str]:
             message = f"--data expects 'key=value', got '{item}'"
             raise typer.BadParameter(message)
         key, _, value = item.partition('=')
+        if key.strip() == 'architect_model' and value != 'inherit' and '/' not in value:
+            message = 'architect_model must be inherit or provider/model-id'
+            raise typer.BadParameter(message)
         parsed[key.strip()] = value
     return parsed
 
@@ -346,18 +323,25 @@ def _overwrite_update(
     target: Path,
     user_answers: dict[str, Any],
 ) -> None:
-    """MVP fallback: re-apply template with overwrite=True (no merge)."""
-    run_copy(
-        src_path=str(_template_path()),
-        dst_path=str(target),
-        data=user_answers,
-        defaults=True,
-        overwrite=True,
-        quiet=False,
-        unsafe=True,
-    )
-    _write_answers_file(target, user_answers)
-    _ensure_team_roles_import(target)
+    """Re-apply rendered managed files after validating every destination."""
+    with tempfile.TemporaryDirectory(prefix='dreamteam-overwrite-') as tmp:
+        rendered = Path(tmp) / 'rendered'
+        run_copy(
+            src_path=str(_template_path()),
+            dst_path=str(rendered),
+            data=user_answers,
+            defaults=True,
+            overwrite=True,
+            quiet=False,
+            unsafe=True,
+        )
+        _write_answers_file(rendered, user_answers)
+        _ensure_team_roles_import(rendered)
+        files = sorted(_relfiles(rendered), key=str)
+        destinations = {rel: _safe_managed_path(target, rel) for rel in files}
+        for rel, destination in destinations.items():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(rendered / rel, destination)
 
 
 def _copier_render_at(
@@ -422,6 +406,18 @@ def _merge_file(
         if theirs_bytes == base_bytes:
             return ours.read_bytes(), 0
         return theirs_bytes, 0
+    # An append-only project rule is outside the original template's content.
+    # Preserve it even when the template replaces its final section; git's
+    # line-based merge can otherwise report an artificial EOF overlap.
+    if rel.name == AGENTS_MD:
+        base_bytes = base.read_bytes()
+        ours_bytes = ours.read_bytes()
+        if base_bytes and ours_bytes.startswith(base_bytes):
+            extension = ours_bytes[len(base_bytes) :]
+            updated = theirs.read_bytes()
+            if extension and not updated.endswith(extension):
+                updated += extension
+            return updated, 0
     result = subprocess.run(
         [
             _git_binary(),
@@ -471,8 +467,22 @@ def _plan_merge(
     the merged bytes to write, `deletes` are template-removed paths the user
     had not edited, `conflicts` is the total conflict-hunk count.
     """
-    base_files = _relfiles(base_dir)
     new_files = _relfiles(new_dir)
+    base_paths = {}
+    for original in _relfiles(base_dir):
+        migrated = Path(str(original).replace('.claude/', '.opencode/'))
+        if original.name == 'CLAUDE.md':
+            migrated = migrated.with_name('AGENTS.md')
+        canonical = migrated if migrated in new_files else original
+        base_paths[canonical] = original
+    # Validate every target path (including legacy aliases) before reading any
+    # project file: a late unsafe path must not follow earlier reads/merges.
+    for rel in base_paths.keys() | new_files:
+        _safe_managed_path(target, rel)
+        source_rel = base_paths.get(rel)
+        if source_rel is not None:
+            _safe_managed_path(target, source_rel)
+    base_files = set(base_paths)
     writes: dict[Path, bytes] = {}
     deletes: set[Path] = set()
     conflicts = 0
@@ -482,10 +492,16 @@ def _plan_merge(
         in_base = rel in base_files
         in_new = rel in new_files
         ours = target / rel
+        original = base_paths.get(rel, rel)
+        if not ours.exists() and original != rel:
+            ours = target / original
         if in_base and not in_new:
             # Template dropped the file: honor the removal only if the user
             # left it untouched; a user-edited file is kept as-is.
-            if ours.is_file() and ours.read_bytes() == (base_dir / rel).read_bytes():
+            if (
+                ours.is_file()
+                and ours.read_bytes() == (base_dir / original).read_bytes()
+            ):
                 deletes.add(rel)
             continue
         new_bytes = (new_dir / rel).read_bytes()
@@ -493,7 +509,7 @@ def _plan_merge(
             # Brand-new template file, or one the user deleted: (re)create it.
             writes[rel] = new_bytes
             continue
-        base = base_dir / rel if in_base else empty_base
+        base = base_dir / original if in_base else empty_base
         content, count = _merge_file(rel, ours, base, new_dir / rel)
         writes[rel] = content
         conflicts += count
@@ -502,12 +518,28 @@ def _plan_merge(
 
 def _apply_plan(root: Path, writes: dict[Path, bytes], deletes: set[Path]) -> None:
     """Write merged files and remove template-deleted ones under `root`."""
+    for rel in writes.keys() | deletes:
+        _safe_managed_path(root, rel)
     for rel, content in writes.items():
         dst = root / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(content)
     for rel in deletes:
         (root / rel).unlink(missing_ok=True)
+
+
+def _safe_managed_path(root: Path, rel: Path) -> Path:
+    """Validate a relative managed path without resolving through symlinks."""
+    if rel.is_absolute() or '..' in rel.parts:
+        message = f'Unsafe template path: {rel}'
+        raise RuntimeError(message)
+    candidate = root
+    for part in rel.parts:
+        candidate /= part
+        if candidate.is_symlink():
+            message = f'Template path is a symlink; inspect before updating: {rel}'
+            raise RuntimeError(message)
+    return candidate
 
 
 def _compute_update_plan(
@@ -561,15 +593,20 @@ def _three_way_update(
 
 
 def _relfiles(root: Path) -> set[Path]:
-    """Relative paths of every file under `root`, excluding `SKIP_DIRS`."""
+    """Relative paths of every file under `root`, excluding `.git`."""
     return {
         path.relative_to(root)
         for path in root.rglob('*')
-        if path.is_file() and not SKIP_DIRS.intersection(path.parts)
+        if path.is_file() and '.git' not in path.parts
     }
 
 
-def _emit_dryrun_diff(target: Path, preview: Path) -> int:
+def _emit_dryrun_diff(
+    target: Path,
+    preview: Path,
+    *,
+    managed: set[Path] | None = None,
+) -> int:
     """
     Print per-file unified diff (target → preview) and a summary line.
 
@@ -577,8 +614,21 @@ def _emit_dryrun_diff(target: Path, preview: Path) -> int:
     conflict markers (`<<<<<<<`). The caller uses that count to pick
     the exit code: 0 if zero conflicts, EXIT_CONFLICTS otherwise.
     """
-    target_files = _relfiles(target)
-    preview_files = _relfiles(preview)
+    target_files = (
+        _relfiles(target)
+        if managed is None
+        else {rel for rel in managed if _safe_managed_path(target, rel).is_file()}
+    )
+    # Legacy Claude rules are a source alias for AGENTS.md during migration;
+    # validate them even when the current render only contains the canonical
+    # filename (notably in the overwrite fallback preview).
+    if Path(AGENTS_MD) in (managed or set()):
+        _safe_managed_path(target, Path('CLAUDE.md'))
+    preview_files = (
+        _relfiles(preview)
+        if managed is None
+        else {rel for rel in managed if (preview / rel).is_file()}
+    )
 
     updated: list[Path] = []
     unchanged: list[Path] = []
@@ -598,6 +648,7 @@ def _emit_dryrun_diff(target: Path, preview: Path) -> int:
             continue
         t_path = target / rel
         p_path = preview / rel
+        _safe_managed_path(target, rel)
         try:
             t_text = t_path.read_text(encoding='utf-8')
             p_text = p_path.read_text(encoding='utf-8')
@@ -641,10 +692,10 @@ def _dry_run(
     """
     Render what `dreamteam update` would produce, without writing to target.
 
-    Builds a preview copy of the project (minus `SKIP_DIRS`), applies the same
-    merge plan the real update would (or the overwrite fallback when the
-    merge preconditions are not met), then diffs the preview against the
-    original. The target itself is never touched — the merge plan is
+    Renders only template-managed files in a temporary preview and applies
+    the same merge plan as the real update. Dependencies, build outputs and
+    arbitrary user files are never copied or traversed. The target itself
+    is never touched — the merge plan is
     computed from the target's files but applied only to `preview`.
 
     Returns the number of would-be conflict files (drives the exit code
@@ -662,31 +713,21 @@ def _dry_run(
     )
     with tempfile.TemporaryDirectory(prefix='dreamteam-dryrun-') as tmp:
         preview = Path(tmp) / 'preview'
-        shutil.copytree(target, preview, ignore=shutil.ignore_patterns(*SKIP_DIRS))
+        preview.mkdir()
         if can_merge and base_tag is not None:
-            try:
-                writes, deletes, _count = _compute_update_plan(
-                    target,
-                    user_answers,
-                    base_tag,
-                )
-                _apply_plan(preview, writes, deletes)
-                _write_answers_file(preview, user_answers)
-                _ensure_team_roles_import(preview)
-            except Exception:
-                # Merge failed mid-flight; rebuild the preview as an
-                # overwrite-only snapshot so the user still gets a sensible
-                # diff. Production update has its own fallback chain; here we
-                # just want the report.
-                shutil.rmtree(preview)
-                shutil.copytree(
-                    target, preview, ignore=shutil.ignore_patterns(*SKIP_DIRS)
-                )
-                _overwrite_update(preview, user_answers)
+            writes, deletes, _count = _compute_update_plan(
+                target,
+                user_answers,
+                base_tag,
+            )
+            managed = set(writes) | deletes | {Path(ANSWERS_FILE)}
+            _apply_plan(preview, writes, deletes)
+            _write_answers_file(preview, user_answers)
+            _ensure_team_roles_import(preview)
         else:
             _overwrite_update(preview, user_answers)
-
-        return _emit_dryrun_diff(target, preview)
+            managed = _relfiles(preview)
+        return _emit_dryrun_diff(target, preview, managed=managed)
 
 
 def _conflict_count(target: Path) -> int:
@@ -699,7 +740,7 @@ def _conflict_count(target: Path) -> int:
     """
     count = 0
     for path in target.rglob('*'):
-        if not path.is_file() or SKIP_DIRS.intersection(path.parts):
+        if not path.is_file() or '.git' in path.parts:
             continue
         try:
             text = path.read_text(encoding='utf-8')
@@ -751,13 +792,18 @@ def update(
     - `--force` flag explicitly requested by the user.
     - `git` not available in PATH.
     - Bundle missing from the installed package (older wheel).
-    - Base version tag absent in bundle (derived project predates
-      the bundled-history feature).
+    - Base version tag absent in bundle for native projects. Legacy Claude
+      migration without a verifiable base stops without writes.
 
     Exit codes: 0 — clean update; 1 — error; 2 — conflicts present.
     """
     target = Path(path).expanduser().resolve()
     answers_file = target / ANSWERS_FILE
+    try:
+        _safe_managed_path(target, Path(ANSWERS_FILE))
+    except RuntimeError as exc:
+        typer.echo(f'ERROR: {exc}', err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
     if not answers_file.exists():
         typer.echo(
             f'No {ANSWERS_FILE} found in {target}. '
@@ -765,8 +811,30 @@ def update(
             err=True,
         )
         raise typer.Exit(code=EXIT_ERROR)
-    full = _read_full_answers(answers_file)
+    try:
+        full = _read_full_answers(answers_file)
+    except (RuntimeError, OSError, yaml.YAMLError) as exc:
+        typer.echo(f'ERROR: cannot read {ANSWERS_FILE}: {exc}', err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
     user_answers = _user_answers(full)
+
+    legacy_rules = target / 'CLAUDE.md'
+    migrating = legacy_rules.is_file() and not (target / AGENTS_MD).exists()
+    if migrating and not force:
+        base = _resolve_base_version_tag(full)
+        if (
+            not _has_git()
+            or base is None
+            or not _bundle_has_tag(_bundle_path(), base)
+            or not _bundle_has_tag(_bundle_path(), __version__)
+        ):
+            typer.echo(
+                'ERROR: Claude migration requires bundled base and current versions '
+                'and git to preserve project rules. No files changed. '
+                'Restore the required history before retrying.',
+                err=True,
+            )
+            raise typer.Exit(code=EXIT_ERROR)
 
     if dry_run:
         if force:
@@ -827,7 +895,7 @@ def update(
         typer.echo(f'Project updated at {target} (overwrite fallback).')
         raise typer.Exit(code=EXIT_OK)
 
-    if not (target / '.git').is_dir():
+    if not (target / '.git').exists():
         typer.echo(
             f'ERROR: {target} is not a git repository. Three-way merge '
             'writes changes directly to the working tree; git-tracking the '
@@ -1095,6 +1163,11 @@ def apply(
         target.mkdir(parents=True)
 
     answers_file = target / ANSWERS_FILE
+    try:
+        _safe_managed_path(target, Path(ANSWERS_FILE))
+    except RuntimeError as exc:
+        typer.echo(f'ERROR: {exc}', err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
     if answers_file.exists():
         typer.echo(
             f'{target} already has {ANSWERS_FILE}; this is a dreamteam-managed '
@@ -1144,3 +1217,122 @@ def apply(
         _write_answers_file(target, user_answers)
 
     _print_apply_summary(summary, dry_run=dry_run)
+
+
+@app.command()
+def doctor(
+    path: Annotated[Path, typer.Option(help='Project directory to inspect.')] = Path(),
+    server: Annotated[
+        str | None,
+        typer.Option(help='Running OpenCode server URL; verify Ensemble tools.'),
+    ] = None,
+) -> None:
+    """Check the required OpenCode version without calling a model."""
+    try:
+        binary, version = inspect_runtime()
+    except RuntimeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+    typer.echo(f'OpenCode {version}: {binary}')
+    typer.echo(f'Ensemble required by generated projects: {ENSEMBLE}')
+    if server:
+        try:
+            tools = inspect_ensemble(server, path.expanduser().resolve())
+        except RuntimeError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=EXIT_ERROR) from exc
+        typer.echo(f'Ensemble tools registered: {len(tools)}')
+    typer.echo(
+        'Provider credentials, MCP connectivity and model capabilities are not tested.',
+    )
+
+
+@app.command(name='run')
+def run_agent(
+    path: Annotated[Path, typer.Argument(help='Project directory.')] = Path(),
+    session: Annotated[
+        str | None,
+        typer.Option(help='OpenCode session ID to resume.'),
+    ] = None,
+    server: Annotated[
+        str,
+        typer.Option(help='Persistent OpenCode server to attach to.'),
+    ] = 'http://127.0.0.1:4096',
+) -> None:
+    """Start the required OpenCode client in a dreamteam project."""
+    try:
+        code = launch(path.expanduser().resolve(), session=session, server=server)
+    except RuntimeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+    raise typer.Exit(code=code)
+
+
+@app.command(name='serve')
+def serve_agent(
+    path: Annotated[Path, typer.Argument(help='Project directory.')] = Path(),
+    port: Annotated[int, typer.Option(min=1, max=65535)] = 4096,
+) -> None:
+    """Run a persistent local OpenCode server for all project clients."""
+    try:
+        code = serve(path.expanduser().resolve(), port=port)
+    except RuntimeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+    raise typer.Exit(code=code)
+
+
+@app.command(name='recover')
+def recover_agent(
+    path: Annotated[
+        Path, typer.Argument(help='Project on the same host as the server.')
+    ] = Path(),
+    server: str = 'http://127.0.0.1:4096',
+    member: str | None = None,
+    lead_session: str | None = None,
+    task: str | None = None,
+) -> None:
+    """List interrupted workers, or resume one preserved session/task."""
+    project = path.expanduser().resolve()
+    database = Path.home() / '.config/opencode/ensemble.db'
+    try:
+        if member is None:
+            if lead_session is not None or task is not None:
+                msg = '--lead-session and --task require --member'
+                raise typer.BadParameter(msg)
+            rows = interrupted(project, database)
+            for row in rows:
+                typer.echo(
+                    json.dumps(
+                        {
+                            key: row[key]
+                            for key in (
+                                'name',
+                                'team_name',
+                                'session_id',
+                                'lead_session_id',
+                                'worktree_dir',
+                            )
+                        }
+                    )
+                )
+            typer.echo(f'Interrupted members: {len(rows)}')
+            return
+        if not lead_session or not task:
+            msg = '--member requires --lead-session and --task'
+            raise typer.BadParameter(msg)
+        session = resume_member(
+            project,
+            database,
+            server=server,
+            member=member,
+            lead_session=lead_session,
+            task=task,
+            backup_dir=Path.home() / '.local/state/dreamteam/recovery',
+        )
+    except (RuntimeError, OSError, ValueError, TypeError, sqlite3.Error) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+    typer.echo(
+        f'Recovery requested for existing session {session}; inspect before acceptance.'
+    )
