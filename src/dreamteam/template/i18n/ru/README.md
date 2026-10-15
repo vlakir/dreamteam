@@ -66,7 +66,7 @@ Hatch управляет зависимостями через `pyproject.toml`.
 - `BACKLOG.md` — парковка идей и побочных находок.
 - `CHANGELOG.md` — журнал заметных изменений.
 - `specs/` — спецификации крупных фич.
-- `CLAUDE.md` — проектные правила для Claude (Claude Code).
+- `AGENTS.md` — проектные правила для OpenCode (OpenCode).
 
 ## Методика работы
 

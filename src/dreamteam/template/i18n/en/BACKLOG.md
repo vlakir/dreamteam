@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/BACKLOG.md
-source_hash: 97561a99e58717c8b3c1493b0669d8e69849ccff9ed8694c913846ee8908efb1
+source_hash: 2e77b47e3292371b7529bc9a2d494a48383d41053bf845384b2b16bb6f81e065
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -8,7 +8,7 @@ translation_date: 2026-05-15
 
 A parking lot for ideas, side findings and "should be fixed later".
 
-**Rule:** if during work on the current task Claude or the Developer
+**Rule:** if during work on the current task OpenCode or the Developer
 notices something off-topic — it goes here, not into the current
 commit. This is the scope-creep guard.
 

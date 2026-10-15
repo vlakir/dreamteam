@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/specs/spec-template.md
-source_hash: 0f45d2d1435c67a85ab50b0aa1d9f10e3c089615ee91c53712e6b80a55e4513c
+source_hash: 4887f0f72fb9ecb93fed045dcccb4a5943203ee18f8deb67752544e34aff0da4
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -77,9 +77,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Clarify (filled in by Claude)
+## Clarify (filled in by OpenCode)
 
-<!-- Claude re-reads the spec and asks counter-questions about
+<!-- OpenCode re-reads the spec and asks counter-questions about
      blind spots. Categories: auth, validation, errors, edge cases,
      performance, security, integrations. The Developer's answers
      are sewn back into the corresponding sections above. -->
@@ -94,9 +94,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Analyze (filled in by Claude)
+## Analyze (filled in by OpenCode)
 
-<!-- Claude reads the spec (and the plan, if any) and looks for
+<!-- OpenCode reads the spec (and the plan, if any) and looks for
      contradictions, mismatches, omissions, technical impossibilities.
 
      A list of Issues with markers:

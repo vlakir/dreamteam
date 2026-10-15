@@ -16,7 +16,6 @@ from dreamteam.cli import (
     EXIT_OK,
     LEGACY_COMMIT_PREFIX,
     TEAM_ROLES_IMPORT,
-    _conflict_count,
     _emit_dryrun_diff,
     _ensure_team_roles_import,
     _has_git,
@@ -56,7 +55,7 @@ def test_init_creates_project(tmp_path: Path) -> None:
     assert target.is_dir()
     expected_files = [
         'README.md',
-        'CLAUDE.md',
+        'AGENTS.md',
         'CONCEPT.md',
         'DECISIONS.md',
         'CHANGELOG.md',
@@ -78,20 +77,6 @@ def test_init_creates_project(tmp_path: Path) -> None:
     assert 'name = "my-project"' in pyproject
     main_py = (target / 'src' / 'main.py').read_text(encoding='utf-8')
     assert 'Hello from my-project!' in main_py
-
-
-def test_init_keeps_tools_out_of_nested_worktrees(tmp_path: Path) -> None:
-    """Derived projects ignore `.worktrees/` (task worktrees live inside)."""
-    target = tmp_path / 'my-project'
-    result = runner.invoke(app, ['init', str(target), '--defaults'])
-    assert result.exit_code == 0, result.output
-    gitignore = (target / '.gitignore').read_text(encoding='utf-8').splitlines()
-    assert '/.worktrees/' in gitignore
-    pyproject = (target / 'pyproject.toml').read_text(encoding='utf-8')
-    assert '    ".worktrees",' in pyproject  # ruff `exclude` replaces the defaults
-    assert 'exclude = ["^\\\\.worktrees/"]' in pyproject  # mypy
-    claude_md = (target / 'CLAUDE.md').read_text(encoding='utf-8')
-    assert 'git worktree add .worktrees/T<NNN>-<slug>' in claude_md
 
 
 def test_init_target_appears_in_output(tmp_path: Path) -> None:
@@ -269,9 +254,9 @@ def test_update_language_preserved(tmp_path: Path) -> None:
 
     answers = (target / '.copier-answers.yml').read_text(encoding='utf-8')
     assert 'language: ru' in answers
-    # Marker from i18n/ru/CLAUDE.md body — must remain after update.
-    claude_text = (target / 'CLAUDE.md').read_text(encoding='utf-8')
-    assert 'проектные правила для Claude' in claude_text
+    # Marker from i18n/ru/AGENTS.md body — must remain after update.
+    claude_text = (target / 'AGENTS.md').read_text(encoding='utf-8')
+    assert 'проектные правила для OpenCode' in claude_text
 
 
 def test_update_preserves_user_source_and_readonly_commit_graph(tmp_path: Path) -> None:
@@ -316,7 +301,7 @@ def test_dry_run_leaves_target_untouched(tmp_path: Path) -> None:
     target = tmp_path / 'dry-untouched'
     runner.invoke(app, ['init', str(target), '--defaults'])
     user_marker = '<!-- dry-run sentinel that must survive -->'
-    claude = target / 'CLAUDE.md'
+    claude = target / 'AGENTS.md'
     claude.write_text(claude.read_text(encoding='utf-8') + user_marker, encoding='utf-8')
     _git_init(target)
 
@@ -361,30 +346,16 @@ def test_dry_run_with_force_warns(tmp_path: Path) -> None:
 
 
 def test_relfiles_excludes_git_and_yields_relative_paths(tmp_path: Path) -> None:
-    """`_relfiles` walks rglob, drops `.git` and `.worktrees`, returns rel paths."""
+    """`_relfiles` walks rglob, drops anything under `.git`, returns rel paths."""
     root = tmp_path / 'tree'
     (root / '.git').mkdir(parents=True)
     (root / '.git' / 'config').write_text('x')
     (root / 'a.md').write_text('hello')
     (root / 'sub').mkdir()
     (root / 'sub' / 'b.txt').write_text('world')
-    nested = root / '.worktrees' / 'T001-x'
-    nested.mkdir(parents=True)
-    (nested / 'a.md').write_text('another branch')
 
     files = _relfiles(root)
     assert files == {Path('a.md'), Path('sub/b.txt')}
-
-
-def test_conflict_count_ignores_nested_worktrees(tmp_path: Path) -> None:
-    """Conflict markers inside `.worktrees/` (another branch) are not counted."""
-    root = tmp_path / 'tree'
-    nested = root / '.worktrees' / 'T001-x'
-    nested.mkdir(parents=True)
-    (nested / 'mid-rebase.md').write_text('<<<<<<< HEAD\nx\n=======\ny\n')
-    assert _conflict_count(root) == 0
-    (root / 'own.md').write_text('<<<<<<< HEAD\nx\n=======\ny\n')
-    assert _conflict_count(root) == 1
 
 
 def test_emit_dryrun_diff_counts_buckets(
@@ -480,16 +451,16 @@ def test_update_legacy_commit_falls_back_to_overwrite(tmp_path: Path) -> None:
 
 
 def _make_team_roles(target: Path) -> None:
-    """Place `.claude/team-roles.md` — the hook only wires the import if present."""
-    roles = target / '.claude' / 'team-roles.md'
+    """Place `.opencode/team-roles.md` — the hook only wires the import if present."""
+    roles = target / '.opencode' / 'team-roles.md'
     roles.parent.mkdir(parents=True, exist_ok=True)
     roles.write_text('# Team roles\n', encoding='utf-8')
 
 
 def test_ensure_team_roles_import_appends_when_absent(tmp_path: Path) -> None:
-    """A CLAUDE.md lacking the import line gets the block appended once."""
+    """A AGENTS.md lacking the import line gets the block appended once."""
     _make_team_roles(tmp_path)
-    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md = tmp_path / 'AGENTS.md'
     claude_md.write_text('# My rules\n\nHand-written.\n', encoding='utf-8')
     _ensure_team_roles_import(tmp_path)
     text = claude_md.read_text(encoding='utf-8')
@@ -502,7 +473,7 @@ def test_ensure_team_roles_import_appends_when_absent(tmp_path: Path) -> None:
 def test_ensure_team_roles_import_idempotent(tmp_path: Path) -> None:
     """Running the hook twice does not duplicate the import line."""
     _make_team_roles(tmp_path)
-    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md = tmp_path / 'AGENTS.md'
     claude_md.write_text('# Rules\n', encoding='utf-8')
     _ensure_team_roles_import(tmp_path)
     once = claude_md.read_text(encoding='utf-8')
@@ -513,9 +484,9 @@ def test_ensure_team_roles_import_idempotent(tmp_path: Path) -> None:
 
 
 def test_ensure_team_roles_import_noop_when_present(tmp_path: Path) -> None:
-    """A CLAUDE.md that already imports the file is left untouched."""
+    """A AGENTS.md that already imports the file is left untouched."""
     _make_team_roles(tmp_path)
-    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md = tmp_path / 'AGENTS.md'
     original = f'# Rules\n\n## Team roles\n\n{TEAM_ROLES_IMPORT}\n'
     claude_md.write_text(original, encoding='utf-8')
     _ensure_team_roles_import(tmp_path)
@@ -523,15 +494,15 @@ def test_ensure_team_roles_import_noop_when_present(tmp_path: Path) -> None:
 
 
 def test_ensure_team_roles_import_noop_when_no_claude_md(tmp_path: Path) -> None:
-    """No CLAUDE.md → no-op; the hook never creates one itself."""
+    """No AGENTS.md → no-op; the hook never creates one itself."""
     _make_team_roles(tmp_path)
     _ensure_team_roles_import(tmp_path)
-    assert not (tmp_path / 'CLAUDE.md').exists()
+    assert not (tmp_path / 'AGENTS.md').exists()
 
 
 def test_ensure_team_roles_import_noop_without_roles_file(tmp_path: Path) -> None:
-    """No `.claude/team-roles.md` → no dangling import is written (hardening)."""
-    claude_md = tmp_path / 'CLAUDE.md'
+    """No `.opencode/team-roles.md` → no dangling import is written (hardening)."""
+    claude_md = tmp_path / 'AGENTS.md'
     claude_md.write_text('# My rules\n\nHand-written.\n', encoding='utf-8')
     _ensure_team_roles_import(tmp_path)
     # The roles file is absent, so the import must NOT be added.
@@ -539,9 +510,9 @@ def test_ensure_team_roles_import_noop_without_roles_file(tmp_path: Path) -> Non
 
 
 def test_ensure_team_roles_import_appends_newline_when_missing(tmp_path: Path) -> None:
-    """A CLAUDE.md without a trailing newline still yields a clean append."""
+    """A AGENTS.md without a trailing newline still yields a clean append."""
     _make_team_roles(tmp_path)
-    claude_md = tmp_path / 'CLAUDE.md'
+    claude_md = tmp_path / 'AGENTS.md'
     claude_md.write_text('# Rules (no trailing newline)', encoding='utf-8')
     _ensure_team_roles_import(tmp_path)
     text = claude_md.read_text(encoding='utf-8')

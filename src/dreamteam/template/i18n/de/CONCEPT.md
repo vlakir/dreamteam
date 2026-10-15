@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+source_hash: 759cc8c73b812b3a1d47bccedf009071169fe48ebe31fd1a8365c480f83efd34
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -18,7 +18,7 @@ translation_date: 2026-07-30
 >
 > Bei der Projekterstellung über `dreamteam init` liegt diese
 > Datei bereits vor; durchlaufe das Ritual der Gegenfragen mit
-> Claude (siehe unten), fülle die Abschnitte und friere sie als
+> OpenCode (siehe unten), fülle die Abschnitte und friere sie als
 > unveränderlich ein.
 
 <!-- Die Struktur unten ist ein FRAGEBOGEN (leading questions) für ein
@@ -28,7 +28,7 @@ translation_date: 2026-07-30
      in diese Überschriften umzugießen. Wichtig ist nur, dass ein
      Abschnitt „Out of scope" in irgendeiner Form vorhanden ist (Schutz
      vor scope creep) und dass das Dokument nach dem Festschreiben
-     unveränderlich bleibt. Das clarify-Ritual (Claudes Gegenfragen zu
+     unveränderlich bleibt. Das clarify-Ritual (OpenCodes Gegenfragen zu
      blinden Flecken) läuft über den tatsächlichen Inhalt. -->
 
 ## Ziel
@@ -81,7 +81,7 @@ eines großen Features:
 
 1. Der Entwickler schreibt einen ersten Entwurf der Abschnitte
    (oder formuliert einfach die Idee).
-2. Claude stellt Gegenfragen zu blinden Flecken:
+2. OpenCode stellt Gegenfragen zu blinden Flecken:
    - **Ziel:** welchen Schmerz / welche Aufgabe löst das Projekt?
    - **Nutzer:** wer ist der Nutzer genau, in welchem Kontext?
    - **Kernfunktionalität:** was ist das Minimum für MVP? Was

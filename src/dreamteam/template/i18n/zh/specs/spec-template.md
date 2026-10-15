@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/specs/spec-template.md
-source_hash: 0f45d2d1435c67a85ab50b0aa1d9f10e3c089615ee91c53712e6b80a55e4513c
+source_hash: 4887f0f72fb9ecb93fed045dcccb4a5943203ee18f8deb67752544e34aff0da4
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -72,9 +72,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Clarify（由 Claude 填写）
+## Clarify（由 OpenCode 填写）
 
-<!-- Claude 重读 spec，针对盲点提出反向问题。类别：auth、
+<!-- OpenCode 重读 spec，针对盲点提出反向问题。类别：auth、
      validation、errors、edge cases、performance、安全、
      integrations。开发者的答案被回缝到上方相应的章节。 -->
 
@@ -88,9 +88,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Analyze（由 Claude 填写）
+## Analyze（由 OpenCode 填写）
 
-<!-- Claude 阅读 spec（如有 plan，也读 plan），寻找矛盾、不一致、
+<!-- OpenCode 阅读 spec（如有 plan，也读 plan），寻找矛盾、不一致、
      遗漏、技术不可能。
 
      带标记的 Issues 列表：

@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/CONCEPT.md
-source_hash: eca6f2951dddf2c7658035c0812d8ce15bed724414f720f5e3b5cf66bb378603
+source_hash: 759cc8c73b812b3a1d47bccedf009071169fe48ebe31fd1a8365c480f83efd34
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-30
 ---
@@ -13,14 +13,14 @@ translation_date: 2026-07-30
 >
 > **创建日期：** `<YYYY-MM-DD>`
 >
-> 通过 `dreamteam init` 创建项目时，此文件已就位；与 Claude
+> 通过 `dreamteam init` 创建项目时，此文件已就位；与 OpenCode
 > 一起走反向提问的仪式（见下），填写各节并将其固化为不可变。
 
 <!-- 下面的结构是针对空白 concept 的问卷（leading questions），
      并非必需的固定形式。如果你已经有一份成型的 concept / 需求文档 /
      vision —— 直接用你自己的内容整体替换本文件，无需套进这些标题。
      关键是以任意形式保留「Out of scope」章节（抵御 scope creep），
-     并在固化后保持文档不可变。clarify 仪式（Claude 针对盲点的反向
+     并在固化后保持文档不可变。clarify 仪式（OpenCode 针对盲点的反向
      提问）针对实际内容进行。 -->
 
 ## 目标
@@ -64,7 +64,7 @@ translation_date: 2026-07-30
 针对大功能 spec 的 `clarify`：
 
 1. 开发者写出各节的初稿（或仅仅提出想法）。
-2. Claude 针对盲点提出反向问题：
+2. OpenCode 针对盲点提出反向问题：
    - **目标：** 项目解决什么痛点 / 任务？
    - **用户：** 用户具体是谁，在什么上下文中？
    - **核心功能：** MVP 的最小集是什么？什么是潜在有用但目前

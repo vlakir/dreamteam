@@ -325,19 +325,19 @@ def test_multilang_merge_preserves_ru_and_both_edits(
     synthetic_bundle: Path,
 ) -> None:
     """
-    User edits CLAUDE.md (which the template does *not* touch in this
+    User edits AGENTS.md (which the template does *not* touch in this
     synthetic head), template adds T-NEW bullet to BACKLOG.md. After
     `dreamteam update`:
 
     - language stays `ru` in `.copier-answers.yml`;
-    - user's CLAUDE.md edit survives untouched;
+    - user's AGENTS.md edit survives untouched;
     - template's T-NEW bullet appears in BACKLOG.md (delivered by
       the merge).
     """
     target = tmp_path / 'derived-ru-merge'
     _render_derived_at_base(synthetic_bundle, target, language='ru')
 
-    claude = target / 'CLAUDE.md'
+    claude = target / 'AGENTS.md'
     user_marker = '\n<!-- USER-ru: persistent local note -->\n'
     claude.write_text(claude.read_text(encoding='utf-8') + user_marker, encoding='utf-8')
     _git_init_derived(target)
@@ -361,14 +361,14 @@ def test_scenario_b_clean_user_edit_non_conflicting(
     synthetic_bundle: Path,
 ) -> None:
     """
-    User edits CLAUDE.md (no overlap with template), template edits
+    User edits AGENTS.md (no overlap with template), template edits
     BACKLOG.md (no overlap with user). Both edits land cleanly; exit
     code is EXIT_OK and no conflict markers appear anywhere.
     """
     target = tmp_path / 'derived-clean'
     _render_derived_at_base(synthetic_bundle, target, language='en')
 
-    claude = target / 'CLAUDE.md'
+    claude = target / 'AGENTS.md'
     user_marker = '\n<!-- non-conflicting user note -->\n'
     claude.write_text(claude.read_text(encoding='utf-8') + user_marker, encoding='utf-8')
     _git_init_derived(target)

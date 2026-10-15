@@ -1,13 +1,13 @@
 ---
 translated_from: i18n/ru/specs/design-brief-template.md
-source_hash: 363870ea9a98177cf5c059873a36541d3aff7b1d81cbefce0baceafae44a76f7
+source_hash: 1665957fc291b289b590b2af28467294b6328a5b71fe8e97e6e0fcd7753901f0
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-05
 ---
 # Design brief : <nom de l'écran / fonctionnalité>
 
-**Pour le rôle :** Designer (Claude Design). Comment le connecter et
-quand l'appeler — dans `.claude/team-roles.md`.
+**Pour le rôle :** Designer (Designer). Comment le connecter et
+quand l'appeler — dans `.opencode/team-roles.md`.
 **Statut :** Draft | Remis au Designer | Prototype reçu | Porté dans le stack
 **Date :** <YYYY-MM-DD>
 
@@ -49,7 +49,7 @@ quand l'appeler — dans `.claude/team-roles.md`.
 <!-- Ambiance et langage visuel : sobre / ludique / dense / aéré. Si le
      compte a un design system configuré (couleurs de marque,
      typographie), le Designer l'utilisera ; pour un nouveau projet, les
-     valeurs par défaut de Claude Design. Indique des préférences
+     valeurs par défaut de Designer. Indique des préférences
      explicites s'il y en a. -->
 
 ## 6. Contraintes

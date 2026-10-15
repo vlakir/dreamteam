@@ -1,13 +1,13 @@
 ---
 translated_from: i18n/ru/specs/design-brief-template.md
-source_hash: 363870ea9a98177cf5c059873a36541d3aff7b1d81cbefce0baceafae44a76f7
+source_hash: 1665957fc291b289b590b2af28467294b6328a5b71fe8e97e6e0fcd7753901f0
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-05
 ---
 # Design-Brief: <Name des Screens / Features>
 
-**Für die Rolle:** Designer (Claude Design). Wie man ihn anbindet und
-wann man ihn ruft — in `.claude/team-roles.md`.
+**Für die Rolle:** Designer (Designer). Wie man ihn anbindet und
+wann man ihn ruft — in `.opencode/team-roles.md`.
 **Status:** Draft | An den Designer übergeben | Prototyp erhalten | In den Stack portiert
 **Datum:** <YYYY-MM-DD>
 
@@ -51,7 +51,7 @@ wann man ihn ruft — in `.claude/team-roles.md`.
 <!-- Stimmung und visuelle Sprache: zurückhaltend / verspielt / dicht /
      luftig. Ist im Konto ein Design-System konfiguriert (Markenfarben,
      Typografie), nutzt der Designer es; für ein frisches Projekt die
-     Standardwerte von Claude Design. Nenne explizite Wünsche, falls
+     Standardwerte von Designer. Nenne explizite Wünsche, falls
      vorhanden. -->
 
 ## 6. Einschränkungen

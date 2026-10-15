@@ -1,6 +1,6 @@
 ---
 translated_from: i18n/ru/specs/spec-template.md
-source_hash: 0f45d2d1435c67a85ab50b0aa1d9f10e3c089615ee91c53712e6b80a55e4513c
+source_hash: 4887f0f72fb9ecb93fed045dcccb4a5943203ee18f8deb67752544e34aff0da4
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
 ---
@@ -82,9 +82,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Clarify (rempli par Claude)
+## Clarify (rempli par OpenCode)
 
-<!-- Claude relit la spec et pose des questions croisées sur les
+<!-- OpenCode relit la spec et pose des questions croisées sur les
      angles morts. Catégories : auth, validation, errors, edge
      cases, performance, sécurité, intégrations. Les réponses du
      Développeur sont recousues dans les sections correspondantes
@@ -100,9 +100,9 @@ translation_date: 2026-05-15
 
 ---
 
-## Analyze (rempli par Claude)
+## Analyze (rempli par OpenCode)
 
-<!-- Claude lit la spec (et le plan, s'il existe) et cherche les
+<!-- OpenCode lit la spec (et le plan, s'il existe) et cherche les
      contradictions, divergences, omissions, impossibilités
      techniques.
 

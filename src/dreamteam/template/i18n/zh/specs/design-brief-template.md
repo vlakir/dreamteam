@@ -1,13 +1,13 @@
 ---
 translated_from: i18n/ru/specs/design-brief-template.md
-source_hash: 363870ea9a98177cf5c059873a36541d3aff7b1d81cbefce0baceafae44a76f7
+source_hash: 1665957fc291b289b590b2af28467294b6328a5b71fe8e97e6e0fcd7753901f0
 translation_engine: claude-opus-4-8
 translation_date: 2026-07-05
 ---
 # 设计简报（Design brief）：<屏幕 / 功能名称>
 
-**面向角色：**设计师（Claude Design）。如何连接、何时调用——见
-`.claude/team-roles.md`。
+**面向角色：**设计师（Designer）。如何连接、何时调用——见
+`.opencode/team-roles.md`。
 **状态：**Draft | 已交给设计师 | 已收到原型 | 已迁入技术栈
 **日期：**<YYYY-MM-DD>
 
@@ -43,7 +43,7 @@ translation_date: 2026-07-05
 ## 5. 调性与品牌
 
 <!-- 气质与视觉语言：克制 / 活泼 / 紧凑 / 疏朗。若账户配置了 design system（品牌
-     色、字体排印），设计师会采用它；对于全新项目，则用 Claude Design 的默认值。
+     色、字体排印），设计师会采用它；对于全新项目，则用 Designer 的默认值。
      若有明确偏好，请写明。 -->
 
 ## 6. 约束
