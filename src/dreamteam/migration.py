@@ -14,6 +14,7 @@ import yaml
 FRONTMATTER_PARTS = 3
 AGENT_PATH_PARTS = 3
 SKILL_PATH_PARTS = 4
+TEAM_ROLES_FILE = '.opencode/team-roles.md'
 
 
 class MigrationError(RuntimeError):
@@ -31,6 +32,15 @@ class MigrationPlan:
     writes: dict[Path, bytes] = field(default_factory=dict)
     deletes: set[Path] = field(default_factory=set)
     originals: dict[Path, bytes | None] = field(default_factory=dict)
+
+
+def with_team_roles_import(text: str) -> str:
+    """Normalize rule text using the canonical native-update reference block."""
+    if TEAM_ROLES_FILE in text:
+        return text
+    separator = '' if text.endswith('\n') else '\n'
+    block = f'{separator}\n## Team roles — dreamteam\n\n{TEAM_ROLES_FILE}\n'
+    return text + block
 
 
 def safe_path(root: Path, rel: Path) -> Path:
@@ -416,4 +426,15 @@ def plan_migration(
                     plan.writes[rel] = _merge(
                         _text(old, rel), _text(previous, rel), _text(new, rel), rel
                     ).encode()
+    # Normalize final merged rules, not the template: BOTH/custom rules can
+    # replace its reference. Keep this write inside the recoverable plan so
+    # fingerprints, verification and answers-last include the native invariant.
+    rules = Path('AGENTS.md')
+    roles = Path(TEAM_ROLES_FILE)
+    if roles in plan.writes or plan.originals.get(roles) is not None:
+        content = plan.writes.get(rules, plan.originals.get(rules))
+        if content is not None:
+            normalized = with_team_roles_import(_text(content, rules)).encode()
+            if normalized != content:
+                plan.writes[rules] = normalized
     return plan

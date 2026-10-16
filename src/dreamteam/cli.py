@@ -23,6 +23,7 @@ from dreamteam.migration import (
     legacy_present,
     plan_migration,
     safe_path,
+    with_team_roles_import,
 )
 from dreamteam.migration_store import (
     execute_migration,
@@ -226,11 +227,10 @@ def _ensure_team_roles_import(target: Path) -> None:
     if not agents_md.is_file():
         return
     text = agents_md.read_text(encoding='utf-8')
-    if TEAM_ROLES_IMPORT in text:
+    normalized = with_team_roles_import(text)
+    if normalized == text:
         return
-    separator = '' if text.endswith('\n') else '\n'
-    block = f'{separator}\n## Team roles — dreamteam\n\n{TEAM_ROLES_IMPORT}\n'
-    agents_md.write_text(text + block, encoding='utf-8')
+    agents_md.write_text(normalized, encoding='utf-8')
 
 
 def _read_full_answers(answers_file: Path) -> dict[str, Any]:
