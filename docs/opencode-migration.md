@@ -68,6 +68,21 @@ writes, recovery snapshots, prompts, deletes or answers. No login, provider,
 network access or automatic installation is required for this probe. Raw probe
 stdout/stderr is not printed, since it may contain sensitive output.
 
+The migration preflight also checks the runtime's known storage locations:
+HOME-derived OpenCode directories, `XDG_STATE_HOME`, `XDG_DATA_HOME`,
+`XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, temporary-directory overrides and Python's
+cached temporary directory. Relative or project-local locations are refused
+**before** executing the version probe: OpenCode itself can initialize these
+directories even for `--version`. Empty XDG/TMP overrides use their defaults.
+Keeping a project beneath your home directory is fine; routing runtime storage
+into the selected project is not. Staging uses an existing writable parent
+outside the project, without temporary-directory discovery write probes.
+These checks protect against the supported runtime's known side effects;
+they are not a sandbox for arbitrary executable wrappers. OpenCode may still
+initialize its own directories outside the project and dreamteam recovery store.
+If an operation is pending, retain its reported recovery location and the
+original `XDG_STATE_HOME`; do not lose the journal by switching to another store.
+
 If planning and applying are separated by a pause, the prerequisite must be
 checked again before the first write. `--force` cannot bypass it. Dry-run is
 also local and read-only: it creates no journal, snapshot, answers or directories.
