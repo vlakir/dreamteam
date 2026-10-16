@@ -15,8 +15,7 @@
 .opencode/bun.lock
 .opencode/bun.lockb
 
-# Private legacy files retained during migration
-.claude/*.lock
+# Private legacy input remains protected while migration is blocked/incomplete.
 .claude/settings.local.json
 
 # Python

@@ -4,9 +4,18 @@
 working project with linters, tests, kanban, ADR log, and a complete
 set of rules for AI-assisted development baked in.
 
-This branch is the **2.0.0a1 OpenCode migration preview**. It has not been
-published to PyPI. For the preview, build this checkout with `uv build` and
-install its wheel; the registry quick start below applies after publication.
+**dreamteam 2.0.0** uses OpenCode 1.19.0 and Ensemble 0.18.0. It provides
+explicit, recoverable migration of an existing project's agent configuration,
+not a disk-wide conversion during package installation. See [Status](#status)
+and the [migration guide](docs/opencode-migration.md) for the supported inputs
+and platform boundary. Registry packages and source checkouts can differ;
+check the installed version with `dt --version`.
+
+**Installing or upgrading `dreamteam-cli` does not migrate projects.** Choose
+one project explicitly with `dt update <project>` (already managed) or
+`dt apply <project>` (unmanaged). Preview first; read the
+[OpenCode migration guide](docs/opencode-migration.md) before migrating legacy
+rules. New projects use `dt init` and contain only active OpenCode artifacts.
 
 ```bash
 pip install dreamteam-cli                              # then `dreamteam` (or `dt`) is available
@@ -96,7 +105,8 @@ changes before explicitly integrating branches. ChatGPT Plus/Pro authentication
 is available through OpenCode; Anthropic subscription plugins are not supported.
 
 Install the pinned runtime from the official OpenCode release assets and put
-`opencode` on PATH. Run `opencode auth login` to connect an account. A successful
+`opencode` on PATH. Use `opencode auth login` when you want to connect an account;
+login is not required for the offline migration version prerequisite. A successful
 `dt doctor` checks the binary version, not provider or model functionality.
 With a running server, use `dt doctor --server http://127.0.0.1:4096 --path <project>`
 to verify that Ensemble tools actually registered.
@@ -142,8 +152,10 @@ keywords (`To Do` / `Doing` / `Done`) are language-agnostic.
 **Source of truth — Russian.** Files in
 `src/dreamteam/template/i18n/ru/` are hand-edited by the maintainer;
 `en` / `fr` / `de` / `zh` are AI-translations from the Russian
-source, generated through OpenCode (no Anthropic API, no runtime
-cost — covered by the maintainer's OpenCode Max subscription). Each
+source. Translation tooling and models may change over time; historical
+`translation_engine` values record provenance, not a runtime dependency.
+OpenCode does not provide a dreamteam-specific Max subscription, and translation
+cost depends on the user's provider/account. Each
 translated file carries a YAML frontmatter with `translated_from`,
 `source_hash` (sha256 of the ru source at translation time),
 `translation_engine`, and `translation_date`. The frontmatter is
@@ -153,7 +165,7 @@ markdown.
 **Contributing to the methodology:**
 
 1. Edit only `src/dreamteam/template/i18n/ru/<file>.md` (the source).
-2. In a OpenCode session ask: *"re-translate this change into
+2. In an OpenCode session ask: *"re-translate this change into
    en/fr/de/zh and refresh `source_hash` in the frontmatter."*
 3. Commit the ru edit together with the four regenerated translations.
 4. CI guard (`scripts/translate_check.py`, runs after pytest in
@@ -163,7 +175,10 @@ markdown.
 
 For cosmetic ru edits (typo, whitespace, paragraph re-flow) the
 short-cut is to ask OpenCode to refresh only the `source_hash` in all
-four translations without retranslating the content. There is no
+four translations without retranslating the content. Preserve original
+`translation_engine` / `translation_date` provenance; record later partial
+translation edits separately rather than attributing the whole file to a new
+model. There is no
 machine-readable way to distinguish cosmetic from semantic diffs —
 maintainer judgment per change.
 
@@ -186,8 +201,10 @@ dt apply           # or `dt apply .` — defaults to the current directory
 # from one level up: `dt apply my-existing-project` also works
 ```
 
-`dt apply` renders the template into a temporary preview, walks
-every file, and decides per file:
+For a project without legacy agent artifacts, `dt apply` renders the template
+into a temporary preview and decides per template-managed file. Legacy inputs
+instead require the [migration safety contract](docs/opencode-migration.md);
+the conflict switches below do not bypass it:
 
 - **File absent in target** → create silently.
 - **File matches template render exactly** → no-op.
@@ -198,8 +215,9 @@ every file, and decides per file:
   - `[s]ave-as-new` writes the template content next to your
     file as `<file>.dt-new` for manual merge later.
 
-`.venv/`, `.git/`, your `src/` packages and any non-template-managed
-files are left alone.
+`.venv/`, `.git/`, your `src/` packages and unrelated non-template-managed
+files are left alone. During legacy migration, supported custom agent artifacts
+are also inputs; `.claude/worktrees` remains protected, not a migration source.
 
 For non-interactive runs (CI, scripts) pass `--on-conflict
 <keep|overwrite|save-as-new>`. `--dry-run` prints the per-bucket
@@ -227,7 +245,7 @@ project with a three-way merge:
 cd my-project
 dreamteam update                   # default: three-way merge
 dreamteam update --dry-run         # preview: per-file diff + summary, no writes
-dreamteam update --force           # MVP overwrite: re-apply, lose local edits
+dreamteam update --force           # overwrite native template files; not migration safety
 ```
 
 `dreamteam update` merges three states:
@@ -249,10 +267,13 @@ hard errors exit `1`.
 > **Requirements.** Your derived project must be a git repository
 > (`git init && git add -A && git commit -m 'initial'` once after
 > `dreamteam init`). The git binary must be on `PATH`. If either is
-> missing, `dreamteam update` falls back to MVP overwrite behavior
-> with a warning. The `--force` flag explicitly opts into MVP
-> overwrite (escape hatch for "throw away my local edits and start
-> fresh").
+> missing, native OpenCode projects may fall back to template overwrite with
+> a warning. Legacy migration instead requires a verified bundled base and
+> refuses unsafe overwrite. `--force` can discard native template edits, but
+> cannot bypass migration prerequisites, unsupported inputs, BOTH preservation
+> or verified-transfer-before-delete. Migration conflicts return `2` without
+> writing conflict markers or advancing answers; this differs from ordinary
+> native update conflicts described above.
 
 > **Preview before applying.** `dreamteam update --dry-run` shows
 > exactly what would change without touching the target: per-file
@@ -345,14 +366,17 @@ catch metadata / README rendering issues.
 
 ## Status
 
-Released and published on PyPI as **`dreamteam-cli`** — current version
-**1.5.2**. The Copier/CLI architecture shipped in `1.0.0`; since then:
-multilingual methodology (`1.3.0`), full three-way `update` +
-package-manager choice + CLI ergonomics (`1.5.0`), `dt apply` for
-existing projects (`1.5.1`), and bootstrap fixes from the first real
-derived project (`1.5.2`). The Architect + Designer team roles sit in
-`[Unreleased]`, landing in the next MINOR. Full history in
-`CHANGELOG.md`; roadmap in `BACKLOG.md`.
+The package is named **`dreamteam-cli`**. Version **2.0.0** moves the methodology
+to OpenCode and adds verified legacy transfer, protected recovery and an offline
+runtime prerequisite. Migration is validated on **Linux** and requires POSIX
+security capabilities; secure Windows legacy migration/recovery is not
+implemented. Native operations without a pending migration remain separate.
+Historical template snapshots are retained for safe updates from older versions.
+See [GitHub releases](https://github.com/vlakir/dreamteam/releases) and
+[PyPI](https://pypi.org/project/dreamteam-cli/) for published artifacts; the
+validation matrix is in `specs/T171-complete-opencode-migration/acceptance.md`.
+Full history is in `CHANGELOG.md`; current work and roadmap are in `BOARD.md`
+and `BACKLOG.md`.
 
 ## License
 

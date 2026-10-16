@@ -15,7 +15,9 @@ jobs:
   checks:
     name: ruff + format + mypy + pytest
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The migration crash/ENV matrix alone takes about four minutes locally.
+    # Keep every check and the coverage threshold, allowing setup/cache variance.
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
