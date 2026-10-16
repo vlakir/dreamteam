@@ -2,7 +2,7 @@
 
 **Статус на 2026-10-16: локальная Linux-приёмка выполнена.** Реализация,
 регрессии, installed-artifact rehearsal и независимое safety review приняты
-в описанном ниже объёме. Внешние CI/PR-review и публикация ещё являются
+в описанном ниже объёме. Внешние CI/PR-review и публикация являются
 релизным гейтом: этот документ не утверждает, что пакет уже опубликован.
 Матрица ниже остаётся контрактом; результаты — в разделе доказательств и
 rehearsal.md. Настройки, секреты и private raw logs сюда не копируются.
@@ -98,11 +98,20 @@ Negative prerequisite cases прогнать для обоих entrypoints и п
       обязательны повторный pre-push gate и CI итогового HEAD.
 - [x] Независимое source/test/docs safety review: открытых P1/P2 нет;
       проверки не ослаблены. История находок сохранена в rehearsal.md.
-- [ ] Внешние CI и PR-review итогового HEAD зелёные/оценены; каждое замечание
-      разрешено до merge. Актуальные ссылки и итог — в описании T171 PR.
-- [ ] Только после этого stable 2.0.0, PR/release по политике; T171 Doing → Done
-      в задачном PR. Публикация и установочные проверки подтверждаются
-      отдельно, не статусом исполнителя или локальным checkpoint.
+- [x] Внешнее CodeRabbit review выполнено; все пять замечаний оценены и
+      исправлены с независимыми регрессиями. Дополнительное замечание о
+      повторной repository assertion тоже учтено; состояние тестов изолировано.
+- [x] T171 закрывается в своём задачном PR; при release cut T170/T171 перенесены
+      в CHANGELOG [2.0.0], а колонка Done очищена. Это техническая приёмка,
+      а не утверждение о выполненной публикации.
+
+**Live merge/publication gate:** CI именно последнего HEAD должен быть зелёным
+перед merge, все новые внешние замечания должны быть разобраны. Изменяемые
+статусы проверяются в [PR #96](https://github.com/vlakir/dreamteam/pull/96),
+а не копируются в этот версионированный документ заранее. Публикация допускается
+после TestPyPI sanity и установки точной версии; её результат и окончательные
+hashes подтверждаются отдельно в
+[release 2.0.0](https://github.com/vlakir/dreamteam/releases/tag/2.0.0).
 
 ## Доказательства локальной приёмки
 
@@ -143,3 +152,42 @@ Negative prerequisite cases прогнать для обоих entrypoints и п
   migration, exactly-once или power-loss atomicity. AC19 принимает конфигурацию
   и render/debug evidence; настоящий UI вопрос проверяется отдельно после
   безопасного перезапуска текущего клиента, не объявлен выполненным.
+
+## Внешнее review и повторная приёмка
+
+- CodeRabbit: `4294814700` — исправлена H2-иерархия только нового T171 ADR;
+  исторические записи не переписывались.
+- `4294814724` — legacy `update` без answers сообщает, что проект unmanaged,
+  и указывает `dt apply`; safe-path и pending recovery precede этот guard.
+- `4294814735` — state0775 под owner-private HOME0700 проверяется существующей
+  ancestor policy, а не безусловно запрещается. UID/symlink/full-chain и строгие
+  recovery-leaf0700/journal0600 сохранены. Независимая пара positive/negative
+  проверяет настоящий недоступный/доступный постороннему путь; shared pytest
+  parents и пользовательские каталоги не chmod-ились.
+- `4294814743` — найденный через относительный PATH executable становится
+  абсолютным до cwd `/`; исходный symlink launcher сохраняется. `shell=False`
+  и отдельный argv не заменены shell-строкой. Дополнительный generic CWE-78
+  сигнал не доказывает injection для этого доверенного executable lookup.
+- `4294814753` — fixture `legacy_runtime` имеет отдельные HOME и четыре XDG,
+  поэтому тестовые originals не записываются в личный state разработчика.
+- Low-value комментарий о пяти repository assertions: проверка вынесена в
+  отдельный независимый тест, проверки fresh init пяти языков не удалены.
+  Qodo сообщил только приостановленную подписку; это не code finding и не
+  выполненное review. Billing/подписки автоматически не менялись.
+- Независимое targeted review `e51cb98` подтвердило корректность трёх source
+  fixes и paired security fixtures; открытых P1/P2 не найдено. Source dependency
+  cross-run: **364 passed**, **84.91%** source coverage, **53 integration passed**.
+  Cross-worktree instrumentation проверяла реальные module paths; неправильные
+  промежуточные coverage/PATH запуски не выдавались за gate.
+- Повторная installed-artifact QA после source fixes выполнена целиком в
+  fresh noneditable окружениях. Принятый runtime wheel:
+  `c0a8305a0e8f5254bf9f14658fb62cf93bc5d50ff193294bf4abb22945da0b15`;
+  sdist input: `3aee1d7b08cbafa6a2520403f3754f875365e68267c0b0130b32f9338a657bd9`.
+  Подтверждены вся предыдущая матрица и дополнительные actual artifact случаи
+  relative PATH, missing answers, безопасный state775, действительно публичный
+  unsafe state, foreign UID, leaf/journal/symlink guards. Подробности в последнем
+  разделе rehearsal.md; **238 записей команд включают и setup-отказы**, это не
+  «238 успешных тестов». Оригинал и immutable подготовленная копия не изменены.
+- После изменений только отчётов финальный wheel должен сохранить эту byte
+  identity; изменившийся sdist получает новый hash, manifest comparison и
+  установочный smoke. Публикуемые hashes не включаются в сам sdist рекурсивно.
