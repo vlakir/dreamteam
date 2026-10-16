@@ -33,7 +33,14 @@ from dreamteam.migration_store import (
     require_supported_platform,
 )
 from dreamteam.recovery import interrupted, resume_member
-from dreamteam.runtime import ENSEMBLE, inspect_ensemble, inspect_runtime, launch, serve
+from dreamteam.runtime import (
+    ENSEMBLE,
+    inspect_ensemble,
+    inspect_runtime,
+    launch,
+    migration_probe_directory,
+    serve,
+)
 
 ANSWERS_FILE = '.copier-answers.yml'
 BUNDLE_SUBPATH = '.bundle'
@@ -267,14 +274,17 @@ def _migration_selected(target: Path) -> bool:
         return True
 
 
-def _migration_runtime() -> None:
+def _migration_runtime(target: Path) -> Path:
     """Preserve actionable, sanitized version-probe categories."""
     require_supported_platform()
+    recovery_directory(target)
     try:
+        temporary = migration_probe_directory(target)
         inspect_runtime()
     except RuntimeError as exc:
         message = str(exc)
         raise MigrationError(message) from exc
+    return temporary
 
 
 def _migrate_project(
@@ -287,7 +297,7 @@ def _migrate_project(
 ) -> None:
     """Run the migration-specific policy, separate from ordinary template updates."""
     try:
-        _migration_runtime()
+        temporary_parent = _migration_runtime(target)
         if has_pending(target):
             if dry_run:
                 msg = 'Interrupted migration: run dt migration-recover ROOT.'
@@ -295,7 +305,9 @@ def _migrate_project(
             recover_migration(target)
             typer.echo('Migration recovered and verified.')
             return
-        with tempfile.TemporaryDirectory(prefix='dreamteam-migrate-') as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix='dreamteam-migrate-', dir=temporary_parent
+        ) as temporary:
             staging = Path(temporary)
             rendered = staging / 'rendered'
             base = None
@@ -355,7 +367,7 @@ def _migrate_project(
                 )
                 return
             # Rendering may ask questions; re-probe immediately before staging.
-            _migration_runtime()
+            _migration_runtime(target)
             execute_migration(target, plan)
         typer.echo(
             'Migration completed and verified. Recovery: '
@@ -396,8 +408,9 @@ def migration_recover(
 ) -> None:
     """Reconcile and resume a migration, or safely restore its scoped originals."""
     try:
-        _migration_runtime()
-        recover_migration(path.expanduser().resolve(), rollback=rollback)
+        target = path.expanduser().resolve()
+        _migration_runtime(target)
+        recover_migration(target, rollback=rollback)
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
         reason = (
             str(exc)

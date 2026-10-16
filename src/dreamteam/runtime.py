@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
+import tempfile
 from contextlib import closing
 from http import HTTPStatus
 from http.client import HTTPConnection, HTTPException, HTTPSConnection
@@ -15,6 +17,53 @@ from urllib.parse import urlencode, urlsplit
 TESTED_OPENCODE = '1.19.0'
 ENSEMBLE = '@hueyexe/opencode-ensemble@0.18.0'
 VERSION_PATTERN = re.compile(r'(?m)^v?(\d+\.\d+\.\d+)\s*$')
+
+
+def migration_probe_directory(project: Path) -> Path:
+    """
+    Validate known OpenCode storage and staging paths without write probes.
+
+    OpenCode 1.19.0 initializes global directories even for --version. This
+    bounded guard protects the selected project, not arbitrary executable
+    wrappers; HOME and PATH retain their original meaning for the probe.
+    """
+    home = Path.home()
+    locations = [home]
+    defaults = {
+        'XDG_STATE_HOME': home / '.local/state',
+        'XDG_DATA_HOME': home / '.local/share',
+        'XDG_CACHE_HOME': home / '.cache',
+        'XDG_CONFIG_HOME': home / '.config',
+    }
+    for variable, default in defaults.items():
+        value = os.environ.get(variable)
+        location = Path(value) if value else default
+        locations.extend((location, location / 'opencode'))
+    # Do not call gettempdir(): its discovery writes test files, potentially
+    # inside the selected root. Use an explicit parent for migration staging.
+    temporary = home
+    for variable in ('TMP', 'TEMP', 'TMPDIR'):
+        value = os.environ.get(variable)
+        if value:
+            temporary = Path(value)
+            locations.append(temporary)
+    locations.append(temporary)
+    # Dependencies may allocate their own temporary directories using the
+    # public cached setting even though our staging parent is explicit.
+    if tempfile.tempdir is not None:
+        locations.append(Path(os.fsdecode(tempfile.tempdir)))
+    root = project.resolve()
+    for location in locations:
+        if not location.is_absolute():
+            message = 'Migration requires absolute external runtime storage paths.'
+            raise RuntimeError(message)
+        if location.is_relative_to(root) or location.resolve().is_relative_to(root):
+            message = 'OpenCode runtime storage must be outside the project.'
+            raise RuntimeError(message)
+    if not temporary.is_dir() or not os.access(temporary, os.W_OK | os.X_OK):
+        message = 'Migration requires an existing writable external staging parent.'
+        raise RuntimeError(message)
+    return temporary
 
 
 def inspect_runtime() -> tuple[str, str]:
