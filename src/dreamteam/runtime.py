@@ -9,11 +9,8 @@ import subprocess
 from contextlib import closing
 from http import HTTPStatus
 from http.client import HTTPConnection, HTTPException, HTTPSConnection
-from typing import TYPE_CHECKING
+from pathlib import Path
 from urllib.parse import urlencode, urlsplit
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 TESTED_OPENCODE = '1.19.0'
 ENSEMBLE = '@hueyexe/opencode-ensemble@0.18.0'
@@ -34,12 +31,15 @@ def inspect_runtime() -> tuple[str, str]:
             capture_output=True,
             text=True,
             check=False,
-            timeout=15,
+            timeout=5,
+            cwd=Path('/'),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        message = f'Cannot inspect OpenCode: {exc}'
+        message = (
+            'Cannot inspect OpenCode: executable failed or version probe timed out.'
+        )
         raise RuntimeError(message) from exc
-    match = VERSION_PATTERN.search(result.stdout)
+    match = VERSION_PATTERN.fullmatch(result.stdout.strip())
     if result.returncode or match is None:
         message = 'OpenCode did not return a valid version.'
         raise RuntimeError(message)

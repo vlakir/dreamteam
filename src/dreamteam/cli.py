@@ -17,6 +17,19 @@ import yaml
 from copier import Worker, run_copy
 
 from dreamteam import __version__
+from dreamteam.migration import (
+    MigrationConflictError,
+    MigrationError,
+    legacy_present,
+    plan_migration,
+    safe_path,
+)
+from dreamteam.migration_store import (
+    execute_migration,
+    has_pending,
+    recover_migration,
+    recovery_directory,
+)
 from dreamteam.recovery import interrupted, resume_member
 from dreamteam.runtime import ENSEMBLE, inspect_ensemble, inspect_runtime, launch, serve
 
@@ -242,6 +255,158 @@ def _version_callback(*, value: bool) -> None:
     if value:
         typer.echo(f'dreamteam {__version__}')
         raise typer.Exit
+
+
+def _migration_selected(target: Path) -> bool:
+    """Route pending recovery and active sources without mutating either."""
+    try:
+        return legacy_present(target) or has_pending(target)
+    except MigrationError, OSError:
+        # Selection itself must not silently fall back to native overwrite.
+        return True
+
+
+def _migration_runtime() -> None:
+    """Preserve actionable, sanitized version-probe categories."""
+    try:
+        inspect_runtime()
+    except RuntimeError as exc:
+        message = str(exc)
+        raise MigrationError(message) from exc
+
+
+def _migrate_project(
+    target: Path,
+    *,
+    managed: bool,
+    dry_run: bool,
+    defaults: bool = True,
+    extra_data: dict[str, str] | None = None,
+) -> None:
+    """Run the migration-specific policy, separate from ordinary template updates."""
+    try:
+        _migration_runtime()
+        if has_pending(target):
+            if dry_run:
+                msg = 'Interrupted migration: run dt migration-recover ROOT.'
+                raise MigrationError(msg)
+            recover_migration(target)
+            typer.echo('Migration recovered and verified.')
+            return
+        with tempfile.TemporaryDirectory(prefix='dreamteam-migrate-') as temporary:
+            staging = Path(temporary)
+            rendered = staging / 'rendered'
+            base = None
+            if managed:
+                answers_path = safe_path(target, Path(ANSWERS_FILE))
+                full = _read_full_answers(answers_path)
+                if not isinstance(full, dict):
+                    msg = 'Invalid managed answers mapping.'
+                    raise MigrationError(msg)
+                tag = _resolve_base_version_tag(full)
+                if (
+                    not _has_git()
+                    or tag is None
+                    or not _bundle_has_tag(_bundle_path(), tag)
+                    or not _bundle_has_tag(_bundle_path(), __version__)
+                ):
+                    msg = (
+                        'Migration requires verified bundled base/current tags '
+                        'and git. No files changed.'
+                    )
+                    raise MigrationError(msg)
+                clone = staging / 'bundle'
+                _clone_bundle(_bundle_path(), clone)
+                base = staging / 'base'
+                original = {
+                    key: value for key, value in full.items() if not key.startswith('_')
+                }
+                _copier_render_at(base, original, clone=clone, ref=tag)
+                answers = _user_answers(full)
+                run_copy(
+                    str(_template_path()),
+                    str(rendered),
+                    data=answers,
+                    defaults=True,
+                    quiet=True,
+                    unsafe=True,
+                )
+            else:
+                if safe_path(target, Path(ANSWERS_FILE)).exists():
+                    msg = 'Managed project: use dt update.'
+                    raise MigrationError(msg)
+                answers = _render_apply_preview(
+                    rendered, extra_data or {}, defaults=defaults
+                )
+            plan = plan_migration(target, rendered, base=base)
+            answers_rel = Path(ANSWERS_FILE)
+            answer_path = safe_path(target, answers_rel)
+            plan.originals[answers_rel] = (
+                answer_path.read_bytes() if answer_path.exists() else None
+            )
+            _write_answers_file(rendered, answers)
+            plan.writes[answers_rel] = (rendered / answers_rel).read_bytes()
+            if dry_run:
+                typer.echo(
+                    f'Migration --dry-run: {len(plan.writes)} writes, '
+                    f'{len(plan.deletes)} verified removals; no files changed.'
+                )
+                return
+            # Rendering may ask questions; re-probe immediately before staging.
+            _migration_runtime()
+            execute_migration(target, plan)
+        typer.echo(
+            'Migration completed and verified. Recovery: '
+            + str(recovery_directory(target))
+        )
+    except MigrationConflictError as exc:
+        typer.echo(f'ERROR: {exc}. No files changed.', err=True)
+        raise typer.Exit(code=EXIT_CONFLICTS) from exc
+    except (
+        RuntimeError,
+        OSError,
+        ValueError,
+        TypeError,
+        yaml.YAMLError,
+        subprocess.SubprocessError,
+    ) as exc:
+        # Do not echo parser/subprocess/OSError payloads: they can contain user
+        # content, environment values or raw version-probe stdout/stderr.
+        reason = (
+            str(exc)
+            if isinstance(exc, MigrationError)
+            else 'Migration prerequisite or preparation failed; no completion recorded.'
+        )
+        typer.echo(f'ERROR: {reason}', err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+
+
+@app.command(name='migration-recover')
+def migration_recover(
+    path: Annotated[Path, typer.Argument(help='Exact interrupted project root.')],
+    *,
+    rollback: Annotated[
+        bool,
+        typer.Option(
+            help='Restore scoped originals, only if no user edits would be overwritten.'
+        ),
+    ] = False,
+) -> None:
+    """Reconcile and resume a migration, or safely restore its scoped originals."""
+    try:
+        _migration_runtime()
+        recover_migration(path.expanduser().resolve(), rollback=rollback)
+    except (RuntimeError, OSError, ValueError, TypeError) as exc:
+        reason = (
+            str(exc)
+            if isinstance(exc, MigrationError)
+            else 'Recovery prerequisite or I/O failed; preserve recovery storage.'
+        )
+        typer.echo(f'ERROR: {reason}', err=True)
+        raise typer.Exit(code=EXIT_ERROR) from exc
+    typer.echo(
+        'Migration rollback verified.' if rollback else 'Migration recovery verified.'
+    )
 
 
 @app.callback()
@@ -798,6 +963,9 @@ def update(
     Exit codes: 0 — clean update; 1 — error; 2 — conflicts present.
     """
     target = Path(path).expanduser().resolve()
+    if _migration_selected(target):
+        _migrate_project(target, managed=True, dry_run=dry_run)
+        return
     answers_file = target / ANSWERS_FILE
     try:
         _safe_managed_path(target, Path(ANSWERS_FILE))
@@ -1156,10 +1324,19 @@ def apply(
     use `dt update`.
     """
     target = Path(path).expanduser().resolve()
+    if _migration_selected(target):
+        _migrate_project(
+            target,
+            managed=False,
+            dry_run=dry_run,
+            defaults=defaults,
+            extra_data=_parse_data(data or []),
+        )
+        return
     if target.exists() and not target.is_dir():
         typer.echo(f'ERROR: {target} is not a directory.', err=True)
         raise typer.Exit(code=EXIT_ERROR)
-    if not target.exists():
+    if not target.exists() and not dry_run:
         target.mkdir(parents=True)
 
     answers_file = target / ANSWERS_FILE
