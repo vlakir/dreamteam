@@ -49,7 +49,7 @@ def _assert_role_permissions(root: Path) -> None:
 
 
 @pytest.mark.parametrize('language', ['en', 'ru', 'fr', 'de', 'zh'])
-def test_repository_and_fresh_roles_enable_only_lead_questions(
+def test_fresh_roles_enable_only_lead_questions(
     tmp_path: Path, language: str
 ) -> None:
     """Fresh Copier init in each language agrees with the library's own role."""
@@ -60,4 +60,7 @@ def test_repository_and_fresh_roles_enable_only_lead_questions(
     )
     assert result.exit_code == 0, result.output
     _assert_role_permissions(target)
+
+
+def test_repository_roles_enable_only_lead_questions() -> None:
     _assert_role_permissions(REPOSITORY)

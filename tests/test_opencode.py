@@ -16,6 +16,16 @@ runner = CliRunner()
 @pytest.fixture
 def legacy_runtime(tmp_path_factory, monkeypatch):
     """Explicit offline version executable for positive legacy CLI scenarios."""
+    home = tmp_path_factory.mktemp('legacy-runtime-home')
+    home.chmod(0o700)
+    monkeypatch.setenv('HOME', str(home))
+    for variable, relative in {
+        'XDG_STATE_HOME': '.local/state',
+        'XDG_CONFIG_HOME': '.config',
+        'XDG_DATA_HOME': '.local/share',
+        'XDG_CACHE_HOME': '.cache',
+    }.items():
+        monkeypatch.setenv(variable, str(home / relative))
     binary_dir = tmp_path_factory.mktemp('legacy-runtime-bin')
     binary = binary_dir / 'opencode'
     binary.write_text(
