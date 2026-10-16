@@ -58,7 +58,7 @@ def require_supported_platform() -> None:
 def _recovery_location(root: Path) -> tuple[Path, Path]:
     """Calculate the configured location without reading or validating storage."""
     state = Path(
-        os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))
+        os.environ.get('XDG_STATE_HOME') or str(Path.home() / '.local/state')
     ).expanduser()
     directory = (
         state / 'dreamteam/migrations' / hashlib.sha256(os.fsencode(root)).hexdigest()
