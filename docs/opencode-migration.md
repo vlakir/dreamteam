@@ -2,12 +2,11 @@
 
 ## Release boundary
 
-This guide documents the agreed **T171 stable 2.0.0 contract**. It is not an
-acceptance report: the preview checkout is not a stable release, and successful
-package installation does not prove project migration safety. Implementation,
-fault/recovery tests, an isolated real-project rehearsal, independent review
-and final-commit gates must be accepted before the stable release. See
-`specs/T171-complete-opencode-migration/acceptance.md` for that matrix.
+This guide describes the project migration contract in **dreamteam 2.0.0**.
+Successful package installation alone does not prove project migration safety.
+The validation scenarios and release evidence are recorded in
+`specs/T171-complete-opencode-migration/acceptance.md`; read the supported-input
+and platform limits below before changing an existing project.
 
 Historical bundle snapshots, version tags, ADRs and translation provenance are
 retained deliberately. They provide the old base for safe merges, not active
@@ -147,10 +146,9 @@ After an error or interruption:
    failure; filesystem directory updates are not transactionally committed
    together with the journal.
 
-### Recovery interface in the T171 implementation (acceptance pending)
+### Recover an interrupted migration
 
-The backend handoff identifies the following concrete interface; it still needs
-the final integration gates and fault/rehearsal acceptance:
+Use the public recovery commands for the explicitly selected project:
 
 ```bash
 dt migration-recover /path/to/project              # reconcile and resume

@@ -4,12 +4,12 @@
 working project with linters, tests, kanban, ADR log, and a complete
 set of rules for AI-assisted development baked in.
 
-This checkout is an **OpenCode migration preview**, not an accepted stable
-2.0.0 release. The stable release requires the T171 migration, recovery,
-isolated-project rehearsal and release gates. See [Status](#status).
-To try this checkout, build it with `uv build` and install the resulting wheel
-in an isolated environment. The registry quick start below uses the version
-actually published on PyPI, which may differ from this checkout.
+**dreamteam 2.0.0** uses OpenCode 1.19.0 and Ensemble 0.18.0. It provides
+explicit, recoverable migration of an existing project's agent configuration,
+not a disk-wide conversion during package installation. See [Status](#status)
+and the [migration guide](docs/opencode-migration.md) for the supported inputs
+and platform boundary. Registry packages and source checkouts can differ;
+check the installed version with `dt --version`.
 
 **Installing or upgrading `dreamteam-cli` does not migrate projects.** Choose
 one project explicitly with `dt update <project>` (already managed) or
@@ -366,14 +366,17 @@ catch metadata / README rendering issues.
 
 ## Status
 
-The package is named **`dreamteam-cli`**. This checkout follows the historical
-1.7.0 baseline and the T170 OpenCode preview; **stable 2.0.0 is the T171 release
-target, not a release or acceptance claim**. Package version metadata describes
-the current build, while PyPI describes what has actually been published.
-Migration implementation, recovery/retry evidence, the isolated real-project
-rehearsal, independent review and all final-commit gates must be accepted before
-the stable release. Full history is in `CHANGELOG.md`; current work and roadmap
-are in `BOARD.md` / `BACKLOG.md`.
+The package is named **`dreamteam-cli`**. Version **2.0.0** moves the methodology
+to OpenCode and adds verified legacy transfer, protected recovery and an offline
+runtime prerequisite. Migration is validated on **Linux** and requires POSIX
+security capabilities; secure Windows legacy migration/recovery is not
+implemented. Native operations without a pending migration remain separate.
+Historical template snapshots are retained for safe updates from older versions.
+See [GitHub releases](https://github.com/vlakir/dreamteam/releases) and
+[PyPI](https://pypi.org/project/dreamteam-cli/) for published artifacts; the
+validation matrix is in `specs/T171-complete-opencode-migration/acceptance.md`.
+Full history is in `CHANGELOG.md`; current work and roadmap are in `BOARD.md`
+and `BACKLOG.md`.
 
 ## License
 
