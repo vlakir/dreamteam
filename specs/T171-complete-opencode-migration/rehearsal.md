@@ -179,3 +179,116 @@ heavy tests не запускались. Windows legacy migration не пров�
 **Следующий обязательный шаг:** исправление AC10 отдельным writer раундом,
 новый final candidate hash, повтор необходимого installed-artifact rehearsal
 и независимое принятие. Этот report checkpoint не означает release acceptance.
+
+## Повторная независимая репетиция r2 — AC10 исправлен, приёмка блокирована
+
+Дата: 2026-10-16. Новый writer `T171-rehearsal-r2` начал с exact clean
+`c089f9b5686d448727a3485e2e6b31a420918c54`, без reset. Проверяемый новый
+integrated source: `9ca58222bb3aef1e5e7aa79837d4728c88e5439f`, включает
+backend fix `00b52a0b675fde3f1b7bdb46760be078b2f57809`.
+
+| Новый установленный артефакт | SHA256 |
+| --- | --- |
+| wheel 2.0.0 | `c77ca03b5128776fb670139d21ddc05c83ab556ebb56f00bf7462c60c90a7ada` |
+| sdist 2.0.0 | `e169bbe073802edc486d6779581421c37a050a5df238d72a5b992e806a82222e` |
+
+Старые файлы/окружения/evidence не перезаписывались. Каждый новый артефакт
+установлен offline в отдельный fresh env через `uv venv --python 3.14` и
+`uv pip install --offline --python <env>/bin/python <artifact>`. Каждый
+подтвердил metadata `2.0.0` и пути `cli`, `migration`, `migration_store`,
+`runtime` только в своём `site-packages`; запуск import proof через `python -I`,
+без `PYTHONPATH`/`PYTHONHOME`, CLI через явный installed executable.
+
+Новый private scratch: `dreamteam-T171-rehearsal-r2-747fvsnl`, parent `0700`,
+evidence/logs `0600`. `evidence.json` содержит 74 exact commands/exits и
+отдельные logs. Все сценарии — fresh собственные копии immutable prepared
+**39-file partial methodology** copy либо ранее явно вручную подготовленного
+supported 1.7 subset. Это по-прежнему НЕ миграция всей оригинальной конфигурации
+и НЕ запуск приложения. Оригинальный HEAD/status до/после совпали; prepared
+copy bytes/modes/directories неизменны. Секретные файлы не читались.
+
+### Подтверждённые результаты нового candidate
+
+- Wheel **и sdist**: `dt init --defaults --data language=<lang>` для всех
+  `en/ru/fr/de/zh` — PASS; валидный config JSON, 9 YAML roles, нет hardcoded
+  model, primary tech-lead с question allow, specialists без question allow.
+- Исходная 39-file копия: normal/dry-run/force ожидаемо BLOCK exit 1,
+  project snapshot unchanged. Это не новая поддержка исходной 1.6.2 metadata.
+- Supported subset: dry-run exit 0 и project/home snapshot unchanged после
+  обычного version prewarm **вне project**; normal update exit 0;
+  оба полезных реальных rule deltas ровно по одному, custom architect invariant
+  и command сохранены, verified legacy sources удалены, answers `2.0.0`.
+- **AC10 теперь PASS**: canonical team-roles reference присутствует уже после
+  первого update, второй normal update exit 0, полный snapshot project
+  bytes/modes/directories/links и private home/recovery строго unchanged.
+  Отдельный fresh supported force scenario также PASS.
+- Missing prerequisite, synthetic unsupported settings.local, BOTH overlapping
+  command conflict: dry-run и force ожидаемые exits 1/1/2; project/home
+  unchanged, synthetic secret не попал в output.
+- Реальный target replacement I/O fault → public rollback exact original file
+  hashes/modes; SIGKILL после source unlink → public resume + повтор no-op;
+  SIGKILL после answers publication → public rollback exact originals;
+  post-crash user drift → resume/rollback BLOCK без изменения project/store.
+  Все PASS. Driver отдельный private script, не production edits.
+
+Первый запуск нового private harness (`dreamteam-T171-rehearsal-r2-mem9f39c`)
+остановился на ошибке **моего harness**: он требовал сохранения всей старой
+template инструкции вместо полезного нейтрального delta. Исправлена только
+экстракция факта; fresh повтор выше прошёл эту строгую проверку. Старый запуск
+сохранён, не засчитан как product failure или успешная полная репетиция.
+
+### Новый реальный blocker: vendor probe делает project mkdir в dry-run
+
+На **новом установленном wheel c77ca03** в отдельной supported копии:
+
+```sh
+HOME=<fresh-private-home> \
+XDG_STATE_HOME=<selected-project>/vendor-state-never-prewarmed \
+<new-wheel-env>/bin/dt update <selected-project> --dry-run
+```
+
+Остальные XDG paths — вне selected project. Реальный OpenCode `1.19.0`.
+**Внутри project vendor никогда не прогревался.** Результат: exit **0**,
+сообщение `Migration --dry-run: 24 writes, 4 verified removals; no files changed.`
+Но созданы новые project directories:
+
+```text
+vendor-state-never-prewarmed/
+vendor-state-never-prewarmed/opencode/
+```
+
+Exact command/output — private `log-073.txt`; root `xdg-inside-dry`.
+Предварительно то же независимо воспроизведено на старом b520 wheel в
+`dreamteam-T171-xdg-r2-df0r334t`, что не заменяет новое candidate proof выше.
+Реальный normal-case extra probe этим harness не достигнут, поэтому для него
+artifact PASS/FAIL не заявляется. Каталоги пустые; это доказанная запись в
+project, **не доказанная потеря данных или утечка секрета**.
+
+### Автоматизированные независимые regression tests
+
+Новый owned файл: `tests/test_t171_rehearsal_regressions.py`.
+
+1. Verified bundled 1.7 original answers + нейтрально переписанные BOTH rules,
+   custom architect body/command, excluded sentinel/link: first result уже
+   canonical; each useful fact once; second normal update exact project/home
+   no-op. На old c089 **RED** (role reference count 0). На readonly fixed
+   backend `00b52a0` **GREEN**, 4 import module paths подтверждены; own testenv,
+   `PYTHONPATH=<fixed>/src` **и** `pytest -o pythonpath=<fixed>/src`.
+2. Fresh inside-project XDG state с CI-like executable, моделирующим фактический
+   vendor mkdir: strict zero-project-writes и controlled exit 1, для normal
+   и dry-run. На integrated `9ca5822` оба **RED**: ровно два лишних каталога.
+
+Последний командный прогон под общим serial lock:
+
+```sh
+PYTHONPATH=<integrated>/src flock /tmp/dreamteam-T171-pytest.lock \
+  <own-venv>/bin/python -m pytest -o pythonpath=<integrated>/src \
+  tests/test_t171_rehearsal_regressions.py --no-cov
+# 2 failed, 1 passed; expected remaining zero-write regressions
+```
+
+Никаких skips/xfails/ignore и ослабления snapshot assertions. Этот checkpoint
+содержит намеренно падающие safety tests для следующего source fix, **не**
+проходит release gates и **не** означает acceptance/stable approval.
+Нужны отдельный fix round, новый exact candidate hash, fresh artifact rerun
+с XDG-inside-project проверкой, затем независимое review и финальные гейты.
