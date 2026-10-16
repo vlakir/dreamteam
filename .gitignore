@@ -6,8 +6,7 @@
 .~*
 *.kate-swp
 
-# Claude Code — служебные runtime-файлы (не для шаринга)
-.claude/*.lock
+# Private legacy input remains protected while migration is blocked/incomplete.
 .claude/settings.local.json
 
 # Python

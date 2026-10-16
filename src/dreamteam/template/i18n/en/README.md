@@ -1,8 +1,12 @@
 ---
 translated_from: i18n/ru/README.md
-source_hash: 415d2a753cb618a7325636c0583ed4c96b50ee3fe59910af261428f87a0b1715
+source_hash: 842f573b30c91a69865c2efc4561a61f4f41462b1ddffac2f729edf40afcd348
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
+translation_updates:
+  - date: 2026-10-16
+    engine: openai/gpt-6.1-sol
+    scope: OpenCode startup and recovery section; remove duplicated runtime name
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -24,6 +28,16 @@ Dependency and environment manager: **`{{ pm_name }}`** (chosen at
 {{ pm_install }}                       # install dependencies
 {{ pm_run }}python src/main.py     # run
 ```
+
+## Working with OpenCode
+
+Use OpenCode 1.19.0; this project uses Ensemble 0.18.0. Providers, models and
+credentials belong in personal configuration, not project roles.
+Start one server: `dt serve .`; attach from another terminal with `dt run .`.
+Additional clients attach to the same server. After an interruption, inspect
+`dt recover .` on the server host first; resume only the preserved member,
+lead-session and task. Reconcile an uncertain action's actual result before
+retrying: a timeout does not prove it did not execute.
 
 ## Dependencies
 {% if package_manager == 'uv' %}
@@ -73,7 +87,7 @@ agreement.
 - `BACKLOG.md` — parking lot for ideas and side findings.
 - `CHANGELOG.md` — log of notable changes.
 - `specs/` — specifications of large features.
-- `AGENTS.md` — project rules for OpenCode (OpenCode).
+- `AGENTS.md` — project rules for OpenCode.
 
 ## Methodology
 

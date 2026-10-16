@@ -1,8 +1,12 @@
 ---
 translated_from: i18n/ru/README.md
-source_hash: 415d2a753cb618a7325636c0583ed4c96b50ee3fe59910af261428f87a0b1715
+source_hash: 842f573b30c91a69865c2efc4561a61f4f41462b1ddffac2f729edf40afcd348
 translation_engine: claude-opus-4-7
 translation_date: 2026-05-15
+translation_updates:
+  - date: 2026-10-16
+    engine: openai/gpt-6.1-sol
+    scope: OpenCode startup and recovery section; remove duplicated runtime name
 ---
 {%- set pm_run = {'uv': 'uv run ', 'poetry': 'poetry run ', 'pdm': 'pdm run ', 'hatch': 'hatch run ', 'pip': '.venv/bin/'}[package_manager] -%}
 {%- set pm_install = {'uv': 'uv sync', 'poetry': 'poetry install', 'pdm': 'pdm install', 'hatch': 'hatch env create', 'pip': 'python -m venv .venv && .venv/bin/pip install -e .[dev]'}[package_manager] -%}
@@ -22,6 +26,15 @@ translation_date: 2026-05-15
 {{ pm_install }}                       # 安装依赖
 {{ pm_run }}python src/main.py     # 运行
 ```
+
+## 使用 OpenCode
+
+请使用 OpenCode 1.19.0；本项目使用 Ensemble 0.18.0。提供商、模型和凭据
+属于个人配置，不应写入项目角色。只启动一个服务器：`dt serve .`，然后
+在另一个终端通过 `dt run .` 连接。其他客户端也应连接同一服务器。
+中断后，先在服务器主机上检查 `dt recover .`，只恢复已保存的 member、
+lead-session 和 task。重试结果不明的操作前，先核对实际结果：超时并不
+意味着操作没有执行。
 
 ## 依赖
 {% if package_manager == 'uv' %}
@@ -70,7 +83,7 @@ Hatch 通过 `pyproject.toml` 管理依赖。Runtime —— 添加到
 - `BACKLOG.md` —— 想法与旁支发现的停车场。
 - `CHANGELOG.md` —— 显著变更的日志。
 - `specs/` —— 大型功能的规格说明。
-- `AGENTS.md` —— OpenCode（OpenCode）的项目规则。
+- `AGENTS.md` —— OpenCode 的项目规则。
 
 ## 方法论
 

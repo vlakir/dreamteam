@@ -151,7 +151,7 @@ def run(
     if failures:
         sys.stderr.write(f'{summary}\n')
         sys.stderr.write(
-            'Hint: regenerate translations via a Claude Code session — ask Claude '
+            'Hint: regenerate translations via an OpenCode session — ask the agent '
             'to re-translate i18n/ru/ into i18n/{en,fr,de,zh}/ and refresh '
             'source_hash in each frontmatter.\n'
         )
