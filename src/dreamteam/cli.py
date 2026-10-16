@@ -29,6 +29,7 @@ from dreamteam.migration_store import (
     has_pending,
     recover_migration,
     recovery_directory,
+    require_supported_platform,
 )
 from dreamteam.recovery import interrupted, resume_member
 from dreamteam.runtime import ENSEMBLE, inspect_ensemble, inspect_runtime, launch, serve
@@ -268,6 +269,7 @@ def _migration_selected(target: Path) -> bool:
 
 def _migration_runtime() -> None:
     """Preserve actionable, sanitized version-probe categories."""
+    require_supported_platform()
     try:
         inspect_runtime()
     except RuntimeError as exc:

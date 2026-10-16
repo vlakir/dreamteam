@@ -45,6 +45,14 @@ for that scenario, not a claim that every arbitrary legacy project can migrate.
 
 ## Runtime prerequisite, before any migration writes
 
+The current legacy migration and migration-recovery implementation requires
+POSIX ownership/mode checks and directory fsync support. On platforms without
+these capabilities it refuses with exit `1` before recovery or project writes;
+it does not assume equivalent Windows ACL protection. This boundary is specific
+to legacy migration/recovery, not an additional prerequisite for native
+OpenCode projects without a pending migration. Full Windows migration support
+has not been verified.
+
 Install **OpenCode 1.19.0** on the host executing migration and put `opencode`
 on PATH. This exact release is supported; future releases are not assumed
 compatible. Ensemble 0.18.0 is the team coordination version, but migration
@@ -131,7 +139,10 @@ After an error or interruption:
    retain artifacts and report that gap rather than declaring success.
 5. Re-run only after state is understood; verify target rules/roles/custom
    additions, both original sides, protected exclusions and answers. Directory-
-   wide atomicity and exactly-once execution are not promised.
+   wide atomicity and exactly-once execution are not promised. Process-crash
+   reconciliation is not a guarantee of recovery after power loss or storage
+   failure; filesystem directory updates are not transactionally committed
+   together with the journal.
 
 ### Recovery interface in the T171 implementation (acceptance pending)
 

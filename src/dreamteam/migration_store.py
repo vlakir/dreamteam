@@ -41,14 +41,39 @@ def _private(directory: Path) -> None:
         raise MigrationError(msg)
 
 
-def recovery_directory(root: Path) -> Path:
-    """Return a private external store, never a path within the selected root."""
+def require_supported_platform() -> None:
+    """Refuse recovery where its owner/mode and directory-fsync safety is absent."""
+    if (
+        os.name != 'posix'
+        or not callable(getattr(os, 'getuid', None))
+        or not hasattr(os, 'O_DIRECTORY')
+    ):
+        msg = (
+            'Legacy migration and recovery require POSIX ownership, permissions '
+            'and directory fsync; unsupported platform.'
+        )
+        raise MigrationError(msg)
+
+
+def _recovery_location(root: Path) -> tuple[Path, Path]:
+    """Calculate the configured location without reading or validating storage."""
     state = Path(
         os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))
     ).expanduser()
+    directory = (
+        state / 'dreamteam/migrations' / hashlib.sha256(os.fsencode(root)).hexdigest()
+    )
+    return state, directory
+
+
+def recovery_directory(root: Path) -> Path:
+    """Return a private external store, never a path within the selected root."""
+    require_supported_platform()
+    state, directory = _recovery_location(root)
     if not state.is_absolute():
         msg = 'XDG_STATE_HOME must be absolute.'
         raise MigrationError(msg)
+    _exists_without_links(directory)
     if state.exists():
         info = state.stat()
         if (
@@ -58,9 +83,6 @@ def recovery_directory(root: Path) -> Path:
         ):
             message = 'Unsafe recovery state root ownership or permissions.'
             raise MigrationError(message)
-    directory = (
-        state / 'dreamteam/migrations' / hashlib.sha256(os.fsencode(root)).hexdigest()
-    )
     if directory.is_relative_to(root) or directory.resolve().is_relative_to(root):
         msg = 'Recovery storage must be outside the project.'
         raise MigrationError(msg)
@@ -73,14 +95,33 @@ def _journal(root: Path) -> Path:
 
 def has_pending(root: Path) -> bool:
     """Read pending status without creating storage or following a symlink."""
+    _state, directory = _recovery_location(root)
+    path = directory.absolute() / 'operation.json'
+    if not _exists_without_links(path):
+        return False
+    # Only actual journal candidates require the secure-store/platform policy.
     path = _journal(root)
-    if not path.parent.exists():
-        return False
-    _validate_store(path)
-    if not path.exists():
-        return False
     data = _load(path, root)
     return data['state'] not in {'completed', 'rolled_back'}
+
+
+def _exists_without_links(path: Path) -> bool:
+    """Probe lexical components with lstat, never inspect a symlink target."""
+    current = Path(path.anchor)
+    for component in path.parts[1:]:
+        current /= component
+        try:
+            info = current.lstat()
+        except FileNotFoundError:
+            # No journal means no migration policy applies to a native project,
+            # even when the configured (unused) store would be unacceptable.
+            return False
+        if stat.S_ISLNK(info.st_mode):
+            msg = 'Unsafe recovery path: symlink.'
+            raise MigrationError(msg)
+        if current != path and not stat.S_ISDIR(info.st_mode):
+            return False
+    return True
 
 
 def _validate_store(path: Path) -> None:
@@ -352,6 +393,7 @@ def execute_migration(root: Path, plan: MigrationPlan) -> None:
 def recover_migration(root: Path, *, rollback: bool = False) -> None:
     """Reconcile actual bytes before resume/rollback; never overwrite new edits."""
     path = _journal(root)
+    _validate_store(path)
     if not path.exists():
         msg = 'No recovery journal for this root.'
         raise MigrationError(msg)

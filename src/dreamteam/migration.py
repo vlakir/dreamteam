@@ -110,7 +110,16 @@ def _neutral(text: str, rel: Path) -> None:
         r'^\s*(?:[$>]\s*)?claude\s*$|\bclaude-code\b|'
         r'\.claude/|\bCLAUDE\.md\b)'
     )
-    if re.search(pattern, text):
+    # Recognize the executable by command position, not by its arguments:
+    # prompts and custom subcommands are just as active as known CLI flags.
+    # Ordinary provider/provenance prose ("Claude via Anthropic API") is not
+    # a command. Quoted inline commands, shell lines and imperative calls are.
+    executable = (
+        r'(?m)(?:^\s*(?:[$>]\s*)?|[`;&|]\s*|'
+        r'\b(?i:run|execute|invoke|use|запусти|запустить|выполни)\s+`?)'
+        r'(?:[^\s`]*[/\\])?claude(?=\s|[`;|&]|$)'
+    )
+    if re.search(pattern, text) or re.search(executable, text):
         msg = f'Unsupported active legacy instructions: {rel}'
         raise MigrationError(msg)
 
