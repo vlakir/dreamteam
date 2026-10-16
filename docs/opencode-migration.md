@@ -50,8 +50,11 @@ POSIX ownership/mode checks and directory fsync support. On platforms without
 these capabilities it refuses with exit `1` before recovery or project writes;
 it does not assume equivalent Windows ACL protection. This boundary is specific
 to legacy migration/recovery, not an additional prerequisite for native
-OpenCode projects without a pending migration. Full Windows migration support
-has not been verified.
+OpenCode projects without a pending migration. Secure Windows legacy
+migration/recovery is neither implemented nor tested. The developer explicitly
+accepted full **Linux release gates** as sufficient for T171 stable 2.0.0; this
+does not claim Windows migration acceptance or waive any other release gate.
+Ordinary native OpenCode CLI must remain usable.
 
 Install **OpenCode 1.19.0** on the host executing migration and put `opencode`
 on PATH. This exact release is supported; future releases are not assumed
@@ -170,6 +173,19 @@ bytes belong only in protected recovery data, never in normal reports or Git.
 Recovery retains sensitive material: keep owner-only permissions, do not upload
 it as an attachment, and do not remove it while an operation is unresolved.
 `dt recover` below serves a different purpose.
+
+## Native interactive questions
+
+The repository and generated `tech-lead` agent explicitly set
+`permission.question: allow` in their YAML frontmatter. Custom agents in
+OpenCode 1.19.0 otherwise inherit a deny rule, even with `mode: primary`.
+Only this native tool permission is added; specialist permissions and personal
+provider/model configuration are unchanged. No question MCP or plugin is needed.
+
+Running sessions retain their loaded configuration. Apply agent changes only
+with a safe, coordinated restart of the existing team server, then reattach
+clients; do not start a second server. Static/render checks and CLI debug tool
+availability do not prove that an interactive UI question has been accepted.
 
 ## Team sessions are a separate recovery layer
 

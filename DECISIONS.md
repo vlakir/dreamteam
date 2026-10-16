@@ -15,7 +15,7 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
 - **Контекст:** T170 закрепил OpenCode 1.19.0 / Ensemble 0.18.0, но alias-only
   update оставляет legacy, не учитывает BOTH и не даёт recovery при I/O-сбое
   после части записей. Unmanaged apply требует того же контракта.
-- **Решение Владимира:** автоматический перенос выбранного проекта в update
+- **Решение Разработчика:** автоматический перенос выбранного проекта в update
   и unmanaged apply; package install проекты не ищет. Полезные rules/roles/
   custom и обе стороны сохраняются; legacy удаляется после verified transfer.
   Unknown settings/hooks/skills блокируют без потери источника/ложного success.
@@ -39,6 +39,18 @@ ADR-Lite. В derived projects — свой `DECISIONS.md` (из
   полного gate/review. Anthropic API поддерживается; активные зависимости
   Claude CLI/Max удаляются. Детали: specs/T171-complete-opencode-migration/.
   Это решение, не акт приёмки реализации.
+- **Дополнение 2026-10-16 — платформа:** Разработчик явно подтвердил, что
+  полных Linux release gates достаточно для stable 2.0.0. Secure legacy
+  migration/recovery на Windows не реализована и не протестирована: ранний
+  controlled unsupported без project/recovery writes. Native OpenCode CLI
+  без legacy/pending migration не должен блокироваться. Это не Windows-приёмка
+  и не отмена остальных Linux release gates.
+- **Дополнение 2026-10-16 — интерактивность:** native `question` явно разрешён
+  только tech-lead в repository/template frontmatter. OpenCode 1.19.0 custom
+  agents наследуют deny, поэтому одного `mode: primary` недостаточно. Иные
+  permissions/specialist roles не расширяются, MCP/plugins не добавляются;
+  модели/провайдеры остаются личной конфигурацией. Static/render tests и
+  CLI debug не подменяют UI-smoke после безопасного перезапуска команды.
 
 
 ## Решения

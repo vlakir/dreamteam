@@ -27,6 +27,21 @@
 | AC16 | Обычный native OpenCode update/apply без legacy | Unrelated conflict semantics не расширены; текущие регрессии зелёные |
 | AC17 | Чистый init, все 5 языков | Только OpenCode active artifacts, нет Claude CLI/Max hints; валидная методика/роли |
 | AC18 | Package install/update, wheel/sdist | Не сканирует/не меняет репозитории; сохранены historical tags/base и Anthropic API support |
+| AC19 | Repository tech-lead и свежий init всех 5 языков | YAML frontmatter валиден, 9 ролей; primary tech-lead имеет только question: allow, specialist roles не получают question: allow; нет hardcoded model/provider |
+
+### Согласованная платформа приёмки (дополнение 2026-10-16)
+
+Разработчик явно подтвердил: полного набора release gates на **Linux достаточно**
+для T171 stable 2.0.0. Secure legacy migration/recovery на Windows не реализована
+и не протестирована; ожидается ранний controlled unsupported без project/recovery
+writes. Обычный native OpenCode CLI без legacy/pending migration не блокируется.
+Не выдавать Linux-тесты или simulated unsupported checks за Windows-приёмку.
+
+AC19 проверяется static/render fixtures без установленного OpenCode, auth/API
+или работающего сервера. Отдельный manual CLI debug smoke может подтвердить
+`tools.question=true` на isolated generated project. Ни static tests, ни debug
+не принимают фактический UI-опрос: его smoke выполняется отдельно после
+безопасного перезапуска активной команды; до этого UI не считается принятым.
 
 Negative prerequisite cases прогнать для обоих entrypoints и проверить не только
 байты существующих файлов, но и отсутствие новых каталогов/answers/recovery.
@@ -71,6 +86,8 @@ Negative prerequisite cases прогнать для обоих entrypoints и п
 ## Финальный gate
 
 - [ ] Все AC и fault windows подтверждены на итоговом integration commit.
+- [ ] Release gates выполнены на Linux; Windows legacy migration не заявлена
+      поддержанной/проверенной, native CLI не сломан.
 - [ ] Репетиция на изолированной реальной копии принята; оригинал untouched.
 - [ ] Ruff/format/mypy/pytest с покрытием, integration, translation, build и
       twine check зелёные; результаты привязаны к финальному SHA.

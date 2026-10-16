@@ -4,7 +4,7 @@
 **Дата:** 2026-10-16. **База раунда:**
 `e32fbe14179588eaa8c8c75d8b61d69809baf758` (после T170).
 **Источники:** AGENTS.md, ADR OpenCode от 2026-10-15, T170 spec/acceptance,
-явные решения Владимира, зафиксированные в clarify.md.
+явные решения Разработчика, зафиксированные в clarify.md.
 Корневого CONCEPT.md в репозитории нет; новый исходный замысел не создаём.
 
 ## Цель и scope
@@ -155,6 +155,22 @@ Codex CLI. Anthropic API остаётся поддерживаемым пров�
 tags, старые ADR и provenance: они нужны для merge и понимания решений.
 
 ## Проверки и результаты
+
+### Уточнение платформы приёмки и native question (2026-10-16)
+
+Разработчик явно подтвердил: полных release gates на **Linux достаточно**
+для T171 stable 2.0.0. Secure legacy migration/recovery на Windows не реализована
+и не протестирована; там требуется ранний controlled unsupported без project
+или recovery writes. Этот отказ не распространяется на обычный native OpenCode
+CLI без legacy/pending migration. Это граница поставки, не ослабление Linux
+гейтов и не заявление Windows-поддержки.
+
+В репозитории и rendered template роль tech-lead явно разрешает только native
+`permission.question: allow`: custom primary agents OpenCode 1.19.0 иначе
+наследуют `question: deny`. Specialist roles не получают это разрешение;
+прочие права, модели/провайдеры и личные конфиги не меняются. Новые MCP/plugins
+не нужны. Static/render tests не доказывают фактический UI-опрос: его проверка
+после безопасного перезапуска активной команды остаётся отдельным smoke.
 
 Матрица — acceptance.md, выполнение и ownership — plan.md, риски — analysis.md.
 Одна репетиция обязательна на изолированной копии реального проекта, без
