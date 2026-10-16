@@ -292,3 +292,146 @@ PYTHONPATH=<integrated>/src flock /tmp/dreamteam-T171-pytest.lock \
 проходит release gates и **не** означает acceptance/stable approval.
 Нужны отдельный fix round, новый exact candidate hash, fresh artifact rerun
 с XDG-inside-project проверкой, затем независимое review и финальные гейты.
+
+
+## Независимая итерация r3 — runtime ENV и строгие regression proofs
+
+Дата: 2026-10-16. Новый writer `T171-tests-r3`: перед правками подтверждены
+devbox, exact clean base `ee7a4255e9c4d74bf97f28317b6c3e4156e5c216` и собственная
+ветка; reset не выполнялся. Ownership — существующий regression testfile и
+дополнение этого отчёта. Source, другие тесты, lock, bundle, версии, global
+config и оригиналы не изменялись. Старые отчёты и evidence сохранены.
+
+`tests/test_t171_rehearsal_regressions.py` теперь содержит **67** сценариев:
+
+- 54 negative cases: `HOME`, четыре `XDG_*_HOME`, `TMPDIR`/`TEMP`/`TMP`, public
+  cached `tempfile.tempdir`; inside selected root и относительные paths;
+  normal/dry-run/force. Проверяется не только controlled exit 1 и snapshot
+  directories/bytes/modes/links, но и **отсутствие вызова version probe** по
+  отдельному marker вне project. Recovery/home также строго unchanged.
+- 3 positive cases: HOME и cached temp — безопасный **ancestor** selected root,
+  пустые XDG/TMP env означают unset. Никакого запрета ancestor как такового.
+- 3 symlink runtime-storage cases: внешний lexical path разрешается внутрь
+  selected project; controlled отказ без project/home writes.
+- 4 HOME-derived default cases: XDG unset, но default `.cache`, `.config`,
+  `.local/state` или `.local/share` совпадает с project root; probe не вызывается.
+- 2 native fresh init, NOLEGACY/NOJOURNAL: update и unmanaged apply dry-run при
+  неиспользуемом XDG state внутри project остаются успешными, без migration
+  probe и без mutations.
+- 1 AC10 canonical first result/second exact no-op, полезные rules/custom,
+  answers и excluded worktree sentinel/link.
+
+RED → GREEN доказан без xfail/skip/ослабления assertions:
+
+1. На own source `ee7a425` absolute inside-root XDG state: normal/dry/force
+   **3 RED**, probe marker реально создан.
+2. На exact backend-r4 `83cb3f0`: первые 61 cases дали **58 PASS / 3 RED**.
+   Остались именно positive empty XDG tests: runtime guard считал empty unset,
+   но recovery location возвращал `Path('.')` и ошибку absolute path.
+   Дополнительные native 2 и HOME-derived 4 отдельно PASS.
+3. После narrow source correction `70f2595e1e029a5015cd5796d189f3f7310daec6`
+   в fresh backend-r5: **67 PASS**, 69.97s. Проверены clean HEAD/status и
+   реальные пути всех четырёх modules в backend-r5/src. Own testenv создан
+   через `uv sync --frozen`; одновременно заданы `PYTHONPATH=<fixed>/src` и
+   `pytest -o pythonpath=<fixed>/src`; shared serial flock соблюдён.
+4. Дополнительно existing safety subset `test_t171_migration.py -k
+   "symlink or native or secret or excluded"` на backend-r4: **37 PASS**,
+   включая external no-read/privacy, excluded paths и unrelated native policy.
+   Этот файл не редактировался.
+
+Ошибки подготовки native harness (оставленный legacy team-roles и отсутствие
+`--defaults` у unmanaged apply) исправлены до принятого native результата;
+они не засчитываются как product failures. Root-level штатные ruff check и
+format-check, `git diff --check` PASS. Полные release gates — зона лида;
+этот source crossrun сам по себе ещё не artifact/release acceptance.
+
+
+## Финальная installed-artifact репетиция r3 — PASS в проверенном Linux scope
+
+Новый кандидат после runtime guard и EMPTY fallback, source checkpoint
+`70f2595e1e029a5015cd5796d189f3f7310daec6`. Старый wheel `c77ca03` не использован
+для приёмки нового исправления. SHA256 проверены **до установки**:
+
+| Финальный локальный артефакт 2.0.0 | SHA256 |
+| --- | --- |
+| wheel | `d0bd120e3fb0bae86cdc73f9ab156c5f1634c81646fff9ab1d6132a3d27523e2` |
+| sdist | `417fc7afd1ef76fde4a7368a1957288df2ba35bd5c79e244af0d142e4e23d38c` |
+
+Оба установлены offline через `uv pip` в **собственные новые** private envs,
+не editable и не `uv run`. У parent и child удалены `PYTHONPATH`/`PYTHONHOME`,
+включён `PYTHONNOUSERSITE=1`. Каждый import proof выполнен через `python -I`:
+metadata `2.0.0`, реальные пути всех четырёх modules `cli`, `migration`,
+`migration_store`, `runtime` только в соответствующем env/site-packages.
+Дополнительно bytes всех четырёх modules **одинаковы** между installed wheel,
+installed sdist и source checkpoint `70f2595`.
+
+Новый scratch `dreamteam-T171-rehearsal-r3-9dziv5hu` — `0700`; evidence,
+138 command logs и сохранённые private reproduction drivers — `0600`.
+Private `evidence.json` содержит **138 exact commands/exits**, package hashes,
+import paths и before/after metadata. Старые scratch/evidence не изменены.
+
+### Принятые результаты
+
+| Сценарий | Фактический результат |
+| --- | --- |
+| Wheel **и sdist**, init `en/ru/fr/de/zh` | Все 10 init PASS; валидный config JSON, 9 YAML roles без hardcoded model; tech-lead primary/question allow, specialists без question allow |
+| Исходная неизменная prepared **39-file methodology-only** копия, metadata 1.6.2 | normal/dry/force: ожидаемый exit 1, точная категория unsupported active legacy instructions/CLAUDE.md; project и home/recovery unchanged |
+| Явно вручную подготовленный supported 1.7 subset, wheel | dry-run exact zero-project/store writes; normal transfer PASS; force на fresh copy PASS |
+| Полезные реальные rules обеих сторон, synthetic architect invariant/command | Каждый факт ровно один раз; verified legacy sources удалены; answers 2.0.0; canonical roles reference уже в первом результате |
+| AC10, wheel | Второй normal update exact no-op для bytes/modes/directories/links project и home/recovery |
+| Supported subset, независимо installed sdist | dry-run unchanged, normal transfer с обеими полезными rules, второй normal update exact project/home no-op |
+| Missing OpenCode, synthetic unsupported settings.local, BOTH conflicting custom command | dry-run/force exits 1/1/2; project/store unchanged; synthetic secret отсутствует в stdout/stderr |
+| Реальный target replacement OSError | Controlled update exit 1, публичный rollback exit 0; original file hashes/modes exact |
+| SIGKILL после фактического source unlink | Child -9, public resume PASS, полезные rules/custom verified; повтор recovery no-op |
+| SIGKILL после фактической answers publication | Child -9, public rollback PASS; original file hashes/modes exact |
+| Новый user edit после source-unlink crash | Resume и rollback оба exit 1, edit/project/recovery snapshots unchanged |
+| Private recovery modes | Directories 0700, files 0600, вне selected project |
+
+Использован тот же **явно ручной supported 1.7 subset**, описанный выше, с
+реальными полезными нейтральными facts и custom role/command. Это не новая
+поддержка metadata 1.6.2 и не перенос всей оригинальной конфигурации. Исходные
+control files, сохранённые вне selected root, не засчитываются как успешно
+перенесённая executable семантика. Приложение и реальные auth/API/server не
+запускались; действующие secrets не читались/не копировались.
+
+### Закрытие настоящего ENV zero-write blocker
+
+Реальный OpenCode **1.19.0**, а не только CI-like fake executable. По новой
+fresh supported копии для каждой пары переменная/флаг:
+
+- `HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, `XDG_DATA_HOME`,
+  `XDG_CONFIG_HOME`, `TMPDIR`, `TEMP`, `TMP` направлены в новый, **не существующий
+  и никогда не прогретый** путь внутри selected root;
+- каждый из normal/dry-run/force: **24 controlled exit 1**, безопасная категория
+  outside-project storage; полные project и внешний home/store snapshots
+  unchanged, включая **ноль новых пустых каталогов**;
+- logs `073/075/…/119` содержат эти 24 фактических отказа. Fake-probe regression
+  tests выше независимо доказывают, что при такой ошибке executable не вызывается;
+- installed sdist отдельно повторил XDG_STATE_HOME normal/dry/force: все 3
+  controlled exit 1, project/store unchanged;
+- real EMPTY XDG/TMP, HOME — безопасный ancestor project: отдельные fresh
+  normal/dry/force **3 PASS**. В dry-run root unchanged, normal/force verified
+  transfer. Пустые env не требуют workaround и не блокируют штатную миграцию.
+
+Никакого prewarming внутри selected project не было. Разрешён обычный
+version prewarm **только внешних** vendor defaults в private home; их пустые
+служебные каталоги вне root не объявляются project writes. Контракт ограничен
+известным поведением pinned OpenCode 1.19.0 и проверенными storage paths;
+не заявляется sandbox для произвольного вредоносного executable/wrapper.
+
+### Финальная сохранность и границы принятия
+
+Оригинальный calque HEAD `9602e6fe6b8eb63370eb4f69e2aee9eef23f8b92` и status до
+и после совпали, включая прежний untracked MCP-файл без чтения его содержимого.
+Prepared 39-file copy bytes/modes/directories unchanged. Каждый сценарий
+использовал свою independent private копию, без ссылок к исходному `.git`,
+worktrees или secret/settings-файлам. Evidence и полезные private body в Git
+не включены.
+
+**Итог r3:** независимая artifact-репетиция описанного Linux scope PASS;
+предыдущие AC10 и inside-root ENV blockers воспроизведены и закрыты строгими
+повторами. Это **не публикация и не разрешение stable release само по себе**:
+финальные полные Linux gates, integrated review/CI/PR policy выполняет лид.
+Windows secure migration не заявляется проверенной. Native question UI-widget
+не проверялся: config/render PASS не заменяет safe TUI-restart smoke. Exactly-once,
+directory-wide atomicity и восстановление после любого power-loss не заявляются.

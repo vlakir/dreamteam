@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 
 import pytest
 import yaml
@@ -49,7 +50,10 @@ def controlled_170_both(tmp_path, monkeypatch):
     home.mkdir(mode=0o700)
     monkeypatch.setenv('HOME', str(home))
     for kind, suffix in (
-        ('STATE', 'state'), ('CONFIG', 'config'), ('DATA', 'data'), ('CACHE', 'cache')
+        ('STATE', 'state'),
+        ('CONFIG', 'config'),
+        ('DATA', 'data'),
+        ('CACHE', 'cache'),
     ):
         monkeypatch.setenv(f'XDG_{kind}_HOME', str(home / suffix))
     binaries = tmp_path / 'bin'
@@ -103,10 +107,12 @@ def test_rewritten_both_first_result_is_canonical_and_second_update_is_exact_noo
     assert rules.count(ROLE_REFERENCE) == 1, 'first result must already be canonical'
     assert rules.count('## Team roles — dreamteam') == 1
     assert (root / '.opencode/agents/architect.md').read_text().count(ROLE_FACT) == 1
+    assert (root / '.opencode/commands/rehearsal-check.md').read_text().count(
+        COMMAND_FACT
+    ) == 1
     assert (
-        root / '.opencode/commands/rehearsal-check.md'
-    ).read_text().count(COMMAND_FACT) == 1
-    assert yaml.safe_load((root / '.copier-answers.yml').read_text())['_commit'] == '2.0.0'
+        yaml.safe_load((root / '.copier-answers.yml').read_text())['_commit'] == '2.0.0'
+    )
     assert not (root / 'CLAUDE.md').exists()
     assert not (root / '.claude/agents/architect.md').exists()
     assert not (root / '.claude/commands/rehearsal-check.md').exists()
@@ -118,22 +124,154 @@ def test_rewritten_both_first_result_is_canonical_and_second_update_is_exact_noo
     assert snapshot(home) == recovery, 'completed migration must not churn recovery'
 
 
-@pytest.mark.parametrize('flags', [('--dry-run',), ()])
-def test_inside_project_vendor_state_rejected_before_executable_can_write(
-    controlled_170_both, monkeypatch, flags,
+ENVIRONMENT_PATHS = (
+    'HOME',
+    'XDG_STATE_HOME',
+    'XDG_CONFIG_HOME',
+    'XDG_DATA_HOME',
+    'XDG_CACHE_HOME',
+    'TMPDIR',
+    'TEMP',
+    'TMP',
+    'cached-tempdir',
+)
+
+
+@pytest.mark.parametrize('flags', [('--dry-run',), (), ('--force',)])
+@pytest.mark.parametrize('variable', ENVIRONMENT_PATHS)
+@pytest.mark.parametrize('relative', [False, True])
+def test_unsafe_vendor_paths_rejected_before_probe_without_any_writes(
+    controlled_170_both,
+    monkeypatch,
+    flags,
+    variable,
+    relative,
 ):
     root, home = controlled_170_both
-    monkeypatch.setenv('XDG_STATE_HOME', str(root / 'vendor-state'))
+    unsafe = 'relative-runtime-path' if relative else str(root / 'never-prewarmed')
+    if variable == 'cached-tempdir':
+        monkeypatch.setattr(tempfile, 'tempdir', unsafe)
+    else:
+        monkeypatch.setenv(variable, unsafe)
+    marker = home / 'probe-was-called'
     probe = Path(os.environ['PATH']) / 'opencode'
     probe.write_text(
         f'#!{sys.executable}\n'
-        'import os\n'
         'from pathlib import Path\n'
-        'Path(os.environ["XDG_STATE_HOME"], "opencode").mkdir(parents=True)\n'
+        f'Path({str(marker)!r}).write_text("PROBE EXECUTED")\n'
+        f'Path({str(root / "never-prewarmed" / "opencode")!r})'
+        '.mkdir(parents=True)\n'
         'print("1.19.0")\n'
     )
     before, outside = snapshot(root), snapshot(home)
     result = RUNNER.invoke(app, ['update', str(root), *flags])
-    assert snapshot(root) == before, 'vendor probe must not mutate selected project'
-    assert snapshot(home) == outside
+    assert not marker.exists(), 'unsafe ENV must be rejected before version probe'
+    assert snapshot(root) == before, 'including empty vendor directories'
+    assert snapshot(home) == outside, 'no recovery store or probe marker'
     assert result.exit_code == 1, result.output + str(result.exception)
+    assert 'relative-runtime-path' not in result.output
+
+
+@pytest.mark.parametrize('flags', [('--dry-run',), (), ('--force',)])
+def test_safe_ancestor_home_empty_defaults_and_external_temp_are_allowed(
+    controlled_170_both,
+    monkeypatch,
+    flags,
+):
+    root, _home = controlled_170_both
+    ancestor = root.parent
+    monkeypatch.setenv('HOME', str(ancestor))
+    for variable in ENVIRONMENT_PATHS:
+        if variable.startswith('XDG_') or variable in ('TMPDIR', 'TEMP', 'TMP'):
+            monkeypatch.setenv(variable, '')
+    monkeypatch.setattr(tempfile, 'tempdir', str(ancestor))
+    before = snapshot(root)
+    result = RUNNER.invoke(app, ['update', str(root), *flags])
+    assert result.exit_code == 0, result.output + str(result.exception)
+    if flags == ('--dry-run',):
+        assert snapshot(root) == before
+    else:
+        assert not (root / 'CLAUDE.md').exists()
+
+
+@pytest.mark.parametrize('flags', [('--dry-run',), (), ('--force',)])
+def test_symlinked_runtime_storage_into_project_is_rejected(
+    controlled_170_both,
+    monkeypatch,
+    flags,
+):
+    root, home = controlled_170_both
+    linked = home / 'storage-link'
+    linked.symlink_to(root, target_is_directory=True)
+    monkeypatch.setenv('XDG_CACHE_HOME', str(linked / 'unwritten-cache'))
+    before, outside = snapshot(root), snapshot(home)
+    result = RUNNER.invoke(app, ['update', str(root), *flags])
+    assert result.exit_code == 1, result.output + str(result.exception)
+    assert snapshot(root) == before
+    assert snapshot(home) == outside
+
+
+@pytest.mark.parametrize('command', ['update', 'apply'])
+def test_native_no_journal_dryrun_ignores_inside_project_vendor_storage(
+    controlled_170_both,
+    monkeypatch,
+    command,
+):
+    root, home = controlled_170_both
+    root = root.parent / 'native-project'
+    initialized = RUNNER.invoke(app, ['init', str(root), '--defaults'])
+    assert initialized.exit_code == 0, initialized.output
+    subprocess.run(['git', 'init', '--quiet', str(root)], check=True)
+    if command == 'apply':
+        (root / '.copier-answers.yml').unlink()
+    monkeypatch.setenv('XDG_STATE_HOME', str(root / 'unused-native-state'))
+    marker = home / 'probe-was-called'
+    probe = Path(os.environ['PATH']) / 'opencode'
+    probe.write_text(
+        f'#!{sys.executable}\n'
+        'from pathlib import Path\n'
+        f'Path({str(marker)!r}).write_text("PROBE EXECUTED")\n'
+        'print("1.19.0")\n'
+    )
+    before, outside = snapshot(root), snapshot(home)
+    flags = ['--defaults'] if command == 'apply' else []
+    result = RUNNER.invoke(app, [command, str(root), '--dry-run', *flags])
+    assert result.exit_code == 0, result.output + str(result.exception)
+    assert snapshot(root) == before
+    assert snapshot(home) == outside
+    assert not marker.exists(), 'native operation must not acquire migration probe'
+
+
+@pytest.mark.parametrize(
+    'variable,suffix',
+    [
+        ('XDG_STATE_HOME', '.local/state'),
+        ('XDG_DATA_HOME', '.local/share'),
+        ('XDG_CACHE_HOME', '.cache'),
+        ('XDG_CONFIG_HOME', '.config'),
+    ],
+)
+def test_unset_xdg_home_derived_path_inside_root_rejected_without_probe(
+    controlled_170_both,
+    monkeypatch,
+    variable,
+    suffix,
+):
+    root, home = controlled_170_both
+    relocated = home / suffix
+    relocated.parent.mkdir(parents=True, exist_ok=True)
+    root.rename(relocated)
+    monkeypatch.delenv(variable)
+    marker = home / 'probe-was-called'
+    probe = Path(os.environ['PATH']) / 'opencode'
+    probe.write_text(
+        f'#!{sys.executable}\n'
+        'from pathlib import Path\n'
+        f'Path({str(marker)!r}).write_text("PROBE EXECUTED")\n'
+        'print("1.19.0")\n'
+    )
+    before = snapshot(home)
+    result = RUNNER.invoke(app, ['update', str(relocated), '--dry-run'])
+    assert result.exit_code == 1, result.output + str(result.exception)
+    assert not marker.exists()
+    assert snapshot(home) == before
