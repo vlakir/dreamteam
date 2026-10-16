@@ -16,6 +16,12 @@ Kanban-доска разработки `dreamteam`-пакета (To Do / Doing /
 
 ## Doing
 
+- **T171** — [2026-10-16] Завершить безопасную автоматическую миграцию
+  проектов на OpenCode и подготовить stable 2.0.0 после приёмки и гейтов.
+  Spec: `specs/T171-complete-opencode-migration/spec.md`; база раунда
+  `e32fbe14179588eaa8c8c75d8b61d69809baf758`. Update и unmanaged apply;
+  prerequisite OpenCode, сохранность BOTH/custom, recovery и isolated rehearsal.
+  Документальный checkpoint не означает приёмку реализации.
 
 
 <!-- Максимум 1-2 задачи. -->
