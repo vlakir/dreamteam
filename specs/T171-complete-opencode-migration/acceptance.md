@@ -1,9 +1,11 @@
 # T171 — Приёмочная матрица
 
-**Статус на 2026-10-16: НЕ ВЫПОЛНЕНО.** Все пункты ниже — требования к
-исполнению, не результаты. Документальный checkpoint не принимает реализацию.
-Для каждого результата записать exact commit, команду/fixture, outcome и
-безопасную ссылку на журнал. Не копировать настройки/секреты в доказательства.
+**Статус на 2026-10-16: локальная Linux-приёмка выполнена.** Реализация,
+регрессии, installed-artifact rehearsal и независимое safety review приняты
+в описанном ниже объёме. Внешние CI/PR-review и публикация ещё являются
+релизным гейтом: этот документ не утверждает, что пакет уже опубликован.
+Матрица ниже остаётся контрактом; результаты — в разделе доказательств и
+rehearsal.md. Настройки, секреты и private raw logs сюда не копируются.
 
 ## Автоматические AC
 
@@ -85,12 +87,59 @@ Negative prerequisite cases прогнать для обоих entrypoints и п
 
 ## Финальный gate
 
-- [ ] Все AC и fault windows подтверждены на итоговом integration commit.
-- [ ] Release gates выполнены на Linux; Windows legacy migration не заявлена
+- [x] Все локальные AC и fault windows подтверждены на integration input
+      `ce7cf74f915fe8e87b08e3cb00275f4583508900` и проверенных артефактах.
+- [x] Release gates выполнены на Linux; Windows legacy migration не заявлена
       поддержанной/проверенной, native CLI не сломан.
-- [ ] Репетиция на изолированной реальной копии принята; оригинал untouched.
-- [ ] Ruff/format/mypy/pytest с покрытием, integration, translation, build и
-      twine check зелёные; результаты привязаны к финальному SHA.
-- [ ] Независимое review и все внешние замечания разобраны, safety не ослаблена.
+- [x] Репетиция на изолированной копии мигрируемой конфигурации реального
+      проекта принята; оригинал untouched. Это не whole-app acceptance.
+- [x] Ruff/format/mypy/pytest с покрытием, integration, translation, build и
+      twine check зелёные на указанном input. После документального закрытия
+      обязательны повторный pre-push gate и CI итогового HEAD.
+- [x] Независимое source/test/docs safety review: открытых P1/P2 нет;
+      проверки не ослаблены. История находок сохранена в rehearsal.md.
+- [ ] Внешние CI и PR-review итогового HEAD зелёные/оценены; каждое замечание
+      разрешено до merge. Актуальные ссылки и итог — в описании T171 PR.
 - [ ] Только после этого stable 2.0.0, PR/release по политике; T171 Doing → Done
-      в задачном PR. Этот spec checkpoint сам по себе ни один пункт не закрывает.
+      в задачном PR. Публикация и установочные проверки подтверждаются
+      отдельно, не статусом исполнителя или локальным checkpoint.
+
+## Доказательства локальной приёмки
+
+- **Input:** `ce7cf74f915fe8e87b08e3cb00275f4583508900`, чистая интеграционная
+  ветка, Python 3.14.5 / Linux; controller подтвердил неизменность HEAD за весь
+  прогон. Использованы собственная `.venv`, общий pytest mutex и CI-подобный
+  PATH без настоящего OpenCode; положительные prerequisites имеют явные fake
+  executables, отрицательные проверки ими не обходятся.
+- **Гейты:** `uv run ruff check --no-cache .`,
+  `uv run ruff format --check --no-cache .`, `uv run mypy src` с новым cache,
+  `uv run python scripts/translate_check.py` — PASS; переводы **44/0/0**.
+  `uv run pytest` — **353 passed**, 53 integration deselected,
+  branch-aware coverage **84.36%** при неизменном пороге **80%**.
+  `uv run pytest -m integration --no-cov` — **53 passed**, 353 deselected.
+  Логи и controller manifest хранятся приватно; исходный warning Copier Worker
+  известен по методике и не подавлялся.
+- **Артефакты:** `uv build` и Twine 7 PASS для wheel/sdist 2.0.0. В отдельных
+  fresh noneditable окружениях проверены metadata version, site-packages всех
+  четырёх runtime-модулей и их совпадение с source input. Wheel runtime SHA256:
+  `d0bd120e3fb0bae86cdc73f9ab156c5f1634c81646fff9ab1d6132a3d27523e2`.
+  Проверенный sdist до итоговых изменений только отчётов:
+  `417fc7afd1ef76fde4a7368a1957288df2ba35bd5c79e244af0d142e4e23d38c`.
+  Финальный sdist пересобирается и проверяется заново; опубликованные hashes
+  записываются в release notes, без self-referential hash внутри sdist.
+- **Историческая база:** producer добавил внутренний template tag 2.0.0;
+  object IDs всех десяти прежних тегов, включая 1.7.0, не изменились. Это не
+  публикация GitHub tag или PyPI и не удаление compatibility history.
+- **Репетиция:** подробный независимый отчёт — [rehearsal.md](rehearsal.md).
+  Исходные 39 methodology files конфигурации calque 1.6.2 дают честный
+  unsupported BLOCK без изменений. Поддерживаемый сценарий — явно вручную
+  подготовленный 1.7 subset с реальными полезными правилами обеих сторон,
+  отдельной ролью/командой и сохранённым исходным материалом. Архивирование
+  неподдерживаемых исходных controls не считается переносом их поведения.
+  Все проверки init пяти языков из wheel/sdist, transfer/repeat и реальные
+  I/O/SIGKILL/recovery/drift,
+  24 настоящих unsafe ENV и три EMPTY-env positive случая — PASS.
+- **Ограничения:** не обещаны universal semantic conversion, Windows secure
+  migration, exactly-once или power-loss atomicity. AC19 принимает конфигурацию
+  и render/debug evidence; настоящий UI вопрос проверяется отдельно после
+  безопасного перезапуска текущего клиента, не объявлен выполненным.
