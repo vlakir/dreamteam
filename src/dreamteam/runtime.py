@@ -75,6 +75,9 @@ def inspect_runtime() -> tuple[str, str]:
         )
         raise RuntimeError(message)
     try:
+        # PATH entries may be relative to the caller, not the safe probe cwd.
+        # Keep that meaning when running the probe and subsequent commands.
+        binary = str(Path(binary).absolute())
         result = subprocess.run(
             [binary, '--version'],
             capture_output=True,

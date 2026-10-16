@@ -313,6 +313,9 @@ def _migrate_project(
             base = None
             if managed:
                 answers_path = safe_path(target, Path(ANSWERS_FILE))
+                if not answers_path.exists():
+                    msg = 'Unmanaged project: use dt apply before dt update.'
+                    raise MigrationError(msg)
                 full = _read_full_answers(answers_path)
                 if not isinstance(full, dict):
                     msg = 'Invalid managed answers mapping.'

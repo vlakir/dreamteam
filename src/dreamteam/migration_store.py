@@ -76,13 +76,10 @@ def recovery_directory(root: Path) -> Path:
     _exists_without_links(directory)
     if state.exists():
         info = state.stat()
-        if (
-            state.is_symlink()
-            or info.st_uid != os.getuid()
-            or stat.S_IMODE(info.st_mode) & 0o022
-        ):
+        if state.is_symlink() or info.st_uid != os.getuid():
             message = 'Unsafe recovery state root ownership or permissions.'
             raise MigrationError(message)
+        _safe_ancestor(state)
     if directory.is_relative_to(root) or directory.resolve().is_relative_to(root):
         msg = 'Recovery storage must be outside the project.'
         raise MigrationError(msg)
