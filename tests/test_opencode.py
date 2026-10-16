@@ -13,6 +13,21 @@ from dreamteam.runtime import inspect_runtime, launch
 runner = CliRunner()
 
 
+@pytest.fixture
+def legacy_runtime(tmp_path_factory, monkeypatch):
+    """Explicit offline version executable for positive legacy CLI scenarios."""
+    binary_dir = tmp_path_factory.mktemp('legacy-runtime-bin')
+    binary = binary_dir / 'opencode'
+    binary.write_text(
+        '#!/bin/sh\n'
+        '[ "$#" -eq 1 ] && [ "$1" = --version ] || exit 9\n'
+        "printf '%s\\n' 1.19.0\n"
+    )
+    binary.chmod(0o700)
+    monkeypatch.setenv('PATH', str(binary_dir) + os.pathsep + os.environ['PATH'])
+    return binary
+
+
 def test_rules_rename_merges_project_customization(tmp_path):
     target, base, new = [tmp_path / name for name in ('project', 'base', 'new')]
     for folder in (target, base, new):
@@ -157,7 +172,7 @@ def test_launch_validates_remote_project_instead_of_client_filesystem(tmp_path):
         execute.assert_not_called()
 
 
-def test_legacy_migration_refuses_destructive_fallback(tmp_path, monkeypatch):
+def test_legacy_migration_refuses_destructive_fallback(tmp_path, monkeypatch, legacy_runtime):
     from dreamteam import cli
     import yaml
 
@@ -174,7 +189,7 @@ def test_legacy_migration_refuses_destructive_fallback(tmp_path, monkeypatch):
 
 
 @pytest.mark.integration
-def test_released_170_project_migrates_with_custom_rules(tmp_path):
+def test_released_170_project_migrates_with_custom_rules(tmp_path, legacy_runtime):
     import shutil
     from dreamteam.cli import _bundle_path, _clone_bundle, _copier_render_at
 
@@ -190,14 +205,15 @@ def test_released_170_project_migrates_with_custom_rules(tmp_path):
     )
     old = target / 'CLAUDE.md'
     old.write_text(old.read_text() + '\nProject-specific invariant: T170_KEEP_THIS.\n')
-    before = old.read_bytes()
     import subprocess
 
     subprocess.run(['git', 'init', '--quiet', str(target)], check=True)
     result = runner.invoke(app, ['update', str(target)])
     assert result.exit_code == 0, result.output
-    assert 'T170_KEEP_THIS' in (target / 'AGENTS.md').read_text()
-    assert old.read_bytes() == before
+    assert (target / 'AGENTS.md').read_text().count(
+        'Project-specific invariant: T170_KEEP_THIS.'
+    ) == 1
+    assert not old.exists(), 'T171 removes the verified migration source'
     assert (target / '.opencode/agents/architect.md').is_file()
     assert json.loads((target / 'opencode.json').read_text())['plugin']
 
@@ -452,6 +468,10 @@ def test_legacy_claude_symlink_is_rejected_before_read_or_fallback(tmp_path):
     }
 
     with (
+        patch(
+            'dreamteam.cli.inspect_runtime',
+            return_value=('/bin/opencode', '1.19.0'),
+        ),
         patch('dreamteam.cli._has_git', return_value=True),
         patch('dreamteam.cli._bundle_has_tag', return_value=True),
         patch.object(Path, 'read_bytes', guard_external_read),
@@ -460,7 +480,9 @@ def test_legacy_claude_symlink_is_rejected_before_read_or_fallback(tmp_path):
         result = runner.invoke(app, ['update', str(project), '--dry-run'])
 
     assert result.exit_code == 1, result.output
-    assert 'Template path is a symlink' in str(result.exception)
+    assert isinstance(result.exception, SystemExit)
+    assert 'symlink' in result.output.lower()
+    assert not isinstance(result.exception, AssertionError)
     assert sentinel not in result.output
     assert sentinel not in result.stderr
     assert original_read_bytes(source) == external_before

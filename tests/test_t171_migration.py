@@ -19,6 +19,7 @@ import yaml
 from typer.testing import CliRunner
 
 from dreamteam.cli import _bundle_path, _clone_bundle, _copier_render_at, app
+from dreamteam.runtime import inspect_runtime
 
 
 RUNNER = CliRunner()
@@ -201,6 +202,83 @@ def test_native_absent_apply_dryrun_does_not_create_directory(sandbox):
     assert snapshot(home) == state
 
 
+@pytest.mark.parametrize('command', ['update', 'apply'])
+@pytest.mark.parametrize('state_kind', ['relative', 'inside-project', 'writable'])
+def test_native_dryrun_without_journal_ignores_unrelated_migration_state_policy(
+    sandbox, monkeypatch, command, state_kind
+):
+    root, home, binary, _ = sandbox
+    (root / 'CLAUDE.md').unlink()
+    initialized = RUNNER.invoke(app, ['init', str(root), '--defaults'])
+    assert initialized.exit_code == 0, initialized.output
+    if command == 'apply':
+        # Exercise native unmanaged apply, not its unrelated managed-root refusal.
+        (root / '.copier-answers.yml').unlink()
+    subprocess.run(
+        ['git', 'init', '--quiet', str(root)], check=True, capture_output=True
+    )
+    binary.unlink()
+    if state_kind == 'relative':
+        state = Path('relative-state')
+    elif state_kind == 'inside-project':
+        state = root / 'unused-migration-state'
+    else:
+        state = home / 'writable-state'
+        state.mkdir(mode=0o777)
+        state.chmod(0o777)
+    monkeypatch.setenv('XDG_STATE_HOME', str(state))
+    before, outside = snapshot(root), snapshot(home)
+    result = invoke(root, command, '--dry-run')
+    assert result.exit_code == 0, result.output + str(result.exception)
+    assert snapshot(root) == before
+    assert snapshot(home) == outside
+
+
+@pytest.mark.parametrize(
+    'command,dry_run',
+    [
+        ('update', False),
+        ('update', True),
+        ('apply', False),
+        ('apply', True),
+        ('migration-recover', False),
+    ],
+)
+def test_legacy_migration_requires_platform_capabilities_before_writes(
+    sandbox, command, dry_run
+):
+    root, home, _, _ = sandbox
+    if command == 'update':
+        put(root, '.copier-answers.yml', '_commit: 1.7.0\nlanguage: en\n')
+    before, outside = snapshot(root), snapshot(home)
+    store = import_module('dreamteam.migration_store')
+    with patch.object(store.os, 'getuid', None):
+        result = invoke(root, command, *(['--dry-run'] if dry_run else []))
+    assert result.exit_code == 1, result.output + str(result.exception)
+    assert 'posix' in result.output.lower(), result.output
+    assert 'unsupported' in result.output.lower(), result.output
+    assert not isinstance(result.exception, (TypeError, AttributeError))
+    assert snapshot(root) == before
+    assert snapshot(home) == outside
+
+
+def test_runtime_probe_passes_exact_five_second_timeout_and_safe_cwd(sandbox):
+    _, _, binary, _ = sandbox
+    with patch(
+        'dreamteam.runtime.subprocess.run',
+        return_value=subprocess.CompletedProcess([], 0, '1.19.0\n', ''),
+    ) as run:
+        assert inspect_runtime() == (str(binary), '1.19.0')
+    run.assert_called_once_with(
+        [str(binary), '--version'],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+        cwd=Path('/'),
+    )
+
+
 def test_probe_uses_only_version_and_safe_cwd_without_server(sandbox):
     root, _, _, log = sandbox
     result = invoke(root, 'apply', '--dry-run')
@@ -294,6 +372,24 @@ def test_managed_missing_base_cannot_overwrite_legacy_even_with_force(sandbox, f
     assert result.exit_code == 1, result.output
     assert snapshot(root) == before
     assert snapshot(home) == state
+
+
+@pytest.mark.parametrize(
+    'instruction', ['Run `claude "fix audit"`.\n', 'Run `claude review`.\n']
+)
+@pytest.mark.parametrize('entry', ['CLAUDE.md', '.claude/commands/custom.md'])
+@pytest.mark.parametrize('dry_run', [False, True])
+def test_active_legacy_cli_prompt_blocks_before_mutation(
+    sandbox, instruction, entry, dry_run
+):
+    root, home, _, _ = sandbox
+    put(root, entry, RULE + '\n' + instruction)
+    before, state = snapshot(root), snapshot(home)
+    result = invoke(root, 'apply', *(['--dry-run'] if dry_run else []))
+    assert result.exit_code == 1, result.output + str(result.exception)
+    assert snapshot(root) == before
+    assert snapshot(home) == state
+    assert SECRET not in result.output + result.stderr + str(result.exception)
 
 
 @pytest.fixture
@@ -547,11 +643,74 @@ def test_controlled_io_fault_has_no_false_completion_and_retains_originals(
     assert result.exit_code == 1, result.output + str(result.exception)
     assert not (root / '.copier-answers.yml').exists()
     if snapshot(root) != before:
-        # A failed rollback is allowed only with intact external originals and
-        # actionable recovery; it must never masquerade as accepted success.
-        retained = list((home / '.local/state/dreamteam/migrations').rglob('*'))
-        assert any(path.is_file() and path.stat().st_size for path in retained)
         assert 'recover' in result.output.lower(), result.output
+    # Exact restoration via the public command is proof that scoped originals
+    # survive; existence of an arbitrary nonempty recovery file is not proof.
+    recovered = invoke(root, 'migration-recover', '--rollback')
+    assert recovered.exit_code == 0, recovered.output + str(recovered.exception)
+    original_files = {k: v for k, v in before.items() if v[0] != 'dir'}
+    actual_files = {k: v for k, v in snapshot(root).items() if v[0] != 'dir'}
+    assert actual_files == original_files
+
+
+def test_failed_automatic_rollback_retains_publicly_restorable_bytes_and_modes(sandbox):
+    root, _, _, _ = sandbox
+    (root / 'CLAUDE.md').chmod(0o640)
+    put(root, '.claude/commands/custom.md', 'Keep custom audit bytes.\n').chmod(0o750)
+    original = {k: v for k, v in snapshot(root).items() if v[0] != 'dir'}
+    unlink = Path.unlink
+    reached = []
+
+    def fail_forward_delete(path, *args, **kwargs):
+        if path == root / 'CLAUDE.md' and not reached:
+            reached.append('forward-delete')
+            raise OSError('synthetic source deletion failure')
+        if reached and path == root / 'AGENTS.md':
+            reached.append('rollback-delete')
+            raise OSError('synthetic automatic rollback failure')
+        return unlink(path, *args, **kwargs)
+
+    with patch.object(Path, 'unlink', fail_forward_delete):
+        result = invoke(root)
+    assert reached == ['forward-delete', 'rollback-delete'], result.output
+    assert result.exit_code == 1, result.output + str(result.exception)
+    assert 'migration-recover' in result.output
+    assert not (root / '.copier-answers.yml').exists()
+    assert (root / 'AGENTS.md').exists(), 'rollback really failed after mutation'
+    recovery = invoke(root, 'migration-recover', '--rollback')
+    assert recovery.exit_code == 0, recovery.output + str(recovery.exception)
+    assert {k: v for k, v in snapshot(root).items() if v[0] != 'dir'} == original
+
+
+@pytest.mark.parametrize('command', ['update', 'apply'])
+def test_answers_symlink_is_blocked_before_external_read(sandbox, command):
+    root, home, _, _ = sandbox
+    external = root.parent / 'external-answers.yml'
+    external.write_text('_commit: 1.7.0\nsecret: ' + SECRET + '\n')
+    (root / '.copier-answers.yml').symlink_to(external)
+    before, state, outside = snapshot(root), snapshot(home), external.read_bytes()
+    read_bytes, read_text = Path.read_bytes, Path.read_text
+
+    def guard_bytes(path, *args, **kwargs):
+        assert path.resolve() != external, 'read external answers before validation'
+        return read_bytes(path, *args, **kwargs)
+
+    def guard_text(path, *args, **kwargs):
+        assert path.resolve() != external, 'read external answers before validation'
+        return read_text(path, *args, **kwargs)
+
+    with (
+        patch.object(Path, 'read_bytes', guard_bytes),
+        patch.object(Path, 'read_text', guard_text),
+    ):
+        result = invoke(root, command, '--dry-run')
+    assert result.exit_code == 1, result.output + str(result.exception)
+    assert 'symlink' in result.output.lower()
+    assert not isinstance(result.exception, AssertionError)
+    assert SECRET not in result.output + result.stderr + str(result.exception)
+    assert snapshot(root) == before
+    assert snapshot(home) == state
+    assert external.read_bytes() == outside
 
 
 def test_edit_after_staging_is_revalidated_before_overwrite(sandbox, monkeypatch):
@@ -674,6 +833,7 @@ def test_recovery_creation_permission_failure_never_mutates_project(sandbox):
         'target_verified',
         'legacy_removed',
         'before_completion',
+        'answers_published',
     ],
 )
 def test_abrupt_process_loss_then_public_recovery_preserves_information(
@@ -697,9 +857,7 @@ def test_abrupt_process_loss_then_public_recovery_preserves_information(
     )
     assert marker.exists(), process.stdout + process.stderr
     assert process.returncode == -signal.SIGKILL, process.stdout + process.stderr
-    assert not (root / '.copier-answers.yml').exists(), (
-        'partial apply is not managed yet'
-    )
+    assert (root / '.copier-answers.yml').exists() == (event == 'answers_published')
     recovered = invoke(root, 'migration-recover', *(['--rollback'] if rollback else []))
     assert recovered.exit_code == 0, recovered.output + str(recovered.exception)
     if rollback:

@@ -27,6 +27,19 @@ def crash(event, operation_id):
         os.kill(os.getpid(), signal.SIGKILL)
 
 
+replace = Path.replace
+
+
+def crash_after_answers(path, destination, *args, **kwargs):
+    result = replace(path, destination, *args, **kwargs)
+    # Observe the real atomic publication of public completion metadata, then
+    # kill before the caller can acknowledge/finalize its recovery record.
+    if Path(destination) == Path(root) / '.copier-answers.yml':
+        crash('answers_published', None)
+    return result
+
+
+Path.replace = crash_after_answers
 migration_store.checkpoint = crash
 sys.argv = ['dreamteam', 'apply', root, '--defaults', '--on-conflict', 'keep']
 app()
