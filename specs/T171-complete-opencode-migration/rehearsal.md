@@ -435,3 +435,106 @@ worktrees или secret/settings-файлам. Evidence и полезные priv
 Windows secure migration не заявляется проверенной. Native question UI-widget
 не проверялся: config/render PASS не заменяет safe TUI-restart smoke. Exactly-once,
 directory-wide atomicity и восстановление после любого power-loss не заявляются.
+
+
+## Независимая final actual-artifact QA после source CR — PASS
+
+**Раунд:** 2026-10-16, Linux/devbox; отдельный свежий worktree
+`T171-final-qa`, до работы clean и exact base
+`6b204a12aa21914781e72c70510621bdc6d8f7be`. Runtime source input:
+`7abf3fc` (исправления unmanaged hint, relative PATH executable и защищённого
+private ancestor). Никаких source/test/version/bundle/global изменений в этом
+раунде; ownership — только append этого отчёта и private synthetic scratch.
+Старые результаты r3 **не унаследованы** как принятие новых артефактов:
+полная матрица заново выполнена на свежих установках.
+
+### Точная идентификация и изоляция поставки
+
+| Фактически испытанный артефакт 2.0.0 | SHA256, проверен до установки |
+| --- | --- |
+| wheel | `c0a8305a0e8f5254bf9f14658fb62cf93bc5d50ff193294bf4abb22945da0b15` |
+| sdist | `3aee1d7b08cbafa6a2520403f3754f875365e68267c0b0130b32f9338a657bd9` |
+
+Каждый установлен `uv pip install --offline --python <fresh-env>/bin/python
+<artifact>` в собственный новый env, не editable; `uv run` не применялся.
+У parent и child удалены `PYTHONPATH`/`PYTHONHOME`/`VIRTUAL_ENV`, включён
+`PYTHONNOUSERSITE=1`. Import proof каждого env через `python -I`: metadata
+`dreamteam-cli==2.0.0`; `cli`, `migration`, `migration_store`, `runtime` все
+из соответствующего env/site-packages. Bytes четырёх modules совпали между
+installed wheel, installed sdist и exact source `7abf3fc`.
+
+Evidence: новый `/tmp/dreamteam-T171-final-actual-fxkegc3e` (0700),
+`evidence.json` и command logs (0600). Сохранённые drivers/full-run log —
+`/tmp/dreamteam-T171-final-qa-41flbxsd` (0700, файлы 0600). Manifest содержит
+**238 фактических commands/exits**, включая явно сохранённые подготовительные
+отказы harness; это не заявление о 238 PASS tests. Main driver скопирован
+read-only из r3 и запускает новый полный набор, а не его прежние env/evidence.
+Дополнения выполняют именно installed CLI/imports, не source crossrun.
+
+### Повтор полной матрицы на новом runtime
+
+| Сценарий | Фактический итог |
+| --- | --- |
+| Init wheel и sdist: en/ru/fr/de/zh | 10 PASS; валидный JSON, 9 YAML roles, tech-lead primary/question allow, остальные без question allow, hardcoded model отсутствует |
+| Неизменная prepared39 methodology-only копия metadata1.6.2 | normal/dry/force: exit1 unsupported CLAUDE.md; project/home/recovery unchanged |
+| Явно вручную подготовленный supported1.7 BOTH subset, wheel и sdist | dry-run exact zero-write; обе полезные rules сохранены по одному разу; custom role invariant и command verified; legacy удалён после transfer; answers2.0.0 |
+| Второй managed update, wheel и sdist | Строгий no-op bytes/modes/directories/links project и home/recovery |
+| Fresh managed force | Verified transfer/BOTH/custom PASS |
+| Missing prerequisite / unknown settings.local / BOTH command conflict | Update/apply normal/dry: exit1/1/2, zero project/store writes; managed dry/force также PASS; synthetic secret не печатается |
+| Реальный target-replace OSError | Exit1, затем public rollback0; исходные file hashes/modes восстановлены |
+| SIGKILL после фактического source unlink | Child -9; public resume0, verified result; повтор recovery no-op |
+| SIGKILL после фактической answers publication | Child -9; public rollback0; исходные file hashes/modes восстановлены |
+| User edit после source-unlink crash | Resume и rollback exit1; новые bytes и private recovery unchanged |
+| 8 inside-root ENV × normal/dry/force, настоящий OpenCode1.19.0 | 24 controlled exit1; root и внешний home/store unchanged, включая новые пустые dirs; inside-root paths никогда не прогревались |
+| EMPTY XDG/TMP, HOME безопасный ancestor project | 3 fresh normal/dry/force PASS, без обхода fallback |
+| Native update + force, wheel и sdist | Git-tracked свежий native init: normal сохраняет custom rule, force штатно обновляет core |
+| Unmanaged apply BOTH, wheel и sdist | Dry-run zero-write, normal сохраняет useful rules обеих сторон и neutral custom role/command |
+| Unmanaged BOTH apply keep/overwrite/save-as-new | Все 3 policy сохраняют verified transfer; следующий managed update strict project/store no-op |
+
+### Фактические artifact-проверки трёх CR исправлений
+
+1. **Relative PATH:** установленный `runtime.inspect_runtime()` реально
+   выполнил synthetic executable из `./bin/opencode` (symlink к собственной
+   fixture). Child подтвердил только `--version` и cwd `/`; результат —
+   абсолютный путь к исходному symlink, без подмены caller-relative смысла.
+   Целевой project не использовался и не изменялся.
+2. **Unmanaged update hint:** legacy root без answers вернул controlled exit1
+   с actionable `dt apply`; полные project/home snapshots unchanged,
+   journal/answers не созданы.
+3. **Согласованная ancestor policy:** HOME0700 + state0775 успешно
+   мигрирует, не меняя эти permissions; recovery leaf dirs0700/journal0600.
+   Настоящий отдельный synthetic top0755/HOME0755/state0777, без private
+   защищающего ancestor, normal/dry/force блокируется **до probe** и до
+   project/store mutation (собственный executable sentinel не вызван).
+   Existing foreign-UID state root (root-owned `/var`, без записи туда)
+   также блокируется до probe. Symlink journal, leaf0755 и journal0644
+   по отдельности остаются controlled BLOCK; root/store snapshots unchanged.
+
+Synthetic public-ancestor case содержит только пустые каталоги; credentials,
+project bodies и evidence находятся в отдельных owner-only scratch. Shared
+pytest parents, реальный HOME/state и чужие worktrees не chmod-ились.
+
+### Сохранность, подготовительные отказы и границы
+
+До/после оригинальный calque HEAD
+`9602e6fe6b8eb63370eb4f69e2aee9eef23f8b92` и git status совпали;
+содержимое untracked/private config не читалось. Prepared39 copy
+bytes/modes/directories unchanged. Приложения/credentials/.git/worktrees/
+external links не копировались из оригинала и не запускались. Supported1.7
+subset остаётся **явно ручной адаптацией**: исходные unsupported controls
+не засчитываются как автоматически перенесённое поведение metadata1.6.2.
+
+Сохранённые подготовительные отказы supplement не скрыты: несвязанные
+unmanaged BOTH rules без shared basis дали ожидаемый conflict2; оставленный
+legacy team-roles дал unsupported1; native update без git дал controlled1.
+Исправлены только synthetic inputs (общая neutral basis, удаление legacy
+controls в явно unmanaged fixture, собственный fixture git). После этого
+соответствующие проверяемые public CLI cases PASS; source/tests не менялись.
+
+**Итог:** новые c0a8305/3aee1d7 artifacts прошли независимую Linux
+actual-artifact QA, включая полный coherent повтор прежней матрицы и три CR
+исправления. Это не публикация и не blanket release acceptance: итоговые
+Linux gates/CI/внешнее review/PR policy остаются у лида. Не запускались API,
+auth, модели, дополнительный server или UI client. Native question UI-widget,
+Windows secure migration, universal conversion, exactly-once и power-loss
+atomicity не объявляются проверенными или гарантированными.
